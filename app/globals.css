@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.status-btn {
+  transition: all 0.15s ease;
+}
+.status-btn:active {
+  transform: scale(0.95);
+}
