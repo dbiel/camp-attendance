@@ -39,6 +39,11 @@ jobs:
           node-version: 20
           cache: npm
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
       - run: npm ci --legacy-peer-deps
 
       - name: Install Firebase CLI
@@ -47,10 +52,12 @@ jobs:
       - name: Start Firebase Emulator
         run: |
           firebase emulators:start --only firestore,auth --project demo-test-project &
-          sleep 5
-        env:
-          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
-          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          # Wait for emulators to be ready
+          echo "Waiting for Firestore emulator..."
+          until curl -s http://127.0.0.1:8080/ > /dev/null 2>&1; do sleep 1; done
+          echo "Waiting for Auth emulator..."
+          until curl -s http://127.0.0.1:9099/ > /dev/null 2>&1; do sleep 1; done
+          echo "Emulators ready!"
 
       - name: Seed test data & get admin token
         run: npx tsx tests/setup/seed-and-start.ts
@@ -61,7 +68,9 @@ jobs:
       - name: Start dev server
         run: |
           npm run dev &
-          sleep 10
+          echo "Waiting for dev server..."
+          until curl -s http://localhost:3000/ > /dev/null 2>&1; do sleep 2; done
+          echo "Dev server ready!"
         env:
           FB_PROJECT_ID: demo-test-project
           FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
@@ -85,6 +94,11 @@ jobs:
           node-version: 20
           cache: npm
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
       - run: npm ci --legacy-peer-deps
 
       - name: Install Playwright browsers
@@ -96,14 +110,23 @@ jobs:
       - name: Start Firebase Emulator
         run: |
           firebase emulators:start --only firestore,auth --project demo-test-project &
-          sleep 5
-        env:
-          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
-          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          until curl -s http://127.0.0.1:8080/ > /dev/null 2>&1; do sleep 1; done
+          until curl -s http://127.0.0.1:9099/ > /dev/null 2>&1; do sleep 1; done
+          echo "Emulators ready!"
 
       - name: Seed test data
         run: npx tsx tests/setup/seed-and-start.ts
         env:
+          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+
+      - name: Start dev server
+        run: |
+          npm run dev &
+          until curl -s http://localhost:3000/ > /dev/null 2>&1; do sleep 2; done
+          echo "Dev server ready!"
+        env:
+          FB_PROJECT_ID: demo-test-project
           FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
           FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
 
