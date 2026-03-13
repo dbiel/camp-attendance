@@ -4,24 +4,32 @@
       "collectionGroup": "attendance",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "class_id", "order": "ASCENDING" },
-        { "fieldPath": "date", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "attendance",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "student_id", "order": "ASCENDING" },
-        { "fieldPath": "date", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "attendance",
-      "queryScope": "COLLECTION",
-      "fields": [
         { "fieldPath": "date", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "session_id", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "faculty_id", "order": "ASCENDING" },
+        { "fieldPath": "period_number", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "session_students",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "session_id", "order": "ASCENDING" },
+        { "fieldPath": "first_name", "order": "ASCENDING" }
       ]
     }
   ],

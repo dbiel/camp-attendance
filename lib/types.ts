@@ -1,48 +1,145 @@
-export interface Teacher {
-  id: string
-  name: string
-  email: string | null
-}
-
 export interface Student {
-  id: string
-  name: string
-  age: number | null
-  dorm_room: string | null
-  parent_name: string | null
-  parent_phone: string | null
-  parent_email: string | null
-  medical_notes: string | null
-  additional_info: Record<string, any> | null
+  id: string;
+  first_name: string;
+  last_name: string;
+  last_initial: string;
+  preferred_name?: string;
+  gender?: string;
+  division: string;
+  instrument: string;
+  ensemble: string;
+  chair_number?: number;
+  dorm_building?: string;
+  dorm_room?: string;
+  email?: string;
+  cell_phone?: string;
+  parent_first_name?: string;
+  parent_last_name?: string;
+  parent_phone?: string;
+  medical_notes?: string;
+  additional_info?: string;
+  created_at: string;
 }
 
-export interface CampClass {
-  id: string
-  name: string
-  teacher_id: string
-  teacher_name: string
-  period: string | null
-  start_time: string | null
-  end_time: string | null
-  location: string | null
+export interface Faculty {
+  id: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  email?: string;
+  created_at: string;
 }
 
-export interface Enrollment {
-  id: string
-  student_id: string
-  class_id: string
-  student_name: string
-  class_name: string
+export interface Period {
+  id: string;
+  number: number;
+  name: string;
+  start_time: string;
+  end_time: string;
 }
 
-export interface AttendanceRecord {
-  id: string
-  student_id: string
-  class_id: string
-  date: string
-  status: 'present' | 'absent' | 'tardy'
-  marked_at: string
-  updated_at: string
+export interface Session {
+  id: string;
+  period_id: string;
+  name: string;
+  type: 'rehearsal' | 'sectional' | 'masterclass' | 'elective' | 'assembly' | 'lunch';
+  location?: string;
+  faculty_id?: string;
+  ensemble?: string;
+  instrument?: string;
 }
 
-export type AttendanceStatus = 'present' | 'absent' | 'tardy' | 'unmarked'
+export interface SessionStudent {
+  id: string;
+  session_id: string;
+  student_id: string;
+}
+
+export interface Attendance {
+  id: string;
+  student_id: string;
+  session_id: string;
+  date: string;
+  status: 'present' | 'absent' | 'tardy';
+  marked_at: string;
+  marked_by?: string;
+}
+
+// Denormalized session_students doc for teacher queries (no PII)
+export interface SessionStudentDenormalized {
+  id: string;
+  session_id: string;
+  student_id: string;
+  first_name: string;
+  last_initial: string;
+  preferred_name?: string;
+  instrument: string;
+  ensemble: string;
+  dorm_room?: string;
+}
+
+// Denormalized attendance doc for admin dashboard queries
+export interface AttendanceDenormalized {
+  id: string;
+  student_id: string;
+  session_id: string;
+  date: string;
+  status: 'present' | 'absent' | 'tardy';
+  marked_at: string;
+  marked_by?: string;
+  // Denormalized student fields
+  first_name: string;
+  last_name: string;
+  last_initial: string;
+  preferred_name?: string;
+  instrument: string;
+  ensemble: string;
+  dorm_building?: string;
+  dorm_room?: string;
+  email?: string;
+  cell_phone?: string;
+  parent_first_name?: string;
+  parent_last_name?: string;
+  parent_phone?: string;
+  // Denormalized session/period fields
+  session_name: string;
+  period_number: number;
+  period_name: string;
+  teacher_name: string;
+}
+
+export interface ScheduleTemplate {
+  id: string;
+  ensemble: string;
+  instrument?: string;
+  session_id: string;
+}
+
+export interface AttendanceReport {
+  student_id: string;
+  first_name: string;
+  last_name: string;
+  instrument: string;
+  ensemble: string;
+  dorm_building?: string;
+  dorm_room?: string;
+  parent_phone?: string;
+  cell_phone?: string;
+  email?: string;
+  parent_first_name?: string;
+  parent_last_name?: string;
+  session_name: string;
+  session_id: string;
+  status: 'absent' | 'tardy';
+  period_number: number;
+  period_name: string;
+  teacher_name: string;
+  date: string;
+}
+
+// Camp config stored in config/camp doc
+export interface CampConfig {
+  camp_code: string;
+  camp_year: number;
+  day_dates: Record<string, string>; // e.g. { "Monday": "2026-06-08", ... }
+}

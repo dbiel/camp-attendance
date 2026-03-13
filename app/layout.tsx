@@ -1,21 +1,24 @@
-import type { Metadata } from 'next'
-import './globals.css'
+import type { Metadata } from 'next';
+import './globals.css';
+import { AuthProvider } from '@/lib/auth-context';
 
 export const metadata: Metadata = {
-  title: 'Camp Attendance Tracker',
-  description: 'Summer camp attendance management system',
-}
+  title: 'TTU Band & Orchestra Camp',
+  description: 'Camp management and attendance tracking system',
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
-      <body className="bg-gray-50 min-h-screen">
-        {children}
+      <body>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
-  )
+  );
 }
