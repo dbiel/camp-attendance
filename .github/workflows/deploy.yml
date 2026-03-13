@@ -32,6 +32,8 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TTUBOC_ATTENDANCE }}
           channelId: live
           projectId: ttuboc-attendance
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
 
       - name: Deploy Firestore rules & indexes
         run: |
