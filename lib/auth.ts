@@ -1,7 +1,25 @@
 import { NextRequest } from 'next/server';
+import { timingSafeEqual } from 'node:crypto';
 import { adminAuth, adminDb } from './firebase-admin';
 
 export type CallerRole = 'admin' | 'teacher' | null;
+
+/**
+ * Constant-time string comparison. Returns false for unequal-length inputs
+ * after doing a dummy comparison so timing is flat regardless of length.
+ */
+function safeEqual(a: string | undefined | null, b: string | undefined | null): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const ab = Buffer.from(a, 'utf8');
+  const bb = Buffer.from(b, 'utf8');
+  if (ab.length !== bb.length) {
+    // Dummy constant-time compare to keep timing flat.
+    const pad = Buffer.alloc(ab.length);
+    timingSafeEqual(ab, pad);
+    return false;
+  }
+  return timingSafeEqual(ab, bb);
+}
 
 /**
  * Verify that the request comes from an authenticated admin (Firebase Auth).
@@ -24,22 +42,21 @@ export async function verifyAdmin(request: NextRequest) {
 /**
  * Verify that the request includes a valid camp code.
  * Expects X-Camp-Code header matching the stored camp code.
+ * Uses constant-time comparison.
  */
 export async function verifyTeacher(request: NextRequest): Promise<boolean> {
   const campCode = request.headers.get('X-Camp-Code');
   if (!campCode) return false;
 
+  let expected: string | undefined;
   try {
     const configDoc = await adminDb.collection('config').doc('camp').get();
-    if (!configDoc.exists) {
-      // Fall back to env var
-      return campCode === process.env.CAMP_CODE;
-    }
-    return campCode === configDoc.data()?.camp_code;
+    expected = configDoc.exists ? configDoc.data()?.camp_code : process.env.CAMP_CODE;
   } catch {
     // Fall back to env var if Firestore is unreachable
-    return campCode === process.env.CAMP_CODE;
+    expected = process.env.CAMP_CODE;
   }
+  return safeEqual(campCode, expected);
 }
 
 /**

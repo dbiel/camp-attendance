@@ -118,6 +118,49 @@ describe('verifyTeacher', () => {
     const result = await verifyTeacher(makeRequest({ 'X-Camp-Code': 'test-camp-2026' }));
     expect(result).toBe(true);
   });
+
+  it('returns false (no throw) when provided code is shorter than expected', async () => {
+    const mockGet = vi.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ camp_code: 'test-camp-2026' }),
+    });
+    vi.mocked(adminDb.collection).mockReturnValue({
+      doc: vi.fn().mockReturnValue({ get: mockGet }),
+    } as any);
+
+    const result = await verifyTeacher(makeRequest({ 'X-Camp-Code': 'x' }));
+    expect(result).toBe(false);
+  });
+
+  it('returns false (no throw) when provided code is longer than expected', async () => {
+    const mockGet = vi.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ camp_code: 'test-camp-2026' }),
+    });
+    vi.mocked(adminDb.collection).mockReturnValue({
+      doc: vi.fn().mockReturnValue({ get: mockGet }),
+    } as any);
+
+    const result = await verifyTeacher(
+      makeRequest({ 'X-Camp-Code': 'test-camp-2026-extra-junk' })
+    );
+    expect(result).toBe(false);
+  });
+
+  it('does not throw on pathological inputs (empty, unicode, huge)', async () => {
+    const mockGet = vi.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ camp_code: 'test-camp-2026' }),
+    });
+    vi.mocked(adminDb.collection).mockReturnValue({
+      doc: vi.fn().mockReturnValue({ get: mockGet }),
+    } as any);
+
+    for (const bad of ['', 'a', 'a'.repeat(10_000)]) {
+      const result = await verifyTeacher(makeRequest({ 'X-Camp-Code': bad }));
+      expect(result).toBe(false);
+    }
+  });
 });
 
 describe('getCallerRole', () => {
