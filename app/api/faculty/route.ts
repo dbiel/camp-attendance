@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFaculty, createFaculty } from '@/lib/firestore';
 import { getCallerRole } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     // Faculty list is publicly readable (teacher landing page)

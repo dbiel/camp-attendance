@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createFaculty } from '@/lib/firestore';
 import { getCallerRole } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const role = await getCallerRole(request);

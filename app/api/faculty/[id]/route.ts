@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFacultyMember, updateFaculty, deleteFaculty } from '@/lib/firestore';
 import { getCallerRole } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }

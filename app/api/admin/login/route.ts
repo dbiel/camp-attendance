@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 // This endpoint is no longer used for cookie-based auth.
 // Admin auth is now handled client-side via Firebase Auth.
 // Kept for backwards compatibility during migration.
