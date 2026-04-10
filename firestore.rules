@@ -48,5 +48,12 @@ service cloud.firestore {
       allow read: if false; // Server-side only — camp code must not be exposed to client
       allow write: if false;
     }
+
+    // Catch-all default deny. Any new collection added via the Admin SDK
+    // is read/write-denied to clients until an explicit `match` block is
+    // added above this line. Prevents "forgot to write a rule" footguns.
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }
