@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Faculty } from '@/lib/types';
-import { getCampCode, setCampCode } from '@/lib/camp-code';
+import { getCampCode, setCampCode, clearCampCode, getCampCodeHeaders } from '@/lib/camp-code';
 
 export default function TeacherLanding() {
   const [faculty, setFaculty] = useState<Faculty[]>([]);
@@ -42,7 +42,19 @@ export default function TeacherLanding() {
 
   async function fetchFaculty() {
     try {
-      const res = await fetch('/api/faculty');
+      const res = await fetch('/api/faculty', { headers: getCampCodeHeaders() });
+      if (res.status === 401) {
+        // Code has been rotated or cleared — force re-entry
+        clearCampCode();
+        setHasCode(false);
+        setLoading(false);
+        return;
+      }
+      if (!res.ok) {
+        console.error('Faculty fetch failed:', res.status);
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
       setFaculty(data);
       setFiltered(data);

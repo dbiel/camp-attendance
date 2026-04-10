@@ -9,10 +9,16 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Faculty info is publicly readable
+    const role = await getCallerRole(request);
+    if (!role) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const faculty = await getFacultyMember(params.id);
     if (!faculty) {
       return NextResponse.json({ error: 'Faculty not found' }, { status: 404 });
+    }
+    if (role === 'teacher') {
+      const { id, first_name, last_name, role: facRole } = faculty;
+      return NextResponse.json({ id, first_name, last_name, role: facRole });
     }
     return NextResponse.json(faculty);
   } catch (error) {

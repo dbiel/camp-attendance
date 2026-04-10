@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFaculty, createFaculty } from '@/lib/firestore';
 import { getCallerRole } from '@/lib/auth';
+import { facultyForTeacher } from '@/lib/projections';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Faculty list is publicly readable (teacher landing page)
+    const role = await getCallerRole(request);
+    if (!role) {
+      if (!checkRateLimit(`faculty-get:${getClientIp(request)}`)) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+      }
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const faculty = await getFaculty();
+    if (role === 'teacher') {
+      return NextResponse.json(facultyForTeacher(faculty));
+    }
     return NextResponse.json(faculty);
   } catch (error) {
     console.error('Error fetching faculty:', error);
