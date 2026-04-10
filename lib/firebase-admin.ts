@@ -35,15 +35,21 @@ export function getAdminAuth(): Auth {
 
 // Back-compat exports — callers use these today. Both are lazy because they
 // only resolve when a property is accessed, which happens at request time.
+// Methods are bound to the real instance so `this` points at the target, not
+// the Proxy (admin SDK methods rely on internal state via `this`).
 // TODO(code-health): migrate callers to getAdminDb() / getAdminAuth() and remove.
 export const adminDb: Firestore = new Proxy({} as Firestore, {
-  get(_target, prop, receiver) {
-    return Reflect.get(getAdminDb(), prop, receiver);
+  get(_target, prop) {
+    const target = getAdminDb();
+    const value = Reflect.get(target, prop);
+    return typeof value === 'function' ? value.bind(target) : value;
   },
 });
 
 export const adminAuth: Auth = new Proxy({} as Auth, {
-  get(_target, prop, receiver) {
-    return Reflect.get(getAdminAuth(), prop, receiver);
+  get(_target, prop) {
+    const target = getAdminAuth();
+    const value = Reflect.get(target, prop);
+    return typeof value === 'function' ? value.bind(target) : value;
   },
 });

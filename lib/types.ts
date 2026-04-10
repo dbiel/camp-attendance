@@ -78,7 +78,9 @@ export interface SessionStudentDenormalized {
   dorm_room?: string;
 }
 
-// Denormalized attendance doc for admin dashboard queries
+// Denormalized attendance doc for admin dashboard queries.
+// Optional fields use `string | null` (not `?:`) because Firestore rejects
+// `undefined` values; the write path coerces missing values to `null`.
 export interface AttendanceDenormalized {
   id: string;
   student_id: string;
@@ -86,21 +88,21 @@ export interface AttendanceDenormalized {
   date: string;
   status: 'present' | 'absent' | 'tardy';
   marked_at: string;
-  marked_by?: string;
+  marked_by: string | null;
   // Denormalized student fields
   first_name: string;
   last_name: string;
   last_initial: string;
-  preferred_name?: string;
+  preferred_name: string | null;
   instrument: string;
   ensemble: string;
-  dorm_building?: string;
-  dorm_room?: string;
-  email?: string;
-  cell_phone?: string;
-  parent_first_name?: string;
-  parent_last_name?: string;
-  parent_phone?: string;
+  dorm_building: string | null;
+  dorm_room: string | null;
+  email: string | null;
+  cell_phone: string | null;
+  parent_first_name: string | null;
+  parent_last_name: string | null;
+  parent_phone: string | null;
   // Denormalized session/period fields
   session_name: string;
   period_number: number;
@@ -121,13 +123,13 @@ export interface AttendanceReport {
   last_name: string;
   instrument: string;
   ensemble: string;
-  dorm_building?: string;
-  dorm_room?: string;
-  parent_phone?: string;
-  cell_phone?: string;
-  email?: string;
-  parent_first_name?: string;
-  parent_last_name?: string;
+  dorm_building: string | null;
+  dorm_room: string | null;
+  parent_phone: string | null;
+  cell_phone: string | null;
+  email: string | null;
+  parent_first_name: string | null;
+  parent_last_name: string | null;
   session_name: string;
   session_id: string;
   status: 'absent' | 'tardy';

@@ -233,7 +233,7 @@ export async function markAttendance(
     period_number: period?.number ?? 0,
     period_name: period?.name ?? '',
     teacher_name: teacherName,
-  });
+  } satisfies Omit<AttendanceDenormalized, 'id'>);
 }
 
 export async function getAttendanceReport(date: string, status?: 'absent' | 'tardy'): Promise<AttendanceReport[]> {
