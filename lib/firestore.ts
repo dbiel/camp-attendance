@@ -5,6 +5,10 @@ import {
   Attendance, AttendanceDenormalized, SessionStudentDenormalized,
   AttendanceReport,
 } from './types';
+import { getTodayDate, getCurrentTimeHHMM } from './date';
+
+// Re-export for back-compat — existing callers import getTodayDate from '@/lib/firestore'.
+export { getTodayDate } from './date';
 
 // ─── Collection references ─────────────────────────────────────────────
 
@@ -527,18 +531,13 @@ export async function getDailyStats(date: string): Promise<any> {
 
 // ─── Utility functions ──────────────────────────────────────────────────
 
-export function getTodayDate(): string {
-  return new Date().toISOString().split('T')[0];
-}
-
 export async function getCurrentPeriod(): Promise<number | null> {
-  const now = new Date();
-  const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-
+  const currentTime = getCurrentTimeHHMM();
   const periods = await getPeriods();
   for (let i = periods.length - 1; i >= 0; i--) {
-    if (currentTime >= periods[i].start_time && currentTime < periods[i].end_time) {
-      return periods[i].number;
+    const p = periods[i]!;
+    if (currentTime >= p.start_time && currentTime < p.end_time) {
+      return p.number;
     }
   }
   return null;
