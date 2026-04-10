@@ -47,13 +47,16 @@ interface AbsenceRecord {
   last_name: string;
   instrument: string;
   ensemble: string;
-  dorm_building?: string;
-  dorm_room?: string;
-  parent_phone?: string;
-  cell_phone?: string;
-  email?: string;
-  parent_first_name?: string;
-  parent_last_name?: string;
+  // Parent PII + dorm info are NOT denormalized onto attendance docs any
+  // more. These fields will be null on the live listener until Wave 3
+  // replaces the listener with a server-joined /api/attendance/report fetch.
+  dorm_building: string | null;
+  dorm_room: string | null;
+  parent_phone: string | null;
+  cell_phone: string | null;
+  email: string | null;
+  parent_first_name: string | null;
+  parent_last_name: string | null;
   session_name: string;
   session_id: string;
   status: 'absent' | 'tardy';
@@ -110,19 +113,24 @@ export default function AdminDashboard() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const records: AbsenceRecord[] = snapshot.docs.map(doc => {
         const d = doc.data();
+        // NOTE: parent PII + dorm fields are no longer denormalized onto
+        // attendance docs. The live listener now reads null for those.
+        // TODO(Wave 3 UX): replace this listener with a fetch to
+        // /api/attendance/report which joins contact info server-side,
+        // or open the student detail modal for full contact.
         return {
           student_id: d.student_id,
           first_name: d.first_name,
           last_name: d.last_name,
           instrument: d.instrument,
           ensemble: d.ensemble,
-          dorm_building: d.dorm_building,
-          dorm_room: d.dorm_room,
-          parent_phone: d.parent_phone,
-          cell_phone: d.cell_phone,
-          email: d.email,
-          parent_first_name: d.parent_first_name,
-          parent_last_name: d.parent_last_name,
+          dorm_building: d.dorm_building ?? null,
+          dorm_room: d.dorm_room ?? null,
+          parent_phone: d.parent_phone ?? null,
+          cell_phone: d.cell_phone ?? null,
+          email: d.email ?? null,
+          parent_first_name: d.parent_first_name ?? null,
+          parent_last_name: d.parent_last_name ?? null,
           session_name: d.session_name,
           session_id: d.session_id,
           status: d.status,

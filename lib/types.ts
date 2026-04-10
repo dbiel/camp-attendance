@@ -79,6 +79,12 @@ export interface SessionStudentDenormalized {
 }
 
 // Denormalized attendance doc for admin dashboard queries.
+//
+// Parent contact info, email, cell phone, and dorm fields were previously
+// denormalized here. They've been removed so a compromised admin client
+// can't scrape parent PII by listening on the `attendance` collection.
+// getAttendanceReport now joins those fields server-side from students/{id}.
+//
 // Optional fields use `string | null` (not `?:`) because Firestore rejects
 // `undefined` values; the write path coerces missing values to `null`.
 export interface AttendanceDenormalized {
@@ -89,20 +95,13 @@ export interface AttendanceDenormalized {
   status: 'present' | 'absent' | 'tardy';
   marked_at: string;
   marked_by: string | null;
-  // Denormalized student fields
+  // Display-only non-PII student fields
   first_name: string;
   last_name: string;
   last_initial: string;
   preferred_name: string | null;
   instrument: string;
   ensemble: string;
-  dorm_building: string | null;
-  dorm_room: string | null;
-  email: string | null;
-  cell_phone: string | null;
-  parent_first_name: string | null;
-  parent_last_name: string | null;
-  parent_phone: string | null;
   // Denormalized session/period fields
   session_name: string;
   period_number: number;

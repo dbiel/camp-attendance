@@ -214,20 +214,13 @@ export async function markAttendance(
     status,
     marked_at: new Date().toISOString(),
     marked_by: markedBy || null,
-    // Denormalized student fields
+    // Display-only non-PII student fields
     first_name: student.first_name,
     last_name: student.last_name,
     last_initial: student.last_initial,
     preferred_name: student.preferred_name || null,
     instrument: student.instrument,
     ensemble: student.ensemble,
-    dorm_building: student.dorm_building || null,
-    dorm_room: student.dorm_room || null,
-    email: student.email || null,
-    cell_phone: student.cell_phone || null,
-    parent_first_name: student.parent_first_name || null,
-    parent_last_name: student.parent_last_name || null,
-    parent_phone: student.parent_phone || null,
     // Denormalized session/period fields
     session_name: session.name,
     period_number: period?.number ?? 0,
@@ -235,6 +228,12 @@ export async function markAttendance(
     teacher_name: teacherName,
   } satisfies Omit<AttendanceDenormalized, 'id'>);
 }
+
+// NOTE: Existing attendance docs in production still carry denormalized
+// parent/contact fields from the prior schema. Run a one-shot cleanup
+// migration before deploying this change — unset the legacy fields on
+// every doc in the `attendance` collection. New writes no longer include
+// them.
 
 export async function getAttendanceReport(date: string, status?: 'absent' | 'tardy'): Promise<AttendanceReport[]> {
   // Single where + client filter to avoid composite index requirement
@@ -244,21 +243,27 @@ export async function getAttendanceReport(date: string, status?: 'absent' | 'tar
     ? snap.docs.filter(doc => doc.data().status === status)
     : snap.docs.filter(doc => ['absent', 'tardy'].includes(doc.data().status));
 
-  const results: AttendanceReport[] = filteredDocs.map(doc => {
+  // Join parent contact + dorm info from students/{id} on the server side.
+  // Admin client SDK can't read `students` (firestore.rules: if false), so this
+  // join only works via the Admin SDK — PII never flows through the client.
+  const results: AttendanceReport[] = [];
+  for (const doc of filteredDocs) {
     const d = doc.data() as AttendanceDenormalized;
-    return {
+    const student = await getStudent(d.student_id);
+    if (!student) continue;
+    results.push({
       student_id: d.student_id,
       first_name: d.first_name,
       last_name: d.last_name,
       instrument: d.instrument,
       ensemble: d.ensemble,
-      dorm_building: d.dorm_building,
-      dorm_room: d.dorm_room,
-      parent_phone: d.parent_phone,
-      cell_phone: d.cell_phone,
-      email: d.email,
-      parent_first_name: d.parent_first_name,
-      parent_last_name: d.parent_last_name,
+      dorm_building: student.dorm_building ?? null,
+      dorm_room: student.dorm_room ?? null,
+      parent_phone: student.parent_phone ?? null,
+      cell_phone: student.cell_phone ?? null,
+      email: student.email ?? null,
+      parent_first_name: student.parent_first_name ?? null,
+      parent_last_name: student.parent_last_name ?? null,
       session_name: d.session_name,
       session_id: d.session_id,
       status: d.status as 'absent' | 'tardy',
@@ -266,8 +271,8 @@ export async function getAttendanceReport(date: string, status?: 'absent' | 'tar
       period_name: d.period_name,
       teacher_name: d.teacher_name,
       date: d.date,
-    };
-  });
+    });
+  }
 
   // Sort: period_number, then ensemble, then last_name, then first_name
   results.sort((a, b) => {
