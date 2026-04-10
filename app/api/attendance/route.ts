@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { markAttendance, getSessionAttendance } from '@/lib/firestore';
-import { getCallerRole } from '@/lib/auth';
+import { verifyAdmin, verifyTeacher } from '@/lib/auth';
+import { getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
+const ALLOWED_STATUSES = new Set(['present', 'absent', 'tardy'] as const);
+type AttendanceStatus = 'present' | 'absent' | 'tardy';
+
 export async function GET(request: NextRequest) {
   try {
-    const role = await getCallerRole(request);
-    if (!role) {
+    const admin = await verifyAdmin(request);
+    const isTeacher = admin ? false : await verifyTeacher(request);
+    if (!admin && !isTeacher) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -25,7 +30,7 @@ export async function GET(request: NextRequest) {
     const attendance = await getSessionAttendance(sessionId, date);
 
     // Teachers only see non-PII fields
-    if (role === 'teacher') {
+    if (!admin) {
       const sanitized = attendance.map(a => ({
         id: a.id,
         student_id: a.student_id,
@@ -46,21 +51,37 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const role = await getCallerRole(request);
-    if (!role) {
+    const admin = await verifyAdmin(request);
+    const isTeacher = admin ? false : await verifyTeacher(request);
+    if (!admin && !isTeacher) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { student_id, session_id, date, status, marked_by } = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+    const { student_id, session_id, date, status } = body as Record<string, unknown>;
 
     if (!student_id || !session_id || !date || !status) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+    if (typeof status !== 'string' || !ALLOWED_STATUSES.has(status as AttendanceStatus)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
-    await markAttendance(String(student_id), String(session_id), date, status, marked_by ? String(marked_by) : undefined);
+    // Derive marked_by from verified identity; ignore any client-supplied value.
+    const markedBy = admin
+      ? `admin:${admin.uid}`
+      : `teacher:${getClientIp(request)}`;
+
+    await markAttendance(
+      String(student_id),
+      String(session_id),
+      String(date),
+      status as AttendanceStatus,
+      markedBy
+    );
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error marking attendance:', error);
