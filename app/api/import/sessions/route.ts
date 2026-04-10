@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSession, getPeriods } from '@/lib/firestore';
 import { getCallerRole } from '@/lib/auth';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
     const role = await getCallerRole(request);
+    if (!role) {
+      if (!checkRateLimit(`import-sessions:${getClientIp(request)}`)) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+      }
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     if (role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }

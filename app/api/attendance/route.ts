@@ -5,7 +5,7 @@ import {
   isFacultyAssignedToSession,
 } from '@/lib/firestore';
 import { verifyAdmin, verifyTeacher } from '@/lib/auth';
-import { getClientIp } from '@/lib/rate-limit';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +17,9 @@ export async function GET(request: NextRequest) {
     const admin = await verifyAdmin(request);
     const isTeacher = admin ? false : await verifyTeacher(request);
     if (!admin && !isTeacher) {
+      if (!checkRateLimit(`attendance:${getClientIp(request)}`)) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+      }
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -73,6 +76,9 @@ export async function POST(request: NextRequest) {
     const admin = await verifyAdmin(request);
     const isTeacher = admin ? false : await verifyTeacher(request);
     if (!admin && !isTeacher) {
+      if (!checkRateLimit(`attendance:${getClientIp(request)}`)) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+      }
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

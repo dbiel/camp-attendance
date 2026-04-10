@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFacultySessions } from '@/lib/firestore';
 import { getCallerRole } from '@/lib/auth';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,9 @@ export async function GET(
   try {
     const role = await getCallerRole(request);
     if (!role) {
+      if (!checkRateLimit(`faculty-sessions:${getClientIp(request)}`)) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+      }
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
