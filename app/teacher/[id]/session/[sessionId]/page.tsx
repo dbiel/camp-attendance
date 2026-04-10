@@ -6,27 +6,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Attendance } from '@/lib/types';
 import { SessionStudentDenormalized } from '@/lib/types';
 import { getCampCode, getCampCodeHeaders } from '@/lib/camp-code';
-
-const DAYS = [
-  { key: 'M', label: 'Mon' },
-  { key: 'T', label: 'Tue' },
-  { key: 'W', label: 'Wed' },
-  { key: 'Th', label: 'Thu' },
-  { key: 'F', label: 'Fri' },
-  { key: 'S', label: 'Sat' },
-];
-
-function dayKeyToDate(dayKey: string): string {
-  const map: Record<string, string> = {
-    M: '2026-06-08',
-    T: '2026-06-09',
-    W: '2026-06-10',
-    Th: '2026-06-11',
-    F: '2026-06-12',
-    S: '2026-06-13',
-  };
-  return map[dayKey] || '2026-06-08';
-}
+import { useCampConfig, useTodayDayKey } from '@/lib/camp-config-client';
+import { dayKeyToDate } from '@/lib/date';
 
 interface SessionInfo {
   id: string;
@@ -46,35 +27,49 @@ export default function AttendancePage({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const dayParam = searchParams.get('day') || 'M';
+  const dayParam = searchParams.get('day');
+  const { config } = useCampConfig();
+  const todayKey = useTodayDayKey();
 
-  const [selectedDay, setSelectedDay] = useState(dayParam);
+  const [selectedDay, setSelectedDay] = useState<string | null>(dayParam);
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [students, setStudents] = useState<SessionStudentDenormalized[]>([]);
   const [attendance, setAttendance] = useState<Map<string, 'present' | 'absent' | 'tardy' | 'unmarked'>>(new Map());
   const [loading, setLoading] = useState(true);
 
-  const date = dayKeyToDate(selectedDay);
+  const date =
+    config && selectedDay ? dayKeyToDate(selectedDay, config.day_dates) : null;
   const headers = getCampCodeHeaders();
+
+  // Default selection to the URL day, else today, else the first camp day.
+  useEffect(() => {
+    if (config && selectedDay === null) {
+      const firstDay = Object.keys(config.day_dates)[0] ?? 'M';
+      setSelectedDay(todayKey ?? firstDay);
+    }
+  }, [config, todayKey, selectedDay]);
 
   useEffect(() => {
     if (!getCampCode()) {
       router.push('/');
       return;
     }
-    fetchData();
-  }, [selectedDay]);
+    if (config && selectedDay && date) {
+      fetchData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDay, config]);
 
   async function fetchData() {
+    if (!date) return;
     setLoading(true);
     try {
       const sessionId = params.sessionId;
-      const d = dayKeyToDate(selectedDay);
 
       const [sessionDetailRes, studentsRes, attendanceRes] = await Promise.all([
         fetch(`/api/sessions/${sessionId}`, { headers }),
         fetch(`/api/sessions/${sessionId}/students`, { headers }),
-        fetch(`/api/attendance?session_id=${sessionId}&date=${d}`, { headers }),
+        fetch(`/api/attendance?session_id=${sessionId}&date=${date}`, { headers }),
       ]);
 
       if (!studentsRes.ok) {
@@ -144,6 +139,7 @@ export default function AttendancePage({
   }
 
   async function saveAttendance(studentId: string, status: 'present' | 'absent' | 'tardy' | 'unmarked') {
+    if (!date) return;
     try {
       if (status === 'unmarked') {
         return;
@@ -207,19 +203,30 @@ export default function AttendancePage({
 
         {/* Day Selector */}
         <div className="flex gap-1 mb-3">
-          {DAYS.map((day) => (
-            <button
-              key={day.key}
-              onClick={() => setSelectedDay(day.key)}
-              className={`flex-1 py-2 rounded font-bold text-sm transition-all ${
-                selectedDay === day.key
-                  ? 'bg-camp-green text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {day.key}
-            </button>
-          ))}
+          {config && Object.keys(config.day_dates).map((dayKey) => {
+            const isToday = dayKey === todayKey;
+            const isSelected = dayKey === selectedDay;
+            return (
+              <button
+                key={dayKey}
+                onClick={() => setSelectedDay(dayKey)}
+                aria-pressed={isSelected}
+                className={`flex-1 py-2 rounded font-bold text-sm transition-all relative ${
+                  isSelected
+                    ? 'bg-camp-green text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {dayKey}
+                {isToday && !isSelected && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -top-1 -right-1 w-2 h-2 bg-camp-accent rounded-full"
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Count Bar */}

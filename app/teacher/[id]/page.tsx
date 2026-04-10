@@ -5,27 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Faculty } from '@/lib/types';
 import { getCampCode, getCampCodeHeaders, setTeacherFacultyId } from '@/lib/camp-code';
-
-const DAYS = [
-  { key: 'M', label: 'Mon' },
-  { key: 'T', label: 'Tue' },
-  { key: 'W', label: 'Wed' },
-  { key: 'Th', label: 'Thu' },
-  { key: 'F', label: 'Fri' },
-  { key: 'S', label: 'Sat' },
-];
-
-function dayKeyToDate(dayKey: string): string {
-  const map: Record<string, string> = {
-    M: '2026-06-08',
-    T: '2026-06-09',
-    W: '2026-06-10',
-    Th: '2026-06-11',
-    F: '2026-06-12',
-    S: '2026-06-13',
-  };
-  return map[dayKey] || '2026-06-08';
-}
+import { useCampConfig, useTodayDayKey } from '@/lib/camp-config-client';
+import { dayKeyToDate, formatDayLabel } from '@/lib/date';
 
 interface SessionInfo {
   id: string;
@@ -46,9 +27,11 @@ interface SessionInfo {
 
 export default function TeacherDashboard({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { config } = useCampConfig();
+  const todayKey = useTodayDayKey();
   const [faculty, setFaculty] = useState<Faculty | null>(null);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
-  const [selectedDay, setSelectedDay] = useState('M');
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [currentPeriod, setCurrentPeriod] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -65,11 +48,20 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
+  // Default selection to "today" once camp config loads.
   useEffect(() => {
-    if (faculty) {
+    if (config && selectedDay === null) {
+      const firstDay = Object.keys(config.day_dates)[0] ?? 'M';
+      setSelectedDay(todayKey ?? firstDay);
+    }
+  }, [config, todayKey, selectedDay]);
+
+  useEffect(() => {
+    if (faculty && selectedDay && config) {
       fetchSessions();
     }
-  }, [faculty, selectedDay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [faculty, selectedDay, config]);
 
   function updateCurrentPeriod() {
     const now = new Date();
@@ -105,8 +97,13 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
   }
 
   async function fetchSessions() {
+    if (!config || !selectedDay) return;
+    const date = dayKeyToDate(selectedDay, config.day_dates);
+    if (!date) {
+      setLoading(false);
+      return;
+    }
     try {
-      const date = dayKeyToDate(selectedDay);
       const res = await fetch(`/api/faculty/${params.id}/sessions?date=${date}`, {
         headers: getCampCodeHeaders(),
       });
@@ -142,19 +139,33 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
       {/* Day Selector */}
       <div className="max-w-2xl mx-auto px-4 pt-4">
         <div className="flex gap-2 mb-4">
-          {DAYS.map((day) => (
-            <button
-              key={day.key}
-              onClick={() => { setLoading(true); setSelectedDay(day.key); }}
-              className={`flex-1 py-3 rounded-lg font-bold text-lg transition-all ${
-                selectedDay === day.key
-                  ? 'bg-camp-green text-white shadow-md'
-                  : 'bg-white text-camp-green border-2 border-camp-green hover:bg-green-50'
-              }`}
-            >
-              {day.key}
-            </button>
-          ))}
+          {config && Object.keys(config.day_dates).map((dayKey) => {
+            const isToday = dayKey === todayKey;
+            const isSelected = dayKey === selectedDay;
+            return (
+              <button
+                key={dayKey}
+                onClick={() => { setLoading(true); setSelectedDay(dayKey); }}
+                aria-pressed={isSelected}
+                aria-label={`${formatDayLabel(dayKey)}${isToday ? ' (today)' : ''}`}
+                className={`flex-1 py-3 rounded-lg font-bold text-lg relative transition-all ${
+                  isSelected
+                    ? 'bg-camp-green text-white shadow-md'
+                    : 'bg-white text-camp-green border-2 border-camp-green hover:bg-green-50'
+                }`}
+              >
+                {dayKey}
+                {isToday && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -top-1 -right-1 bg-camp-accent text-white text-[10px] px-1.5 py-0.5 rounded-full"
+                  >
+                    today
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

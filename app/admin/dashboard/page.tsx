@@ -4,17 +4,10 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useCampConfig, useTodayDayKey } from '@/lib/camp-config-client';
+import { dayKeyToDate, formatDayLabel } from '@/lib/date';
 import { db as clientDb } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-
-const DAYS = [
-  { key: 'M', label: 'Mon' },
-  { key: 'T', label: 'Tue' },
-  { key: 'W', label: 'Wed' },
-  { key: 'Th', label: 'Thu' },
-  { key: 'F', label: 'Fri' },
-  { key: 'S', label: 'Sat' },
-];
 
 const PERIODS = [
   { num: 1, label: 'Period 1', time: '8:00-8:50' },
@@ -28,18 +21,6 @@ const PERIODS = [
   { num: 9, label: 'Period 7', time: '4:00-4:50' },
   { num: 10, label: 'Period 8', time: '5:00-6:00' },
 ];
-
-function dayKeyToDate(dayKey: string): string {
-  const map: Record<string, string> = {
-    M: '2026-06-08',
-    T: '2026-06-09',
-    W: '2026-06-10',
-    Th: '2026-06-11',
-    F: '2026-06-12',
-    S: '2026-06-13',
-  };
-  return map[dayKey] || '2026-06-08';
-}
 
 interface AbsenceRecord {
   student_id: string;
@@ -78,8 +59,10 @@ interface SessionGroup {
 export default function AdminDashboard() {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
+  const { config } = useCampConfig();
+  const todayKey = useTodayDayKey();
 
-  const [selectedDay, setSelectedDay] = useState('M');
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
   const [allRecords, setAllRecords] = useState<AbsenceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,11 +80,20 @@ export default function AdminDashboard() {
     }
   }, [user, authLoading, router]);
 
+  // Default selection to "today" once camp config loads.
+  useEffect(() => {
+    if (config && selectedDay === null) {
+      const firstDay = Object.keys(config.day_dates)[0] ?? 'M';
+      setSelectedDay(todayKey ?? firstDay);
+    }
+  }, [config, todayKey, selectedDay]);
+
   // Real-time Firestore listener — replaces 15-second polling
   useEffect(() => {
-    if (!user) return;
+    if (!user || !config || !selectedDay) return;
+    const date = dayKeyToDate(selectedDay, config.day_dates);
+    if (!date) return;
 
-    const date = dayKeyToDate(selectedDay);
     setLoading(true);
 
     const q = query(
@@ -158,7 +150,8 @@ export default function AdminDashboard() {
     });
 
     return () => unsubscribe();
-  }, [user, selectedDay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, selectedDay, config]);
 
   if (authLoading || !user) {
     return (
@@ -270,19 +263,33 @@ export default function AdminDashboard() {
       <div className="max-w-6xl mx-auto p-4">
         {/* Day Selector */}
         <div className="flex gap-2 mb-3">
-          {DAYS.map((day) => (
-            <button
-              key={day.key}
-              onClick={() => setSelectedDay(day.key)}
-              className={`flex-1 py-3 rounded-lg font-bold text-lg transition-all ${
-                selectedDay === day.key
-                  ? 'bg-camp-green text-white shadow-md'
-                  : 'bg-white text-camp-green border-2 border-camp-green hover:bg-green-50'
-              }`}
-            >
-              {day.key}
-            </button>
-          ))}
+          {config && Object.keys(config.day_dates).map((dayKey) => {
+            const isToday = dayKey === todayKey;
+            const isSelected = dayKey === selectedDay;
+            return (
+              <button
+                key={dayKey}
+                onClick={() => setSelectedDay(dayKey)}
+                aria-pressed={isSelected}
+                aria-label={`${formatDayLabel(dayKey)}${isToday ? ' (today)' : ''}`}
+                className={`flex-1 py-3 rounded-lg font-bold text-lg relative transition-all ${
+                  isSelected
+                    ? 'bg-camp-green text-white shadow-md'
+                    : 'bg-white text-camp-green border-2 border-camp-green hover:bg-green-50'
+                }`}
+              >
+                {dayKey}
+                {isToday && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -top-1 -right-1 bg-camp-accent text-white text-[10px] px-1.5 py-0.5 rounded-full"
+                  >
+                    today
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Period Selector */}
@@ -364,7 +371,7 @@ export default function AdminDashboard() {
 
         {/* Active Filters Summary */}
         <div className="text-sm text-gray-500 mb-4">
-          {DAYS.find(d => d.key === selectedDay)?.label}
+          {selectedDay ? formatDayLabel(selectedDay) : ''}
           {selectedPeriod !== null && ` \u2022 ${PERIODS.find(p => p.num === selectedPeriod)?.label}`}
           {statusFilter && ` \u2022 ${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}`}
           {ensembleFilter && ` \u2022 ${ensembleFilter}`}
