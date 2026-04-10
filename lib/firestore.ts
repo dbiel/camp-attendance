@@ -529,6 +529,17 @@ export async function getDailyStats(date: string): Promise<any> {
   return { present, absent, tardy, unmarked, total: totalStudents };
 }
 
+// ─── Authorization helpers ─────────────────────────────────────────────
+
+export async function isFacultyAssignedToSession(
+  facultyId: string,
+  sessionId: string
+): Promise<boolean> {
+  const doc = await sessionsCol().doc(sessionId).get();
+  if (!doc.exists) return false;
+  return doc.data()?.faculty_id === facultyId;
+}
+
 // ─── Utility functions ──────────────────────────────────────────────────
 
 export async function getCurrentPeriod(): Promise<number | null> {

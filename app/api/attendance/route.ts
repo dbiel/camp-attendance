@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { markAttendance, getSessionAttendance } from '@/lib/firestore';
+import {
+  markAttendance,
+  getSessionAttendance,
+  isFacultyAssignedToSession,
+} from '@/lib/firestore';
 import { verifyAdmin, verifyTeacher } from '@/lib/auth';
 import { getClientIp } from '@/lib/rate-limit';
 
@@ -25,6 +29,21 @@ export async function GET(request: NextRequest) {
         { error: 'Missing required parameters: session_id, date' },
         { status: 400 }
       );
+    }
+
+    // Teacher scoping: must present X-Faculty-Id and be assigned to the session.
+    if (!admin) {
+      const facultyId = request.headers.get('X-Faculty-Id');
+      if (!facultyId) {
+        return NextResponse.json({ error: 'Missing X-Faculty-Id' }, { status: 403 });
+      }
+      const assigned = await isFacultyAssignedToSession(facultyId, sessionId);
+      if (!assigned) {
+        return NextResponse.json(
+          { error: 'Not assigned to this session' },
+          { status: 403 }
+        );
+      }
     }
 
     const attendance = await getSessionAttendance(sessionId, date);

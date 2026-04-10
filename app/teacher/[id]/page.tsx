@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Faculty } from '@/lib/types';
-import { getCampCode, getCampCodeHeaders } from '@/lib/camp-code';
+import { getCampCode, getCampCodeHeaders, setTeacherFacultyId } from '@/lib/camp-code';
 
 const DAYS = [
   { key: 'M', label: 'Mon' },
@@ -57,11 +57,13 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
       router.push('/');
       return;
     }
+    setTeacherFacultyId(params.id);
     fetchFaculty();
     updateCurrentPeriod();
     const interval = setInterval(updateCurrentPeriod, 30000);
     return () => clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id]);
 
   useEffect(() => {
     if (faculty) {
