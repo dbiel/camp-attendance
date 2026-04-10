@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
+import { CampConfigProvider } from '@/lib/camp-config-client';
 
 export const metadata: Metadata = {
   title: 'TTU Band & Orchestra Camp',
@@ -15,9 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <CampConfigProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </CampConfigProvider>
       </body>
     </html>
   );

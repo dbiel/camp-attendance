@@ -140,7 +140,14 @@ export interface AttendanceReport {
 
 // Camp config stored in config/camp doc
 export interface CampConfig {
+  camp_id: string; // e.g. "2026"
   camp_code: string;
   camp_year: number;
-  day_dates: Record<string, string>; // e.g. { "Monday": "2026-06-08", ... }
+  start_date: string; // ISO YYYY-MM-DD
+  end_date: string; // ISO YYYY-MM-DD
+  timezone: string; // IANA tz, e.g. "America/Chicago"
+  day_dates: Record<string, string>; // { M: "2026-06-08", ... }
 }
+
+// Teacher-safe projection of CampConfig — no camp_code.
+export type PublicCampConfig = Omit<CampConfig, 'camp_code'>;
