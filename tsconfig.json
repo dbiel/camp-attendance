@@ -21,7 +21,8 @@
       "node"
     ],
     "allowJs": true,
-    "strict": false,
+    "strict": true,
+    "noUncheckedIndexedAccess": false,
     "incremental": true,
     "baseUrl": ".",
     "paths": {
