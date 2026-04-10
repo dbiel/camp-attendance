@@ -27,15 +27,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
-
-      // Set cookie for middleware
-      if (user) {
-        user.getIdToken().then((token) => {
-          document.cookie = `firebase_auth_token=${token}; path=/; max-age=3600; SameSite=Lax`;
-        });
-      } else {
-        document.cookie = 'firebase_auth_token=; path=/; max-age=0';
-      }
     });
     return () => unsubscribe();
   }, []);
@@ -46,7 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await firebaseSignOut(auth);
-    document.cookie = 'firebase_auth_token=; path=/; max-age=0';
   }
 
   async function getAuthHeaders(): Promise<Record<string, string>> {
