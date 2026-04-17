@@ -1,11 +1,13 @@
+import { randomInt } from 'node:crypto';
 import { adminDb } from './firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import {
   Student, Faculty, Period, Session, SessionStudent,
   Attendance, AttendanceDenormalized, SessionStudentDenormalized,
-  AttendanceReport,
+  AttendanceReport, CampConfig,
 } from './types';
 import { getTodayDate, getCurrentTimeHHMM } from './date';
+import { invalidateCampConfigCache } from './camp-config';
 
 // Re-export for back-compat — existing callers import getTodayDate from '@/lib/firestore'.
 export { getTodayDate } from './date';
@@ -857,6 +859,58 @@ export async function isFacultyAssignedToSession(
   const doc = await sessionsCol().doc(sessionId).get();
   if (!doc.exists) return false;
   return doc.data()?.faculty_id === facultyId;
+}
+
+// ─── Camp Config ────────────────────────────────────────────────────────
+
+const configCol = () => adminDb.collection('config');
+
+/**
+ * Merge a partial CampConfig into the active `config/camp` doc.
+ *
+ * Invalidates the server-side camp config cache so the next
+ * `loadActiveCampServer` call re-reads from Firestore. Returns the full
+ * resulting CampConfig after the merge.
+ *
+ * This helper does NOT validate the partial — validation is the caller's
+ * responsibility (see `app/api/config/camp/route.ts` PUT handler).
+ */
+export async function setCampConfig(partial: Partial<CampConfig>): Promise<CampConfig> {
+  const ref = configCol().doc('camp');
+  // Use update() to merge without overwriting unspecified fields.
+  await ref.update({ ...partial });
+  invalidateCampConfigCache();
+  const snap = await ref.get();
+  return { ...(snap.data() as CampConfig) };
+}
+
+// Unambiguous charset — excludes 0/O/1/I/L to avoid human transcription errors.
+const CAMP_CODE_CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const CAMP_CODE_LENGTH = 8;
+
+function generateCampCode(): string {
+  let out = '';
+  for (let i = 0; i < CAMP_CODE_LENGTH; i++) {
+    out += CAMP_CODE_CHARSET.charAt(randomInt(0, CAMP_CODE_CHARSET.length));
+  }
+  return out;
+}
+
+/**
+ * Rotate the teacher camp code. Generates a crypto-random 8-char code
+ * from an unambiguous uppercase alphanumeric charset (no 0/O/1/I/L),
+ * writes it to `config/camp`, invalidates the cache, and returns the
+ * new code.
+ *
+ * After rotation all existing teacher clients must re-enter the new
+ * code — this invalidation is intentional.
+ */
+export async function rotateCampCode(): Promise<string> {
+  const ref = configCol().doc('camp');
+  const code = generateCampCode();
+  await ref.update({ camp_code: code });
+  invalidateCampConfigCache();
+  return code;
 }
 
 // ─── Utility functions ──────────────────────────────────────────────────
