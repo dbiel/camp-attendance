@@ -235,6 +235,24 @@ export async function markAttendance(
 // every doc in the `attendance` collection. New writes no longer include
 // them.
 
+/**
+ * Delete an attendance record. Returns true if a doc existed and was removed,
+ * false if no doc was present (so callers can distinguish if they care).
+ * Doc ID convention matches `markAttendance`: `${date}_${sessionId}_${studentId}`.
+ */
+export async function deleteAttendance(
+  studentId: string,
+  sessionId: string,
+  date: string
+): Promise<boolean> {
+  const docId = `${date}_${sessionId}_${studentId}`;
+  const ref = attendanceCol().doc(docId);
+  const snap = await ref.get();
+  if (!snap.exists) return false;
+  await ref.delete();
+  return true;
+}
+
 // ─── Batch attendance (UX Task 9) ───────────────────────────────────────
 
 export interface AttendanceBatchItem {

@@ -3,6 +3,7 @@ import {
   markAttendance,
   getSessionAttendance,
   isFacultyAssignedToSession,
+  deleteAttendance,
 } from '@/lib/firestore';
 import { verifyAdmin, verifyTeacher } from '@/lib/auth';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
@@ -111,5 +112,62 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error marking attendance:', error);
     return NextResponse.json({ error: 'Failed to mark attendance' }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/attendance?student_id=...&session_id=...&date=...
+ *
+ * Unmarks an attendance record. Used by the teacher UI's 2-state cycle
+ * (present → absent → unmarked). Idempotent: returns 200 whether or not
+ * a doc existed — the client's intent is "this student has no status
+ * for this session/date", and that's the result either way.
+ *
+ * Auth mirrors the POST/GET handlers in this file: admin via Bearer token
+ * OR teacher via X-Camp-Code + X-Faculty-Id with session-assignment check.
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const admin = await verifyAdmin(request);
+    const isTeacher = admin ? false : await verifyTeacher(request);
+    if (!admin && !isTeacher) {
+      if (!checkRateLimit(`attendance:${getClientIp(request)}`)) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+      }
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const studentId = searchParams.get('student_id');
+    const sessionId = searchParams.get('session_id');
+    const date = searchParams.get('date');
+
+    if (!studentId || !sessionId || !date) {
+      return NextResponse.json(
+        { error: 'Missing required parameters: student_id, session_id, date' },
+        { status: 400 }
+      );
+    }
+
+    // Teacher scoping: must present X-Faculty-Id and be assigned to the session.
+    if (!admin) {
+      const facultyId = request.headers.get('X-Faculty-Id');
+      if (!facultyId) {
+        return NextResponse.json({ error: 'Missing X-Faculty-Id' }, { status: 403 });
+      }
+      const assigned = await isFacultyAssignedToSession(facultyId, sessionId);
+      if (!assigned) {
+        return NextResponse.json(
+          { error: 'Not assigned to this session' },
+          { status: 403 }
+        );
+      }
+    }
+
+    await deleteAttendance(studentId, sessionId, date);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting attendance:', error);
+    return NextResponse.json({ error: 'Failed to delete attendance' }, { status: 500 });
   }
 }
