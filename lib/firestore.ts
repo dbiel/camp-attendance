@@ -5,6 +5,8 @@ import {
   Student, Faculty, Period, Session, SessionStudent,
   Attendance, AttendanceDenormalized, SessionStudentDenormalized,
   AttendanceReport, CampConfig,
+  FacultySessionRow, StudentScheduleRow, ScheduleGridRow,
+  SessionWithPeriod, DailyStats,
 } from './types';
 import { getTodayDate, getCurrentTimeHHMM, deriveDayDates } from './date';
 import { invalidateCampConfigCache, loadActiveCampServer } from './camp-config';
@@ -448,7 +450,7 @@ export async function getAttendanceReport(date: string, status?: 'absent' | 'tar
 
 // ─── Faculty Sessions (with attendance counts) ─────────────────────────
 
-export async function getFacultySessions(facultyId: string, date?: string): Promise<any[]> {
+export async function getFacultySessions(facultyId: string, date?: string): Promise<FacultySessionRow[]> {
   const todayDate = date || getTodayDate();
 
   // Get all sessions for this faculty
@@ -459,7 +461,7 @@ export async function getFacultySessions(facultyId: string, date?: string): Prom
   const periods = await getPeriods();
   const periodMap = new Map(periods.map(p => [p.id, p]));
 
-  const results: any[] = [];
+  const results: FacultySessionRow[] = [];
 
   for (const sessDoc of sessSnap.docs) {
     const sess = { id: sessDoc.id, ...sessDoc.data() } as Session;
@@ -509,7 +511,7 @@ export async function getFacultySessions(facultyId: string, date?: string): Prom
 
 // ─── Student Schedule ───────────────────────────────────────────────────
 
-export async function getStudentSchedule(studentId: string, date?: string): Promise<any[]> {
+export async function getStudentSchedule(studentId: string, date?: string): Promise<StudentScheduleRow[]> {
   const todayDate = date || getTodayDate();
 
   // Find all session_students for this student
@@ -525,7 +527,7 @@ export async function getStudentSchedule(studentId: string, date?: string): Prom
   const periods = await getPeriods();
   const periodMap = new Map(periods.map(p => [p.id, p]));
 
-  const results: any[] = [];
+  const results: StudentScheduleRow[] = [];
 
   for (const sessionId of sessionIds) {
     const sess = await getSession(sessionId);
@@ -719,7 +721,7 @@ export async function getStudentScheduleForDate(
 
 // ─── Schedule grid (used by /api/schedule) ──────────────────────────────
 
-export async function getScheduleGrid(): Promise<any[]> {
+export async function getScheduleGrid(): Promise<ScheduleGridRow[]> {
   const [periods, sessionsSnap, facultyList] = await Promise.all([
     getPeriods(),
     sessionsCol().get(),
@@ -737,7 +739,7 @@ export async function getScheduleGrid(): Promise<any[]> {
     studentCountMap.set(sid, (studentCountMap.get(sid) || 0) + 1);
   }
 
-  const results: any[] = [];
+  const results: ScheduleGridRow[] = [];
   for (const sessDoc of sessionsSnap.docs) {
     const sess = sessDoc.data();
     const period = periodMap.get(sess.period_id);
@@ -771,7 +773,7 @@ export async function getScheduleGrid(): Promise<any[]> {
 
 // ─── Session with period info (used by /api/sessions/[id]) ──────────────
 
-export async function getSessionWithPeriod(id: string): Promise<any | undefined> {
+export async function getSessionWithPeriod(id: string): Promise<SessionWithPeriod | undefined> {
   const sess = await getSession(id);
   if (!sess) return undefined;
 
@@ -814,7 +816,7 @@ export async function getSessionStudentsFull(sessionId: string): Promise<Student
 
 // ─── Daily stats ────────────────────────────────────────────────────────
 
-export async function getDailyStats(date: string): Promise<any> {
+export async function getDailyStats(date: string): Promise<DailyStats> {
   // Get all students
   const studentsSnap = await studentsCol().get();
   const totalStudents = studentsSnap.size;

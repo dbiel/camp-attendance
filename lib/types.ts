@@ -151,3 +151,71 @@ export interface CampConfig {
 
 // Teacher-safe projection of CampConfig — no camp_code.
 export type PublicCampConfig = Omit<CampConfig, 'camp_code'>;
+
+// ─── Firestore query return shapes ─────────────────────────────────────
+// Row shapes for the cross-collection joins in lib/firestore.ts. These
+// were previously `any` — typing them here gives callers IntelliSense
+// and prevents accidental shape drift.
+
+export interface FacultySessionRow {
+  id: string;
+  name: string;
+  type: Session['type'];
+  location?: string;
+  period_number: number;
+  start_time: string;
+  end_time: string;
+  period_name: string;
+  ensemble?: string;
+  instrument?: string;
+  total_students: number;
+  present_count: number;
+  absent_count: number;
+  tardy_count: number;
+}
+
+export interface StudentScheduleRow {
+  session_id: string;
+  name: string;
+  type: Session['type'];
+  location?: string;
+  period_number: number;
+  start_time: string;
+  end_time: string;
+  period_name: string;
+  teacher_name: string;
+  attendance_status: 'present' | 'absent' | 'tardy' | 'unmarked';
+  date: string | null;
+}
+
+export interface ScheduleGridRow {
+  id: string;
+  name: string;
+  type: Session['type'];
+  location?: string;
+  ensemble?: string;
+  instrument?: string;
+  period_id: string;
+  faculty_id?: string;
+  period_number: number;
+  period_name: string;
+  start_time: string;
+  end_time: string;
+  faculty_name: string;
+  student_count: number;
+}
+
+export interface SessionWithPeriod extends Session {
+  period_number: number;
+  period_name: string;
+  start_time: string;
+  end_time: string;
+}
+
+export interface DailyStats {
+  present: number;
+  absent: number;
+  tardy: number;
+  unmarked: number;
+  total: number;
+}
