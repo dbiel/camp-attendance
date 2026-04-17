@@ -235,6 +235,147 @@ export async function markAttendance(
 // every doc in the `attendance` collection. New writes no longer include
 // them.
 
+// ─── Batch attendance (UX Task 9) ───────────────────────────────────────
+
+export interface AttendanceBatchItem {
+  student_id: string;
+  session_id: string;
+  date: string;
+  status: 'present' | 'absent' | 'tardy';
+}
+
+export interface AttendanceBatchResult {
+  written: number;
+  skipped: number;
+  errors: Array<{ index: number; reason: string }>;
+}
+
+/**
+ * Write many attendance docs in chunked Firestore WriteBatches.
+ *
+ * - Chunks writes at 400 ops (Firestore hard limit is 500; 400 leaves headroom).
+ * - Pre-fetches the distinct student/session/period/faculty docs once so the
+ *   denormalized fields match single-item `markAttendance` exactly.
+ * - `markedBy` is derived by the caller (the route handler) from the verified
+ *   identity — never accept a client-supplied value here.
+ * - Items whose student_id/session_id don't resolve are reported in `errors`
+ *   and counted as skipped; the rest of the batch still writes.
+ */
+export async function markAttendanceBatch(
+  items: AttendanceBatchItem[],
+  markedBy: string
+): Promise<AttendanceBatchResult> {
+  const result: AttendanceBatchResult = { written: 0, skipped: 0, errors: [] };
+  if (items.length === 0) return result;
+
+  // Pre-fetch the distinct students + sessions in parallel.
+  const studentIds = Array.from(new Set(items.map(i => i.student_id)));
+  const sessionIds = Array.from(new Set(items.map(i => i.session_id)));
+
+  const [students, sessions] = await Promise.all([
+    Promise.all(studentIds.map(id => getStudent(id))),
+    Promise.all(sessionIds.map(id => getSession(id))),
+  ]);
+
+  const studentMap = new Map<string, Student>();
+  studentIds.forEach((id, idx) => {
+    const s = students[idx];
+    if (s) studentMap.set(id, s);
+  });
+
+  const sessionMap = new Map<string, Session>();
+  sessionIds.forEach((id, idx) => {
+    const s = sessions[idx];
+    if (s) sessionMap.set(id, s);
+  });
+
+  // Pre-fetch distinct period + faculty referenced by resolved sessions.
+  const periodIds = Array.from(
+    new Set(Array.from(sessionMap.values()).map(s => s.period_id))
+  );
+  const facultyIds = Array.from(
+    new Set(
+      Array.from(sessionMap.values())
+        .map(s => s.faculty_id)
+        .filter((id): id is string => !!id)
+    )
+  );
+
+  const [periods, facultyList] = await Promise.all([
+    Promise.all(periodIds.map(id => getPeriod(id))),
+    Promise.all(facultyIds.map(id => getFacultyMember(id))),
+  ]);
+
+  const periodMap = new Map<string, Period>();
+  periodIds.forEach((id, idx) => {
+    const p = periods[idx];
+    if (p) periodMap.set(id, p);
+  });
+
+  const facultyMap = new Map<string, Faculty>();
+  facultyIds.forEach((id, idx) => {
+    const f = facultyList[idx];
+    if (f) facultyMap.set(id, f);
+  });
+
+  const markedAt = new Date().toISOString();
+  const CHUNK_SIZE = 400;
+
+  // Build (docRef, data) pairs for all resolvable items, record skip reasons.
+  const writes: Array<{ docId: string; data: Omit<AttendanceDenormalized, 'id'> }> = [];
+  items.forEach((it, index) => {
+    const student = studentMap.get(it.student_id);
+    const session = sessionMap.get(it.session_id);
+    if (!student || !session) {
+      result.skipped += 1;
+      result.errors.push({
+        index,
+        reason: !student ? 'student not found' : 'session not found',
+      });
+      return;
+    }
+    const period = periodMap.get(session.period_id);
+    const faculty = session.faculty_id ? facultyMap.get(session.faculty_id) : undefined;
+    const teacherName = faculty ? `${faculty.first_name} ${faculty.last_name}` : 'TBA';
+
+    const docId = `${it.date}_${it.session_id}_${it.student_id}`;
+    writes.push({
+      docId,
+      data: {
+        student_id: it.student_id,
+        session_id: it.session_id,
+        date: it.date,
+        status: it.status,
+        marked_at: markedAt,
+        marked_by: markedBy || null,
+        first_name: student.first_name,
+        last_name: student.last_name,
+        last_initial: student.last_initial,
+        preferred_name: student.preferred_name || null,
+        instrument: student.instrument,
+        ensemble: student.ensemble,
+        session_name: session.name,
+        period_number: period?.number ?? 0,
+        period_name: period?.name ?? '',
+        teacher_name: teacherName,
+      },
+    });
+  });
+
+  // Commit in chunks of 400.
+  for (let offset = 0; offset < writes.length; offset += CHUNK_SIZE) {
+    const chunk = writes.slice(offset, offset + CHUNK_SIZE);
+    const batch = adminDb.batch();
+    for (const w of chunk) {
+      batch.set(attendanceCol().doc(w.docId), w.data);
+    }
+    await batch.commit();
+    result.written += chunk.length;
+  }
+
+  return result;
+}
+
 export async function getAttendanceReport(date: string, status?: 'absent' | 'tardy'): Promise<AttendanceReport[]> {
   // Single where + client filter to avoid composite index requirement
   const snap = await attendanceCol().where('date', '==', date).get();
