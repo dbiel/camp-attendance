@@ -187,26 +187,20 @@ export default function AdminSettingsPage() {
               </div>
             </section>
 
-            {/* Yearly Rollover — placeholder for Phase 5 wizard */}
+            {/* Yearly Rollover */}
             <section className="camp-card p-6">
               <h2 className="camp-subheading">Yearly Rollover</h2>
               <p className="text-sm text-gray-600 mb-4">
                 Archive this year&apos;s data and start a new camp year. Run
-                this once after the camp ends.
+                this once after camp ends.
               </p>
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className="camp-btn-primary px-6 opacity-50 cursor-not-allowed"
-                  disabled
-                  aria-disabled="true"
-                  title="Available in an upcoming release"
+                <Link
+                  href="/admin/settings/rollover"
+                  className="camp-btn-primary px-6"
                 >
                   Start Rollover Wizard
-                </button>
-                <span className="text-xs text-gray-500 italic">
-                  Available in an upcoming release
-                </span>
+                </Link>
               </div>
             </section>
           </>
