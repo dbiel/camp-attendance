@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
 import { CampConfigProvider } from '@/lib/camp-config-client';
+import { ToastProvider } from '@/components/Toast';
 
 export const metadata: Metadata = {
   title: 'TTU Band & Orchestra Camp',
@@ -17,7 +18,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <CampConfigProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </AuthProvider>
         </CampConfigProvider>
       </body>
     </html>

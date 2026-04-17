@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import '@testing-library/jest-dom/vitest';
 
 // Set test environment variables
 process.env.CAMP_CODE = 'test-camp-2026';
