@@ -28,10 +28,15 @@ function safeEqual(a: string | undefined | null, b: string | undefined | null): 
  *
  * Flow:
  *   1. Decode the Bearer ID token via Firebase Admin.
- *   2. Look up the decoded email in the `admins` Firestore collection.
- *   3. If missing, try the bootstrap path — when the collection is empty
- *      AND the email appears in `ADMIN_BOOTSTRAP_EMAILS`, seed the caller
- *      as the first admin and proceed. Otherwise, reject.
+ *   2. Try bootstrap seeding BEFORE the allowlist check. `bootstrapAdminIfEmpty`
+ *      is a no-op when the collection is non-empty or the email isn't in
+ *      `ADMIN_BOOTSTRAP_EMAILS`, so this is cheap in the steady state. Seeding
+ *      first guarantees that a bootstrap-eligible first sign-in actually
+ *      persists the admin doc — otherwise a later `addAdmin` would make the
+ *      collection non-empty and strand the original admin.
+ *   3. Look up the decoded email in the `admins` Firestore collection (the
+ *      bootstrap path in `isAdminEmail` is kept as a belt-and-suspenders
+ *      fallback for the pathological case where the seed write failed).
  *
  * An authenticated user whose email is not allow-listed resolves to
  * `null` — the caller-side code treats that identically to an
@@ -47,10 +52,13 @@ export async function verifyAdmin(request: NextRequest) {
     const email = decoded.email;
     if (!email) return null;
 
+    // Seed first (no-op when not applicable). This fixes a regression where
+    // the bootstrap admin was authorized via `isAdminEmail`'s bootstrap
+    // path without ever having their doc written — a subsequent `addAdmin`
+    // then made the collection non-empty and locked them out.
+    await bootstrapAdminIfEmpty(email);
+
     if (await isAdminEmail(email)) return decoded;
-    // Not in allowlist — try bootstrap seeding (no-op if collection non-empty
-    // or email not in ADMIN_BOOTSTRAP_EMAILS).
-    if (await bootstrapAdminIfEmpty(email)) return decoded;
     return null;
   } catch {
     return null;

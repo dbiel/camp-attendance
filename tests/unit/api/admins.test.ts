@@ -162,6 +162,27 @@ describe('DELETE /api/admins/[email]', () => {
     expect(removeAdminMock).not.toHaveBeenCalled();
   });
 
+  it('returns 400 when caller token has mixed-case email and route param is lowercase', async () => {
+    // Self-check must normalize BOTH sides. Guard against a decoded-token
+    // email that arrives in a different case than the allowlist stores.
+    verifyIdTokenMock.mockResolvedValue({ uid: 'admin-uid', email: 'Admin@Test.Com' });
+    const res = await DELETE(delReq(), { params: { email: 'admin@test.com' } });
+    expect(res.status).toBe(400);
+    expect(removeAdminMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when param has surrounding whitespace matching caller', async () => {
+    // Simulates a hostile/malformed route param. Current handler trims +
+    // lowercases before compare, so this must still block self-removal.
+    const req = new NextRequest('http://localhost/api/admins/target', {
+      method: 'DELETE',
+      headers: new Headers({ Authorization: 'Bearer fake' }),
+    });
+    const res = await DELETE(req, { params: { email: '  admin@test.com  ' } });
+    expect(res.status).toBe(400);
+    expect(removeAdminMock).not.toHaveBeenCalled();
+  });
+
   it('returns 200 on successful removal', async () => {
     removeAdminMock.mockResolvedValue(undefined);
     const res = await DELETE(delReq(), { params: { email: 'someone@test.com' } });

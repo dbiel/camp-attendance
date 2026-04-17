@@ -85,12 +85,31 @@ describe('verifyAdmin', () => {
   it('returns decoded token when bootstrap seeding succeeds', async () => {
     const decoded = { uid: 'first-1', email: 'firstadmin@test.com' };
     vi.mocked(adminAuth.verifyIdToken).mockResolvedValue(decoded as any);
-    vi.mocked(isAdminEmail).mockResolvedValue(false);
+    // New flow: verifyAdmin calls bootstrapAdminIfEmpty FIRST, then
+    // isAdminEmail. A real bootstrap write would make isAdminEmail return
+    // true on the subsequent doc lookup — simulate that here.
     vi.mocked(bootstrapAdminIfEmpty).mockResolvedValue(true);
+    vi.mocked(isAdminEmail).mockResolvedValue(true);
 
     const result = await verifyAdmin(makeRequest({ Authorization: 'Bearer valid-token' }));
     expect(result).toEqual(decoded);
     expect(bootstrapAdminIfEmpty).toHaveBeenCalledWith('firstadmin@test.com');
+  });
+
+  it('calls bootstrapAdminIfEmpty BEFORE isAdminEmail so seed writes persist', async () => {
+    // Regression guard: the old flow short-circuited past bootstrapAdminIfEmpty
+    // whenever isAdminEmail returned true, which happened on the bootstrap
+    // branch without writing. This asserts the correct call order.
+    const decoded = { uid: 'order-1', email: 'admin@test.com' };
+    vi.mocked(adminAuth.verifyIdToken).mockResolvedValue(decoded as any);
+    vi.mocked(isAdminEmail).mockResolvedValue(true);
+    vi.mocked(bootstrapAdminIfEmpty).mockResolvedValue(false);
+
+    await verifyAdmin(makeRequest({ Authorization: 'Bearer valid-token' }));
+
+    const bootstrapOrder = vi.mocked(bootstrapAdminIfEmpty).mock.invocationCallOrder[0];
+    const isAdminOrder = vi.mocked(isAdminEmail).mock.invocationCallOrder[0];
+    expect(bootstrapOrder).toBeLessThan(isAdminOrder);
   });
 
   it('returns null when token has no email claim', async () => {
