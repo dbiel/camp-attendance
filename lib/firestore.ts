@@ -560,6 +560,161 @@ export async function getStudentSchedule(studentId: string, date?: string): Prom
   return results;
 }
 
+// ─── Student search (UX Task 11) ────────────────────────────────────────
+
+export interface StudentSearchResult {
+  id: string;
+  first_name: string;
+  last_name: string;
+  preferred_name: string | null;
+  instrument: string;
+  ensemble: string | null;
+  dorm_building: string | null;
+  dorm_room: string | null;
+}
+
+export interface StudentSearchResponse {
+  results: StudentSearchResult[];
+  total: number;
+  truncated: boolean;
+}
+
+/**
+ * Admin-only fuzzy search across the students collection.
+ *
+ * Firestore does not support substring indexes. For our ~644 students this
+ * is small enough to fetch-and-filter in memory on each call. Expected
+ * call volume is low (admin-only, manual searches from the dashboard).
+ *
+ * Matches case-insensitive substring against first_name, last_name,
+ * preferred_name, instrument, and the "first last" concatenation.
+ *
+ * Ranking:
+ *   1. Exact match on any searched field (first/last/preferred/instrument
+ *      or "first last").
+ *   2. Prefix match on any searched field.
+ *   3. Substring match.
+ * Ties are broken by last_name asc, then first_name asc.
+ */
+export async function searchStudents(
+  query: string,
+  limit: number
+): Promise<StudentSearchResponse> {
+  const q = query.trim().toLowerCase();
+  if (!q) return { results: [], total: 0, truncated: false };
+
+  const snap = await studentsCol().get();
+
+  type Scored = { student: Student; rank: number };
+  const scored: Scored[] = [];
+
+  for (const doc of snap.docs) {
+    const s = { id: doc.id, ...doc.data() } as Student;
+    const first = (s.first_name || '').toLowerCase();
+    const last = (s.last_name || '').toLowerCase();
+    const preferred = (s.preferred_name || '').toLowerCase();
+    const instrument = (s.instrument || '').toLowerCase();
+    const fullName = `${first} ${last}`.trim();
+    const fields = [first, last, preferred, instrument, fullName].filter(Boolean);
+
+    let rank = 3; // 1 exact, 2 prefix, 3 substring, 4 no match
+    let matched = false;
+    for (const f of fields) {
+      if (f === q) {
+        rank = Math.min(rank, 1);
+        matched = true;
+      } else if (f.startsWith(q)) {
+        rank = Math.min(rank, 2);
+        matched = true;
+      } else if (f.includes(q)) {
+        rank = Math.min(rank, 3);
+        matched = true;
+      }
+    }
+    if (matched) scored.push({ student: s, rank });
+  }
+
+  scored.sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    const lastCmp = (a.student.last_name || '').localeCompare(b.student.last_name || '');
+    if (lastCmp !== 0) return lastCmp;
+    return (a.student.first_name || '').localeCompare(b.student.first_name || '');
+  });
+
+  const total = scored.length;
+  const truncated = total > limit;
+  const top = scored.slice(0, limit);
+
+  const results: StudentSearchResult[] = top.map(({ student: s }) => ({
+    id: s.id,
+    first_name: s.first_name,
+    last_name: s.last_name,
+    preferred_name: s.preferred_name ?? null,
+    instrument: s.instrument,
+    ensemble: s.ensemble ?? null,
+    dorm_building: s.dorm_building ?? null,
+    dorm_room: s.dorm_room ?? null,
+  }));
+
+  return { results, total: results.length, truncated };
+}
+
+// ─── Student schedule for date (UX Task 11) ────────────────────────────
+
+export interface StudentScheduleEntry {
+  session_id: string;
+  session_name: string;
+  period_name: string;
+  start_time: string;
+  end_time: string;
+  location: string | null;
+  status: 'present' | 'absent' | 'tardy' | 'unmarked';
+}
+
+/**
+ * Return the student's sessions for a given date, with attendance status
+ * joined per session. Status is 'unmarked' when no attendance record exists.
+ * Results ordered by period number ascending.
+ */
+export async function getStudentScheduleForDate(
+  studentId: string,
+  date: string
+): Promise<StudentScheduleEntry[]> {
+  const ssSnap = await sessionStudentsCol()
+    .where('student_id', '==', studentId)
+    .get();
+
+  if (ssSnap.empty) return [];
+
+  const sessionIds = ssSnap.docs.map(d => d.data().session_id as string);
+
+  const periods = await getPeriods();
+  const periodMap = new Map(periods.map(p => [p.id, p]));
+
+  type Entry = StudentScheduleEntry & { _periodNumber: number };
+  const entries: Entry[] = [];
+
+  for (const sessionId of sessionIds) {
+    const sess = await getSession(sessionId);
+    if (!sess) continue;
+    const period = periodMap.get(sess.period_id);
+    const att = await getAttendance(studentId, sessionId, date);
+    entries.push({
+      session_id: sess.id,
+      session_name: sess.name,
+      period_name: period?.name ?? '',
+      start_time: period?.start_time ?? '',
+      end_time: period?.end_time ?? '',
+      location: sess.location ?? null,
+      status: att?.status ?? 'unmarked',
+      _periodNumber: period?.number ?? 0,
+    });
+  }
+
+  entries.sort((a, b) => a._periodNumber - b._periodNumber);
+  return entries.map(({ _periodNumber, ...rest }) => rest);
+}
+
 // ─── Schedule grid (used by /api/schedule) ──────────────────────────────
 
 export async function getScheduleGrid(): Promise<any[]> {
