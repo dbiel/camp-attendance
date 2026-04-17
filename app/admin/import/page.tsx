@@ -1,227 +1,213 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/components/Toast';
+import type {
+  ColumnMapping,
+  NormalizedRow,
+  ParsedFile,
+} from '@/lib/import-parsers';
+import type { EntityName } from '@/lib/import-schemas';
 
-type ImportType = 'students' | 'faculty' | 'sessions' | 'enrollments';
+import { EntityStep } from './EntityStep';
+import { UploadStep } from './UploadStep';
+import { MappingStep } from './MappingStep';
+import { PreviewStep } from './PreviewStep';
+import { ResultStep, type ImportResultData } from './ResultStep';
+import { ProgressBar } from './ProgressBar';
+import { buildImportPayload, saveMapping } from './mapping-storage';
 
-interface ImportResult {
-  success: number;
-  failed: number;
-  errors: string[];
-}
+type Step = 1 | 2 | 3 | 4 | 5;
 
 export default function ImportPage() {
   const router = useRouter();
   const { user, loading: authLoading, getAuthHeaders } = useAuth();
-  const [importType, setImportType] = useState<ImportType>('students');
-  const [fileContent, setFileContent] = useState('');
-  const [preview, setPreview] = useState<any[]>([]);
+  const { push: toast } = useToast();
+
+  const [step, setStep] = useState<Step>(1);
+  const [entity, setEntity] = useState<EntityName | null>(null);
+  const [parsed, setParsed] = useState<ParsedFile | null>(null);
+  const [mapping, setMapping] = useState<ColumnMapping | null>(null);
+  const [normalizedRows, setNormalizedRows] = useState<NormalizedRow[]>([]);
+  const [clientFailedCount, setClientFailedCount] = useState(0);
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [result, setResult] = useState<ImportResultData | null>(null);
+
+  const topRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/admin');
+    if (!authLoading && !user) router.push('/admin');
+  }, [user, authLoading, router]);
+
+  // Scroll to top on step transitions.
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [user, authLoading]);
+  }, [step]);
 
-  function parseCSV(content: string): any[] {
-    const lines = content.trim().split('\n');
-    if (lines.length < 2) return [];
+  function resetAll() {
+    setStep(1);
+    setEntity(null);
+    setParsed(null);
+    setMapping(null);
+    setNormalizedRows([]);
+    setClientFailedCount(0);
+    setResult(null);
+  }
 
-    const headers = lines[0].split(',').map((h) => h.trim());
-    const rows = [];
+  function onEntitySelected(e: EntityName) {
+    setEntity(e);
+    setParsed(null);
+    setMapping(null);
+    setStep(2);
+  }
 
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map((v) => v.trim());
-      const row: any = {};
-      headers.forEach((header, idx) => {
-        row[header] = values[idx] || '';
+  function onParsed(p: ParsedFile) {
+    setParsed(p);
+    if (p.truncated) {
+      toast({
+        kind: 'info',
+        text: `File truncated to first ${p.rows.length.toLocaleString()} rows.`,
       });
-      rows.push(row);
     }
-
-    return rows;
+    setStep(3);
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const content = e.target.value;
-    setFileContent(content);
-    setPreview(parseCSV(content).slice(0, 5));
+  function onMappingConfirmed(m: ColumnMapping) {
+    setMapping(m);
+    setStep(4);
   }
 
-  async function handleImport() {
-    if (!fileContent.trim()) {
-      alert('Please paste CSV data');
+  async function onImport(validRows: NormalizedRow[]) {
+    if (!entity || !parsed || !mapping) return;
+    if (validRows.length === 0) {
+      toast({ kind: 'error', text: 'No valid rows to import' });
       return;
     }
-
-    const data = parseCSV(fileContent);
-    if (data.length === 0) {
-      alert('No data to import');
-      return;
-    }
-
     setImporting(true);
     try {
-      const headers = await getAuthHeaders();
-      const endpoint = `/api/import/${importType}`;
-      const payload =
-        importType === 'enrollments'
-          ? { enrollments: data }
-          : importType === 'sessions'
-            ? { sessions: data }
-            : importType === 'faculty'
-              ? { faculty: data }
-              : { students: data };
-
-      const res = await fetch(endpoint, {
+      const authHeaders = await getAuthHeaders();
+      const payload = buildImportPayload(
+        entity,
+        validRows.map((r) => r.data),
+      );
+      const res = await fetch(`/api/import/${entity}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(payload),
       });
-
-      const resultData = await res.json();
-      setResult(resultData);
-    } catch (error) {
-      console.error('Error importing:', error);
-      setResult({ success: 0, failed: data.length, errors: ['Import failed'] });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = body?.error || `Import failed (${res.status})`;
+        toast({ kind: 'error', text: msg });
+        return;
+      }
+      const data: ImportResultData = {
+        success: Number(body?.success ?? 0),
+        failed: Number(body?.failed ?? 0),
+        errors: Array.isArray(body?.errors) ? body.errors : [],
+      };
+      setResult(data);
+      // Persist mapping now that the admin confirmed it was usable.
+      saveMapping(entity, parsed.headers, mapping);
+      if (data.failed === 0) {
+        toast({ kind: 'success', text: `Imported ${data.success} ${entity}` });
+      } else {
+        toast({
+          kind: 'info',
+          text: `Imported ${data.success}, ${data.failed} failed server-side.`,
+        });
+      }
+      setStep(5);
+    } catch (err) {
+      toast({
+        kind: 'error',
+        text:
+          err instanceof Error ? err.message : 'Network error during import',
+      });
     } finally {
       setImporting(false);
     }
   }
 
+  // Capture normalized rows + client error count whenever we land on step 4.
+  // We get them from PreviewStep via a callback lifted to the page so the
+  // Result step can build the failed-rows CSV without re-normalizing.
+  function captureNormalized(rows: NormalizedRow[]) {
+    setNormalizedRows(rows);
+    setClientFailedCount(rows.filter((r) => r.errors.length > 0).length);
+  }
+
   if (authLoading || !user) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-gray-600">Loading...</div></div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Loading…</div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <div className="bg-camp-green text-white p-4 sticky top-0 z-40 shadow-md">
-        <Link href="/admin/dashboard" className="text-sm opacity-75 hover:opacity-100 mb-2 block">
+        <Link
+          href="/admin/dashboard"
+          className="text-sm opacity-75 hover:opacity-100 mb-2 block"
+        >
           &larr; Dashboard
         </Link>
         <h1 className="text-2xl font-bold">Import Data</h1>
       </div>
 
-      <div className="max-w-2xl mx-auto p-4">
-        {/* Import Type Selection */}
-        <div className="camp-card p-4 mb-6">
-          <label className="camp-label">Data Type to Import</label>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {(['students', 'faculty', 'sessions', 'enrollments'] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => {
-                  setImportType(type);
-                  setFileContent('');
-                  setPreview([]);
-                  setResult(null);
-                }}
-                className={`p-3 rounded-lg font-semibold transition-all ${
-                  importType === type
-                    ? 'bg-camp-green text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
+      <div ref={topRef} className="max-w-3xl mx-auto p-4">
+        <ProgressBar current={step} />
 
-        {/* CSV Input */}
-        <div className="camp-card p-4 mb-6">
-          <label className="camp-label">Paste CSV Data</label>
-          <p className="text-xs text-gray-600 mb-2">
-            {importType === 'students' &&
-              'Columns: first_name, last_name, preferred_name, gender, division, instrument, ensemble, chair_number, dorm_building, dorm_room, email, cell_phone, parent_first_name, parent_last_name, parent_phone, medical_notes'}
-            {importType === 'faculty' &&
-              'Columns: first_name, last_name, role, email'}
-            {importType === 'sessions' &&
-              'Columns: period_number, name, type, location, faculty_id, ensemble, instrument'}
-            {importType === 'enrollments' &&
-              'Columns: student_id, session_id'}
-          </p>
-          <textarea
-            value={fileContent}
-            onChange={handleFileChange}
-            placeholder="Paste your CSV data here..."
-            className="w-full p-3 border border-gray-300 rounded-lg font-mono text-sm focus:outline-none focus:ring-2 focus:ring-camp-green h-40"
+        {step === 1 && <EntityStep onSelect={onEntitySelected} />}
+
+        {step === 2 && entity && (
+          <UploadStep
+            entity={entity}
+            onParsed={onParsed}
+            onBack={() => setStep(1)}
+            onError={(msg) => toast({ kind: 'error', text: msg })}
           />
-        </div>
-
-        {/* Preview */}
-        {preview.length > 0 && (
-          <div className="camp-card p-4 mb-6">
-            <h3 className="font-bold text-camp-green mb-3">Preview ({preview.length} rows shown)</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="bg-gray-100 border-b border-gray-200">
-                  <tr>
-                    {Object.keys(preview[0]).map((key) => (
-                      <th key={key} className="px-2 py-1 text-left">
-                        {key}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.map((row, idx) => (
-                    <tr key={idx} className="border-b border-gray-200">
-                      {Object.values(row).map((val, vIdx) => (
-                        <td key={vIdx} className="px-2 py-1 text-gray-700">
-                          {String(val)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         )}
 
-        {/* Import Button */}
-        <button
-          onClick={handleImport}
-          disabled={importing || fileContent.trim().length === 0}
-          className="w-full camp-btn-primary py-3 text-lg font-bold disabled:opacity-50"
-        >
-          {importing ? 'Importing...' : 'Import'}
-        </button>
+        {step === 3 && entity && parsed && (
+          <MappingStep
+            entity={entity}
+            parsed={parsed}
+            initialMapping={mapping}
+            onBack={() => setStep(2)}
+            onConfirm={onMappingConfirmed}
+          />
+        )}
 
-        {/* Results */}
-        {result && (
-          <div className="camp-card p-4 mt-6 border-l-4 border-camp-green">
-            <h3 className="font-bold text-camp-green mb-2">Import Results</h3>
-            <div className="space-y-2 text-sm">
-              <p>
-                <span className="font-semibold">Success:</span> {result.success}
-              </p>
-              <p>
-                <span className="font-semibold">Failed:</span> {result.failed}
-              </p>
-              {result.errors.length > 0 && (
-                <div>
-                  <p className="font-semibold">Errors:</p>
-                  <ul className="list-disc list-inside text-red-600">
-                    {result.errors.slice(0, 10).map((err, idx) => (
-                      <li key={idx} className="text-xs">
-                        {err}
-                      </li>
-                    ))}
-                    {result.errors.length > 10 && (
-                      <li className="text-xs">... and {result.errors.length - 10} more</li>
-                    )}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
+        {step === 4 && entity && parsed && mapping && (
+          <PreviewStep
+            entity={entity}
+            parsed={parsed}
+            mapping={mapping}
+            importing={importing}
+            onBack={() => setStep(3)}
+            onImport={onImport}
+            onNormalized={captureNormalized}
+          />
+        )}
+
+        {step === 5 && entity && parsed && result && (
+          <ResultStep
+            entity={entity}
+            result={result}
+            parsed={parsed}
+            normalizedRows={normalizedRows}
+            serverErrors={result.errors}
+            clientFailedCount={clientFailedCount}
+            onImportMore={resetAll}
+          />
         )}
       </div>
     </div>
