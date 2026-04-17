@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useCampConfig, useTodayDayKey } from '@/lib/camp-config-client';
-import { dayKeyToDate, formatDayLabel } from '@/lib/date';
+import { dayKeyToDate, formatDayLabel, getTodayDate } from '@/lib/date';
 import { db as clientDb } from '@/lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { StudentDetailModal } from './StudentDetailModal';
+import type { Student } from '@/lib/types';
 
 const PERIODS = [
   { num: 1, label: 'Period 1', time: '8:00-8:50' },
@@ -56,9 +58,20 @@ interface SessionGroup {
   students: AbsenceRecord[];
 }
 
+interface SearchResult {
+  id: string;
+  first_name: string;
+  last_name: string;
+  preferred_name: string | null;
+  instrument: string;
+  ensemble: string | null;
+  dorm_building: string | null;
+  dorm_room: string | null;
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut, getAuthHeaders } = useAuth();
   const { config } = useCampConfig();
   const todayKey = useTodayDayKey();
 
@@ -66,12 +79,19 @@ export default function AdminDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
   const [allRecords, setAllRecords] = useState<AbsenceRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
+  const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
   const [studentFilter, setStudentFilter] = useState('');
   const [ensembleFilter, setEnsembleFilter] = useState('');
+  const [instrumentFilter, setInstrumentFilter] = useState('');
+  const [dormFilter, setDormFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'' | 'absent' | 'tardy'>('absent');
+
+  // Roster-wide search (finds students NOT already in the absence list)
+  const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchTruncated, setSearchTruncated] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -153,6 +173,76 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedDay, config]);
 
+  // Debounced roster-wide search (≥2 chars, 250ms)
+  useEffect(() => {
+    const q = studentFilter.trim();
+    if (q.length < 2) {
+      setSearchResults(null);
+      setSearchTruncated(false);
+      setSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSearchLoading(true);
+    const handle = setTimeout(async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(
+          `/api/students/search?q=${encodeURIComponent(q)}&limit=50`,
+          { headers }
+        );
+        if (!res.ok) throw new Error(`Search failed (${res.status})`);
+        const data = (await res.json()) as {
+          results: SearchResult[];
+          total: number;
+          truncated: boolean;
+        };
+        if (cancelled) return;
+        setSearchResults(data.results);
+        setSearchTruncated(Boolean(data.truncated));
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Student search error:', err);
+          setSearchResults([]);
+          setSearchTruncated(false);
+        }
+      } finally {
+        if (!cancelled) setSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [studentFilter, getAuthHeaders]);
+
+  // Patch local records when the modal edits a student so rolled-off
+  // absences reflect immediately without waiting for a listener tick.
+  const handleStudentUpdate = useCallback((updated: Student) => {
+    setAllRecords((prev) =>
+      prev.map((r) =>
+        r.student_id === updated.id
+          ? {
+              ...r,
+              first_name: updated.first_name ?? r.first_name,
+              last_name: updated.last_name ?? r.last_name,
+              instrument: updated.instrument ?? r.instrument,
+              ensemble: updated.ensemble ?? r.ensemble,
+              dorm_building: updated.dorm_building ?? r.dorm_building,
+              dorm_room: updated.dorm_room ?? r.dorm_room,
+              cell_phone: updated.cell_phone ?? r.cell_phone,
+              email: updated.email ?? r.email,
+              parent_first_name: updated.parent_first_name ?? r.parent_first_name,
+              parent_last_name: updated.parent_last_name ?? r.parent_last_name,
+              parent_phone: updated.parent_phone ?? r.parent_phone,
+            }
+          : r
+      )
+    );
+  }, []);
+
   if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -174,8 +264,28 @@ export default function AdminDashboard() {
     if (statusFilter && record.status !== statusFilter) return false;
     if (studentFilter && !`${record.first_name} ${record.last_name}`.toLowerCase().includes(studentFilter.toLowerCase())) return false;
     if (ensembleFilter && record.ensemble !== ensembleFilter) return false;
+    if (instrumentFilter && record.instrument !== instrumentFilter) return false;
+    if (dormFilter && (record.dorm_building || '') !== dormFilter) return false;
     return true;
   });
+
+  // Distinct instrument / dorm options derived from the current day's records
+  const instrumentOptions = Array.from(
+    new Set(allRecords.map((r) => r.instrument).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+  const dormOptions = Array.from(
+    new Set(
+      allRecords
+        .map((r) => r.dorm_building)
+        .filter((v): v is string => Boolean(v) && v !== 'n/a')
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  // Date the modal reports against — mirrors the selected day. Falls back to
+  // today when config hasn't resolved yet.
+  const dashboardDate =
+    (config && selectedDay ? dayKeyToDate(selectedDay, config.day_dates) : null) ??
+    getTodayDate();
 
   // Group by session, sorted by period then session name
   const sessionMap = new Map<string, SessionGroup>();
@@ -346,22 +456,100 @@ export default function AdminDashboard() {
         </div>
 
         {/* Search & Filter Bar */}
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            placeholder="Search student..."
-            value={studentFilter}
-            onChange={(e) => setStudentFilter(e.target.value)}
-            className="camp-input flex-1"
-          />
+        <div className="flex flex-wrap gap-2 mb-4">
+          <div className="relative flex-1 min-w-[200px]">
+            <input
+              type="text"
+              placeholder="Search any student (name, instrument)…"
+              value={studentFilter}
+              onChange={(e) => setStudentFilter(e.target.value)}
+              className="camp-input w-full"
+              role="combobox"
+              aria-expanded={searchResults !== null}
+              aria-controls="student-search-results"
+              aria-autocomplete="list"
+            />
+            {searchResults !== null && (
+              <div
+                id="student-search-results"
+                role="listbox"
+                className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-30 max-h-80 overflow-y-auto"
+              >
+                {searchLoading && (
+                  <div className="px-3 py-2 text-sm text-gray-500">Searching…</div>
+                )}
+                {!searchLoading && searchResults.length === 0 && (
+                  <div className="px-3 py-2 text-sm text-gray-500">No students match.</div>
+                )}
+                {searchResults.map((r) => {
+                  const dorm = r.dorm_building && r.dorm_building !== 'n/a'
+                    ? `${r.dorm_building}${r.dorm_room && r.dorm_room !== 'n/a' ? ` ${r.dorm_room}` : ''}`
+                    : 'Commuter';
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      onClick={() => {
+                        setDetailStudentId(r.id);
+                        setSearchResults(null);
+                        setSearchTruncated(false);
+                        setStudentFilter('');
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none border-b border-gray-100 last:border-b-0"
+                    >
+                      <div className="text-sm font-semibold text-gray-900">
+                        {r.first_name}
+                        {r.preferred_name ? ` (${r.preferred_name})` : ''} {r.last_name}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {r.instrument}
+                        {r.ensemble ? ` · ${r.ensemble}` : ''}
+                        {` · ${dorm}`}
+                      </div>
+                    </button>
+                  );
+                })}
+                {searchTruncated && !searchLoading && searchResults.length > 0 && (
+                  <div className="px-3 py-2 text-xs text-gray-500 italic border-t border-gray-100">
+                    Showing first 50 matches — refine your search
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <select
             value={ensembleFilter}
             onChange={(e) => setEnsembleFilter(e.target.value)}
             className="camp-input w-40"
+            aria-label="Filter by ensemble"
           >
             <option value="">All Ensembles</option>
             {['Band 1', 'Band 2', 'Band 3', 'Band 4', 'Band 5', 'Band 6', 'Band 7', 'Orchestra 1', 'Orchestra 2'].map((e) => (
               <option key={e} value={e}>{e}</option>
+            ))}
+          </select>
+          <select
+            value={instrumentFilter}
+            onChange={(e) => setInstrumentFilter(e.target.value)}
+            className="camp-input w-40"
+            aria-label="Filter by instrument"
+          >
+            <option value="">All Instruments</option>
+            {instrumentOptions.map((i) => (
+              <option key={i} value={i}>{i}</option>
+            ))}
+          </select>
+          <select
+            value={dormFilter}
+            onChange={(e) => setDormFilter(e.target.value)}
+            className="camp-input w-40"
+            aria-label="Filter by dorm building"
+          >
+            <option value="">All Dorms</option>
+            {dormOptions.map((d) => (
+              <option key={d} value={d}>{d}</option>
             ))}
           </select>
           <button onClick={exportCSV} className="camp-btn-accent px-4 text-sm whitespace-nowrap">
@@ -375,6 +563,8 @@ export default function AdminDashboard() {
           {selectedPeriod !== null && ` \u2022 ${PERIODS.find(p => p.num === selectedPeriod)?.label}`}
           {statusFilter && ` \u2022 ${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}`}
           {ensembleFilter && ` \u2022 ${ensembleFilter}`}
+          {instrumentFilter && ` \u2022 ${instrumentFilter}`}
+          {dormFilter && ` \u2022 ${dormFilter}`}
           {studentFilter && ` \u2022 "${studentFilter}"`}
           {` \u2014 ${filtered.length} record${filtered.length !== 1 ? 's' : ''}`}
         </div>
@@ -412,74 +602,30 @@ export default function AdminDashboard() {
                 {/* Student List */}
                 <div className="divide-y divide-gray-100">
                   {group.students.map((record) => {
-                    const expandKey = `${record.student_id}-${record.session_id}`;
-                    const isExpanded = expandedStudent === expandKey;
+                    const rowKey = `${record.student_id}-${record.session_id}`;
                     return (
-                      <div key={expandKey}>
-                        <button
-                          onClick={() => setExpandedStudent(isExpanded ? null : expandKey)}
-                          className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <span className="font-semibold">{record.first_name} {record.last_name}</span>
-                              <span className="text-gray-500 text-sm ml-2">{record.instrument}</span>
-                              {record.ensemble && (
-                                <span className="text-gray-400 text-sm ml-1">({record.ensemble})</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                                record.status === 'absent' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {record.status.toUpperCase()}
-                              </span>
-                              <span className={`text-gray-400 text-xs transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
-                                &#9662;
-                              </span>
-                            </div>
+                      <button
+                        key={rowKey}
+                        onClick={() => setDetailStudentId(record.student_id)}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="font-semibold">{record.first_name} {record.last_name}</span>
+                            <span className="text-gray-500 text-sm ml-2">{record.instrument}</span>
+                            {record.ensemble && (
+                              <span className="text-gray-400 text-sm ml-1">({record.ensemble})</span>
+                            )}
                           </div>
-                        </button>
-
-                        {isExpanded && (
-                          <div className="bg-blue-50 px-4 py-3 border-t border-blue-100">
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                              <div>
-                                <div className="text-gray-500 text-xs font-semibold uppercase">Student Cell</div>
-                                <div className="font-medium">{record.cell_phone || 'N/A'}</div>
-                              </div>
-                              <div>
-                                <div className="text-gray-500 text-xs font-semibold uppercase">Parent</div>
-                                <div className="font-medium">
-                                  {record.parent_first_name && record.parent_last_name
-                                    ? `${record.parent_first_name} ${record.parent_last_name}`
-                                    : 'N/A'}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-gray-500 text-xs font-semibold uppercase">Parent Phone</div>
-                                <div className="font-medium">{record.parent_phone || 'N/A'}</div>
-                              </div>
-                              <div>
-                                <div className="text-gray-500 text-xs font-semibold uppercase">Email</div>
-                                <div className="font-medium">{record.email || 'N/A'}</div>
-                              </div>
-                              <div>
-                                <div className="text-gray-500 text-xs font-semibold uppercase">Dorm</div>
-                                <div className="font-medium">
-                                  {record.dorm_building && record.dorm_building !== 'n/a'
-                                    ? `${record.dorm_building}${record.dorm_room && record.dorm_room !== 'n/a' ? ` rm ${record.dorm_room}` : ''}`
-                                    : 'Commuter'}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-gray-500 text-xs font-semibold uppercase">Ensemble</div>
-                                <div className="font-medium">{record.ensemble || 'Unassigned'}</div>
-                              </div>
-                            </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                              record.status === 'absent' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {record.status.toUpperCase()}
+                            </span>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -504,6 +650,13 @@ export default function AdminDashboard() {
           </Link>
         </div>
       </div>
+
+      <StudentDetailModal
+        studentId={detailStudentId}
+        date={dashboardDate}
+        onClose={() => setDetailStudentId(null)}
+        onUpdate={handleStudentUpdate}
+      />
     </div>
   );
 }
