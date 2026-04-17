@@ -6,8 +6,8 @@ import {
   Attendance, AttendanceDenormalized, SessionStudentDenormalized,
   AttendanceReport, CampConfig,
 } from './types';
-import { getTodayDate, getCurrentTimeHHMM } from './date';
-import { invalidateCampConfigCache } from './camp-config';
+import { getTodayDate, getCurrentTimeHHMM, deriveDayDates } from './date';
+import { invalidateCampConfigCache, loadActiveCampServer } from './camp-config';
 
 // Re-export for back-compat — existing callers import getTodayDate from '@/lib/firestore'.
 export { getTodayDate } from './date';
@@ -911,6 +911,311 @@ export async function rotateCampCode(): Promise<string> {
   await ref.update({ camp_code: code });
   invalidateCampConfigCache();
   return code;
+}
+
+// ─── Rollover ───────────────────────────────────────────────────────────
+//
+// Yearly rollover archives the previous camp's attendance + session
+// enrollments under `camps/{oldId}/…`, clears the live collections, and
+// advances `config/camp` to the new year with a fresh camp_code. Students,
+// faculty, periods, and sessions are preserved year-over-year.
+//
+// There is NO separate `config/active_camp` pointer doc in this schema —
+// `config/camp` IS the active config, and its `camp_id` / `camp_year`
+// fields identify the current year.
+//
+// Safety model:
+//   1. Archive is idempotent (same doc ids in the destination sub-collection).
+//      Re-running after a partial archive failure just re-copies docs already
+//      present — no duplicates.
+//   2. Live collections are only cleared AFTER archive counts match live
+//      counts. If a mismatch is detected, the operation aborts with an error
+//      before touching the live data.
+//   3. Each step logs progress so an ops person can see where a failure
+//      occurred and whether retry is safe.
+
+export interface PerformRolloverOptions {
+  /** New camp year as a 4-digit string, e.g. "2027". Must be > old camp year. */
+  newYear: string;
+  /** ISO YYYY-MM-DD start of the new camp. */
+  newStartDate: string;
+  /** ISO YYYY-MM-DD end of the new camp. */
+  newEndDate: string;
+  /** IANA timezone for the new camp. */
+  newTimezone: string;
+  /**
+   * When true (default), clears `ensemble` + `chair_number` on every student
+   * doc so day-1 auditions start from a blank slate. When false, preserves
+   * prior assignments (an admin can run a separate bulk-clear later).
+   */
+  clearEnsembleAssignments?: boolean;
+  /** When true, returns counts but performs no writes. */
+  dryRun?: boolean;
+}
+
+export interface PerformRolloverResult {
+  dry_run: boolean;
+  old_id: string;
+  new_id: string;
+  new_camp_code: string;
+  archived: { attendance: number; session_students: number };
+  cleared: { attendance: number; session_students: number };
+}
+
+const BATCH_CHUNK_SIZE = 400;
+
+/**
+ * Count documents in a collection (or sub-collection) via an empty-select
+ * query. Uses `.count()` aggregation when available; falls back to a full
+ * doc scan if the aggregate API isn't wired up in the current SDK version.
+ */
+export async function countDocs(collectionPath: string): Promise<number> {
+  const col = adminDb.collection(collectionPath);
+  // Prefer aggregate count — one round-trip, no doc payloads.
+  const anyCol = col as unknown as { count?: () => { get: () => Promise<{ data: () => { count: number } }> } };
+  if (typeof anyCol.count === 'function') {
+    try {
+      const agg = await anyCol.count!().get();
+      return agg.data().count;
+    } catch {
+      // fall through to scan
+    }
+  }
+  const snap = await col.select().get();
+  return snap.size;
+}
+
+/**
+ * Copy every doc from `fromPath` to `toPath`, preserving doc ids. Chunks
+ * writes at BATCH_CHUNK_SIZE (400) to stay under Firestore's 500-op batch
+ * limit. Idempotent — re-running against an already-populated destination
+ * overwrites with the same values.
+ *
+ * Returns the number of docs copied.
+ */
+export async function copyCollectionDocs(fromPath: string, toPath: string): Promise<number> {
+  const fromCol = adminDb.collection(fromPath);
+  const toCol = adminDb.collection(toPath);
+  const snap = await fromCol.get();
+  if (snap.empty) return 0;
+
+  const docs = snap.docs;
+  for (let offset = 0; offset < docs.length; offset += BATCH_CHUNK_SIZE) {
+    const chunk = docs.slice(offset, offset + BATCH_CHUNK_SIZE);
+    const batch = adminDb.batch();
+    for (const d of chunk) {
+      batch.set(toCol.doc(d.id), d.data());
+    }
+    await batch.commit();
+  }
+  return docs.length;
+}
+
+/**
+ * Delete every doc in a collection in chunked write-batches. Returns the
+ * number of docs deleted. Used only after archive verification succeeds.
+ */
+export async function deleteAllDocs(collectionPath: string): Promise<number> {
+  const col = adminDb.collection(collectionPath);
+  const snap = await col.get();
+  if (snap.empty) return 0;
+
+  const docs = snap.docs;
+  for (let offset = 0; offset < docs.length; offset += BATCH_CHUNK_SIZE) {
+    const chunk = docs.slice(offset, offset + BATCH_CHUNK_SIZE);
+    const batch = adminDb.batch();
+    for (const d of chunk) {
+      batch.delete(d.ref);
+    }
+    await batch.commit();
+  }
+  return docs.length;
+}
+
+/**
+ * Clear `ensemble` and `chair_number` on every student doc. Called during
+ * rollover when `clearEnsembleAssignments` is true (default). Fresh day-1
+ * auditions each camp.
+ *
+ * `ensemble` is typed as a required string on Student, so we clear to ''
+ * (empty string) rather than deleting the field — the type shape stays
+ * consistent and existing reads won't break.
+ */
+export async function clearStudentEnsembleAssignments(): Promise<number> {
+  const snap = await studentsCol().get();
+  if (snap.empty) return 0;
+  const docs = snap.docs;
+  for (let offset = 0; offset < docs.length; offset += BATCH_CHUNK_SIZE) {
+    const chunk = docs.slice(offset, offset + BATCH_CHUNK_SIZE);
+    const batch = adminDb.batch();
+    for (const d of chunk) {
+      batch.update(d.ref, {
+        ensemble: '',
+        chair_number: FieldValue.delete(),
+      });
+    }
+    await batch.commit();
+  }
+  return docs.length;
+}
+
+/**
+ * Execute a yearly rollover.
+ *
+ * Order of operations (dryRun=false):
+ *   1. Load active config; record oldId = camp_id.
+ *   2. Archive attendance/*       → camps/{oldId}/attendance/*       (chunked)
+ *   3. Archive session_students/* → camps/{oldId}/session_students/* (chunked)
+ *   4. Verify archive counts match live counts. Abort on mismatch.
+ *   5. Delete live attendance/*       (chunked)
+ *   6. Delete live session_students/* (chunked)
+ *   7. (optional) Clear ensemble + chair_number on every student.
+ *   8. Update config/camp: new camp_id, camp_year, dates, timezone,
+ *      day_dates (derived), and a fresh crypto-random camp_code.
+ *
+ * dryRun=true performs only steps 1 + the read counts and returns the
+ * expected archive/cleared totals without any writes.
+ *
+ * Failure modes:
+ *   - Mid-archive failure (step 2 or 3): safe to retry. Archive writes
+ *     use fixed doc ids so re-running completes without duplicates.
+ *   - Count-verification failure (step 4): throws before any destructive
+ *     write. No live data altered.
+ *   - Mid-clear failure (step 5 or 6): live collection partially cleared
+ *     but archive is intact. Re-running dryRun will report the remaining
+ *     live count; a targeted clean-up is then safe because the archive
+ *     already has every original doc.
+ */
+export async function performRollover(
+  opts: PerformRolloverOptions
+): Promise<PerformRolloverResult> {
+  const {
+    newYear,
+    newStartDate,
+    newEndDate,
+    newTimezone,
+    clearEnsembleAssignments = true,
+    dryRun = false,
+  } = opts;
+
+  // Step 1 — load active config. Force-reload to bypass the 30s cache so
+  // a second rollover attempt right after a config edit sees the latest
+  // camp_id.
+  const active = await loadActiveCampServer(true);
+  const oldId = active.camp_id;
+  const oldYear = active.camp_year;
+
+  const newYearNum = Number.parseInt(newYear, 10);
+  if (!Number.isFinite(newYearNum) || newYearNum <= oldYear) {
+    throw new Error(
+      `new_year (${newYear}) must be greater than current camp_year (${oldYear})`
+    );
+  }
+
+  console.log(`[rollover] start old_id=${oldId} new_year=${newYear} dry_run=${dryRun}`);
+
+  // Always measure live counts first — needed for dry-run output and
+  // archive verification on real runs.
+  const [liveAttendanceCount, liveSessionStudentsCount] = await Promise.all([
+    countDocs('attendance'),
+    countDocs('session_students'),
+  ]);
+
+  console.log(
+    `[rollover] live counts attendance=${liveAttendanceCount} ` +
+      `session_students=${liveSessionStudentsCount}`
+  );
+
+  if (dryRun) {
+    return {
+      dry_run: true,
+      old_id: oldId,
+      new_id: newYear,
+      new_camp_code: '',
+      archived: {
+        attendance: liveAttendanceCount,
+        session_students: liveSessionStudentsCount,
+      },
+      cleared: { attendance: 0, session_students: 0 },
+    };
+  }
+
+  // Step 2 — archive attendance.
+  console.log(`[rollover] archiving attendance → camps/${oldId}/attendance`);
+  const archivedAttendance = await copyCollectionDocs(
+    'attendance',
+    `camps/${oldId}/attendance`
+  );
+
+  // Step 3 — archive session_students.
+  console.log(`[rollover] archiving session_students → camps/${oldId}/session_students`);
+  const archivedSessionStudents = await copyCollectionDocs(
+    'session_students',
+    `camps/${oldId}/session_students`
+  );
+
+  // Step 4 — verify archive counts match live counts BEFORE destructive clears.
+  if (
+    archivedAttendance !== liveAttendanceCount ||
+    archivedSessionStudents !== liveSessionStudentsCount
+  ) {
+    const msg =
+      `[rollover] archive count mismatch — ` +
+      `live attendance=${liveAttendanceCount} archived=${archivedAttendance}, ` +
+      `live session_students=${liveSessionStudentsCount} archived=${archivedSessionStudents}. ` +
+      `Aborting before clearing live data.`;
+    console.error(msg);
+    throw new Error(msg);
+  }
+  console.log('[rollover] archive verified — counts match live');
+
+  // Step 5 — clear live attendance.
+  console.log('[rollover] clearing live attendance');
+  const clearedAttendance = await deleteAllDocs('attendance');
+
+  // Step 6 — clear live session_students.
+  console.log('[rollover] clearing live session_students');
+  const clearedSessionStudents = await deleteAllDocs('session_students');
+
+  // Step 7 — optional: reset audition assignments on students.
+  if (clearEnsembleAssignments) {
+    console.log('[rollover] clearing ensemble + chair_number on students');
+    const touched = await clearStudentEnsembleAssignments();
+    console.log(`[rollover] cleared ensemble/chair on ${touched} students`);
+  } else {
+    console.log('[rollover] preserving ensemble assignments (flag off)');
+  }
+
+  // Step 8 — advance config/camp to the new year with fresh code.
+  const newCode = generateCampCode();
+  const dayDates = deriveDayDates(newStartDate, newEndDate) as Record<string, string>;
+  const ref = configCol().doc('camp');
+  await ref.update({
+    camp_id: newYear,
+    camp_year: newYearNum,
+    start_date: newStartDate,
+    end_date: newEndDate,
+    timezone: newTimezone,
+    day_dates: dayDates,
+    camp_code: newCode,
+  });
+  invalidateCampConfigCache();
+  console.log(`[rollover] done old_id=${oldId} new_id=${newYear} new_code_len=${newCode.length}`);
+
+  return {
+    dry_run: false,
+    old_id: oldId,
+    new_id: newYear,
+    new_camp_code: newCode,
+    archived: {
+      attendance: archivedAttendance,
+      session_students: archivedSessionStudents,
+    },
+    cleared: {
+      attendance: clearedAttendance,
+      session_students: clearedSessionStudents,
+    },
+  };
 }
 
 // ─── Utility functions ──────────────────────────────────────────────────
