@@ -1,12 +1,12 @@
 # TTU Band & Orchestra Camp - Management System
 
-A complete web app for managing attendance and scheduling at TTU Band and Orchestra Camp. Runs locally using Next.js and SQLite — no external services required.
+A complete web app for managing attendance and scheduling at TTU Band and Orchestra Camp. Built on Next.js 14 and Firebase/Firestore.
 
 ## Features
 
 - **Teacher Interface**: Quick, phone-friendly attendance taking
 - **Admin Dashboard**: Comprehensive reporting and data management
-- **Local Database**: SQLite-based, file-stored, self-contained
+- **Firestore-backed**: Cloud-hosted data, real-time reads
 - **Real-time Stats**: Daily attendance summaries
 - **Data Import**: Bulk import students, faculty, sessions, and enrollments
 - **Mobile-First Design**: Optimized for teachers taking attendance on phones
@@ -14,9 +14,9 @@ A complete web app for managing attendance and scheduling at TTU Band and Orches
 ## Tech Stack
 
 - **Frontend**: React 18, Next.js 14 (App Router)
-- **Database**: SQLite via better-sqlite3
+- **Database**: Firebase Firestore (Admin SDK server-side, web SDK client-side)
 - **Styling**: Tailwind CSS
-- **Environment**: Node.js
+- **Environment**: Node.js 20
 
 ## Setup
 
@@ -51,12 +51,13 @@ The app will start at `http://localhost:3000`
 3. Enter your admin password (default: `camp2026`)
 4. Use the Import Data page to load your student, faculty, and session data
 
-## Database
+## Data Storage
 
-- **Location**: `./data/camp.db`
-- **Type**: SQLite (WAL mode for better concurrency)
-- **Auto-initialized**: Tables are created automatically on first run
-- **Seeded data**: Periods are seeded on first run
+- **Type**: Firebase Firestore
+- **Collections**: students, faculty, periods, sessions, session_students, attendance, config
+- **Server-side access**: Admin SDK via `lib/firestore.ts`
+- **Security rules**: see `firestore.rules`
+- **Indexes**: see `firestore.indexes.json`
 
 ## Project Structure
 
@@ -77,8 +78,11 @@ camp-app/
 │   ├── globals.css
 │   └── layout.tsx
 ├── lib/
-│   ├── db.ts                # Database functions
+│   ├── firestore.ts         # Server-side Firestore access (Admin SDK)
+│   ├── firebase-admin.ts    # Admin SDK initialization
 │   └── types.ts             # TypeScript interfaces
+├── firestore.rules          # Firestore security rules
+├── firestore.indexes.json   # Firestore composite indexes
 ├── package.json
 ├── tsconfig.json
 ├── tailwind.config.ts
@@ -186,7 +190,7 @@ npm start
 npm run lint
 ```
 
-## Database Tables
+## Firestore Collections
 
 ### students
 Core student information, instrument, ensemble, and contact details.
@@ -201,19 +205,17 @@ Fixed schedule periods (8:00am - 5:50pm, plus assembly).
 Classes, rehearsals, sections, and other activities assigned to periods.
 
 ### session_students
-Junction table mapping students to sessions.
+Denormalized enrollment docs mapping students to sessions (doc id = `${session_id}_${student_id}`).
 
 ### attendance
-Daily attendance records (present/absent/tardy).
+Daily attendance records (present/absent/tardy). Doc id = `${date}_${session_id}_${student_id}`.
 
-### schedule_templates
-(Optional) Templates for auto-assigning students to sessions.
+### config/camp
+Active camp settings (year, dates, timezone, camp_code).
 
 ## Notes
 
-- Database is stored locally in `./data/camp.db`
-- No external services or authentication services required
-- All data stays on your machine
+- Data is stored in Firebase Firestore — see `firestore.rules` for access controls
 - Admin password is environment variable based
 - Phone-optimized UI for teachers marking attendance
 - Desktop-friendly tables for admins

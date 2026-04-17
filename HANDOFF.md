@@ -7,19 +7,19 @@ A complete web app for managing TTU Band and Orchestra Camp (TTUBOC). ~644 campe
 
 ## CURRENT STATE
 
-The app has been scaffolded with Next.js 14 + SQLite (better-sqlite3) + Tailwind CSS. All files are written but have NOT been tested or run yet. Data from the 2025 camp has been parsed into JSON files in /data/. The original Excel/Word source files are in /source-data/ for reference.
+The app is built on Next.js 14 + Firebase/Firestore + Tailwind CSS. Data from the 2025 camp has been parsed into JSON files in /data/. The original Excel/Word source files are in /source-data/ for reference.
 
-**Your job: get this app running, test it, fix any bugs, import the real data, and make it production-ready.**
+See `docs/plans/` for the current architecture — that's the source of truth.
 
 ---
 
 ## TECH STACK
 
 - **Next.js 14** with App Router (NO static export — dynamic routes required)
-- **SQLite** via better-sqlite3 (synchronous, fast, local file at ./data/camp.db)
+- **Firebase/Firestore** for data storage (collections: students, faculty, periods, sessions, session_students, attendance)
+- **Firebase Admin SDK** for server-side reads/writes in API routes
 - **Tailwind CSS** for styling
 - **TypeScript**
-- Runs locally with `npm run dev` — no external services needed
 
 ---
 
@@ -67,7 +67,7 @@ A student's schedule is determined by:
 
 ---
 
-## DATABASE SCHEMA
+## FIRESTORE COLLECTIONS
 
 ### students
 - id, first_name, last_name, preferred_name, gender
@@ -113,7 +113,7 @@ All parsed from real 2025 camp Excel/Word files:
 - **faculty_schedule.json** — 410 faculty-to-period-activity mappings
 
 ### Import order:
-1. periods (seed these on DB init)
+1. periods (seeded once per camp)
 2. faculty
 3. students
 4. sessions (needs period_id references)
@@ -233,12 +233,11 @@ All under /app/api/:
 ## WHAT NEEDS TO HAPPEN NEXT
 
 1. **Run `npm install` and `npm run dev`** — fix any build/runtime errors
-2. **Write a data import script** (or use the /admin/import page) to load the JSON files into SQLite
+2. **Load data**: use the /admin/import page to load JSON/CSV/XLSX files into Firestore
 3. **Test the teacher flow**: pick a teacher → see sessions → take attendance
 4. **Test the admin flow**: login → search for a student → see their full profile and schedule
 5. **Test edge cases**: what happens with no data? Partially marked attendance? Searching for a student who's absent from multiple periods?
-6. **Add a data seed script** (e.g., `npm run seed`) that loads all JSON files into the database
-7. **Polish**: loading states, error handling, empty states, responsive layout
+6. **Polish**: loading states, error handling, empty states, responsive layout
 
 ---
 
