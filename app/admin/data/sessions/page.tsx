@@ -32,12 +32,21 @@ export default function SessionsDataPage() {
         fetch('/api/schedule', { headers }),
       ]);
 
+      if (!sessionsRes.ok || !periodsRes.ok) {
+        console.error('Failed to fetch sessions/schedule:', sessionsRes.status, periodsRes.status);
+        setSessions([]);
+        setPeriods([]);
+        return;
+      }
+
       const sessionsData = await sessionsRes.json();
       const scheduleData = await periodsRes.json();
+      const sessionsArr = Array.isArray(sessionsData) ? sessionsData : [];
+      const scheduleArr = Array.isArray(scheduleData) ? scheduleData : [];
 
       // Extract unique periods
       const periodsMap = new Map<number, Period>();
-      scheduleData.forEach((s: any) => {
+      scheduleArr.forEach((s: any) => {
         if (!periodsMap.has(s.period_number)) {
           periodsMap.set(s.period_number, {
             id: String(s.period_number),
@@ -50,7 +59,7 @@ export default function SessionsDataPage() {
       });
       const uniquePeriods: Period[] = Array.from(periodsMap.values());
 
-      setSessions(sessionsData);
+      setSessions(sessionsArr);
       setPeriods(uniquePeriods);
     } catch (error) {
       console.error('Error fetching data:', error);

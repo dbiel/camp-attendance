@@ -25,11 +25,18 @@ export default function FacultyDataPage() {
 
   async function fetchFaculty() {
     try {
-      const res = await fetch('/api/faculty');
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/faculty', { headers });
+      if (!res.ok) {
+        console.error('Failed to fetch faculty:', res.status);
+        setFaculty([]);
+        return;
+      }
       const data = await res.json();
-      setFaculty(data);
+      setFaculty(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching faculty:', error);
+      setFaculty([]);
     } finally {
       setLoading(false);
     }
