@@ -8,6 +8,7 @@ import { useCampConfig } from '@/lib/camp-config-client';
 import { Modal } from '@/components/Modal';
 import { useToast } from '@/components/Toast';
 import { CampIdentitySection } from './CampIdentitySection';
+import { AdminUsersSection } from './AdminUsersSection';
 import type { CampConfig } from '@/lib/types';
 
 export default function AdminSettingsPage() {
@@ -186,6 +187,9 @@ export default function AdminSettingsPage() {
                 </button>
               </div>
             </section>
+
+            {/* Admin Users */}
+            <AdminUsersSection />
 
             {/* Yearly Rollover */}
             <section className="camp-card p-6">
