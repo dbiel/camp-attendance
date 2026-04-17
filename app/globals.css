@@ -68,8 +68,45 @@ body {
   }
 
   .sticky-header {
-    @apply sticky top-0 bg-white border-b border-gray-200 z-50 px-4 py-3 shadow-sm;
+    @apply sticky top-0 bg-white border-b border-gray-200 z-50 px-4 py-3 shadow-sm transition-shadow duration-200;
   }
+
+  .sticky-bottom-cta {
+    @apply fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)];
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .pending-badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-semibold whitespace-nowrap self-start;
+  }
+
+  .pending-badge::before {
+    content: '';
+    @apply w-1.5 h-1.5 rounded-full bg-amber-500;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* Collapse-on-scroll: hide secondary header content when user scrolls */
+.sticky-header .collapsible {
+  @apply transition-all duration-200 ease-out overflow-hidden;
+  max-height: 300px;
+  opacity: 1;
+}
+
+.sticky-header.collapsed {
+  @apply shadow-md;
+}
+
+.sticky-header.collapsed .collapsible {
+  max-height: 0;
+  opacity: 0;
+  margin-bottom: 0 !important;
 }
 
 /* Attendance page specific styles */
@@ -93,9 +130,9 @@ body {
   @apply bg-yellow-500 text-white border-2 border-yellow-600;
 }
 
-/* Count bar */
+/* Count bar (3-column: Present / Absent / Unmarked; Tardy is admin-only) */
 .count-bar {
-  @apply grid grid-cols-4 gap-2 p-3 bg-gray-50 rounded-lg text-xs font-semibold;
+  @apply grid grid-cols-3 gap-2 p-3 bg-gray-50 rounded-lg text-xs font-semibold;
 }
 
 .count-item {

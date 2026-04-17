@@ -51,6 +51,7 @@ export default function AttendancePage({
   const [loading, setLoading] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
   const date =
     config && selectedDay ? dayKeyToDate(selectedDay, config.day_dates) : null;
@@ -146,6 +147,21 @@ export default function AttendancePage({
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);
   }, [drainQueue]);
+
+  // Collapse header on scroll with hysteresis to avoid flicker at the edge.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    function onScroll() {
+      const y = window.scrollY;
+      setHeaderCollapsed((prev) => {
+        if (!prev && y > 80) return true;
+        if (prev && y < 24) return false;
+        return prev;
+      });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   async function fetchData() {
     if (!date) return;
@@ -327,9 +343,9 @@ export default function AttendancePage({
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-32">
       {/* Sticky Header */}
-      <div className="sticky-header">
+      <div className={`sticky-header ${headerCollapsed ? 'collapsed' : ''}`}>
         <Link href={`/teacher/${params.id}`} className="text-camp-green font-semibold hover:opacity-75 mb-2 block">
           &larr; Back
         </Link>
@@ -337,56 +353,60 @@ export default function AttendancePage({
           <h1 className="camp-heading mb-0">{session?.name || 'Take Attendance'}</h1>
           {pendingCount > 0 && (
             <span role="status" className="pending-badge">
-              {pendingCount} pending sync
+              {pendingCount} pending
             </span>
           )}
         </div>
-        <p className="text-sm text-gray-600 mb-3">
-          {session?.period_name}{session?.start_time ? ` \u2022 ${session.start_time}\u2013${session.end_time}` : ''}
-          {session?.location ? ` \u2022 ${session.location}` : ''}
-        </p>
 
-        {/* Day Selector */}
-        <div className="flex gap-1 mb-3">
-          {config && Object.keys(config.day_dates).map((dayKey) => {
-            const isToday = dayKey === todayKey;
-            const isSelected = dayKey === selectedDay;
-            return (
-              <button
-                key={dayKey}
-                onClick={() => setSelectedDay(dayKey)}
-                aria-pressed={isSelected}
-                className={`flex-1 py-2 rounded font-bold text-sm transition-all relative ${
-                  isSelected
-                    ? 'bg-camp-green text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {dayKey}
-                {isToday && !isSelected && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute -top-1 -right-1 w-2 h-2 bg-camp-accent rounded-full"
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
+        {/* Collapses on scroll: meta, day selector, count bar */}
+        <div className="collapsible">
+          <p className="text-sm text-gray-600 mt-1 mb-3">
+            {session?.period_name}{session?.start_time ? ` \u2022 ${session.start_time}\u2013${session.end_time}` : ''}
+            {session?.location ? ` \u2022 ${session.location}` : ''}
+          </p>
 
-        {/* Count Bar (3-column: Present / Absent / Unmarked) */}
-        <div className="count-bar">
-          <div className="count-item count-present">
-            <div className="text-lg font-bold">{presentCount}</div>
-            <div className="text-xs">Present</div>
+          {/* Day Selector */}
+          <div className="flex gap-1 mb-3">
+            {config && Object.keys(config.day_dates).map((dayKey) => {
+              const isToday = dayKey === todayKey;
+              const isSelected = dayKey === selectedDay;
+              return (
+                <button
+                  key={dayKey}
+                  onClick={() => setSelectedDay(dayKey)}
+                  aria-pressed={isSelected}
+                  className={`flex-1 py-2 rounded font-bold text-sm transition-all relative ${
+                    isSelected
+                      ? 'bg-camp-green text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {dayKey}
+                  {isToday && !isSelected && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -top-1 -right-1 w-2 h-2 bg-camp-accent rounded-full"
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
-          <div className="count-item count-absent">
-            <div className="text-lg font-bold">{absentCount}</div>
-            <div className="text-xs">Absent</div>
-          </div>
-          <div className="count-item count-unmarked">
-            <div className="text-lg font-bold">{unmarkedCount}</div>
-            <div className="text-xs">Unmarked</div>
+
+          {/* Count Bar (3-column: Present / Absent / Unmarked) */}
+          <div className="count-bar">
+            <div className="count-item count-present">
+              <div className="text-lg font-bold">{presentCount}</div>
+              <div className="text-xs">Present</div>
+            </div>
+            <div className="count-item count-absent">
+              <div className="text-lg font-bold">{absentCount}</div>
+              <div className="text-xs">Absent</div>
+            </div>
+            <div className="count-item count-unmarked">
+              <div className="text-lg font-bold">{unmarkedCount}</div>
+              <div className="text-xs">Unmarked</div>
+            </div>
           </div>
         </div>
       </div>
@@ -442,7 +462,7 @@ export default function AttendancePage({
         <div className="sticky-bottom-cta">
           <button
             onClick={() => setConfirmOpen(true)}
-            className="w-full camp-btn-outline py-3 text-lg font-bold"
+            className="w-full camp-btn-primary py-3 text-lg font-bold"
           >
             Mark {unmarkedCount} Remaining Absent
           </button>
@@ -456,21 +476,21 @@ export default function AttendancePage({
         title="Mark remaining absent?"
         size="md"
       >
-        <p className="mb-4 text-gray-700">
+        <p className="mb-6 text-gray-700">
           Mark {unmarkedCount} student{unmarkedCount === 1 ? '' : 's'} remaining as absent?
         </p>
-        <div className="flex gap-2 justify-end">
+        <div className="flex gap-3 justify-end">
           <button
             type="button"
             onClick={() => setConfirmOpen(false)}
-            className="camp-btn-outline px-4 py-2"
+            className="camp-btn-outline px-5 py-2"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={confirmMarkAllRemaining}
-            className="camp-btn px-4 py-2"
+            className="camp-btn-primary px-5 py-2"
           >
             Mark Absent
           </button>
