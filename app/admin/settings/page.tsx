@@ -26,6 +26,13 @@ export default function AdminSettingsPage() {
   const [rotateOpen, setRotateOpen] = useState(false);
   const [rotating, setRotating] = useState(false);
 
+  // Manual-code entry state. Pending code is staged in the input and
+  // confirmed via the same modal the random rotate uses.
+  const [manualCode, setManualCode] = useState('');
+  const [pendingManualCode, setPendingManualCode] = useState<string | null>(null);
+  const [setCodeOpen, setSetCodeOpen] = useState(false);
+  const [settingCode, setSettingCode] = useState(false);
+
   useEffect(() => {
     if (!authLoading && !user) router.push('/admin');
   }, [user, authLoading, router]);
@@ -113,6 +120,57 @@ export default function AdminSettingsPage() {
     }
   }
 
+  function openSetCodeModal() {
+    const trimmed = manualCode.trim();
+    if (trimmed.length < 4 || trimmed.length > 32) {
+      toast({
+        kind: 'error',
+        text: 'Code must be 4–32 characters',
+      });
+      return;
+    }
+    if (!/^[A-Za-z0-9]+$/.test(trimmed)) {
+      toast({
+        kind: 'error',
+        text: 'Code may only contain letters and digits',
+      });
+      return;
+    }
+    setPendingManualCode(trimmed);
+    setSetCodeOpen(true);
+  }
+
+  async function handleSetCode() {
+    if (!pendingManualCode) return;
+    setSettingCode(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/config/camp-code/rotate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ camp_code: pendingManualCode }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({
+          kind: 'error',
+          text: body?.error || `Set code failed (${res.status})`,
+        });
+        return;
+      }
+      const newCode = body.camp_code as string;
+      setConfig((prev) => (prev ? { ...prev, camp_code: newCode } : prev));
+      toast({ kind: 'success', text: `New code: ${newCode} — distribute to faculty` });
+      setSetCodeOpen(false);
+      setPendingManualCode(null);
+      setManualCode('');
+    } catch (err) {
+      toast({ kind: 'error', text: (err as Error).message });
+    } finally {
+      setSettingCode(false);
+    }
+  }
+
   async function copyCode() {
     if (!config) return;
     try {
@@ -186,6 +244,43 @@ export default function AdminSettingsPage() {
                   Rotate Code
                 </button>
               </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <label
+                  htmlFor="manual-camp-code"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Or set a specific code
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  4–32 letters/digits (e.g. <code>ttuboc2026</code>). Case is preserved.
+                </p>
+                <form
+                  className="flex flex-wrap items-center gap-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    openSetCodeModal();
+                  }}
+                >
+                  <input
+                    id="manual-camp-code"
+                    type="text"
+                    placeholder="ttuboc2026"
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value)}
+                    className="camp-input flex-1 min-w-[220px] font-mono"
+                    autoComplete="off"
+                    disabled={settingCode}
+                  />
+                  <button
+                    type="submit"
+                    className="camp-btn-primary px-4"
+                    disabled={settingCode || !manualCode.trim()}
+                  >
+                    Set Code
+                  </button>
+                </form>
+              </div>
             </section>
 
             {/* Admin Users */}
@@ -237,6 +332,47 @@ export default function AdminSettingsPage() {
             disabled={rotating}
           >
             {rotating ? 'Rotating...' : 'Rotate code'}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={setCodeOpen}
+        onClose={() =>
+          settingCode
+            ? undefined
+            : (setSetCodeOpen(false), setPendingManualCode(null))
+        }
+        title="Set teacher camp code?"
+        size="md"
+      >
+        <p className="text-sm text-gray-700 mb-4">
+          Setting the code to{' '}
+          <code className="font-mono bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">
+            {pendingManualCode}
+          </code>{' '}
+          will log out every teacher. They&apos;ll need to re-enter the new
+          code on their devices. Continue?
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            className="camp-btn-outline px-4"
+            onClick={() => {
+              setSetCodeOpen(false);
+              setPendingManualCode(null);
+            }}
+            disabled={settingCode}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="camp-btn-accent px-4"
+            onClick={handleSetCode}
+            disabled={settingCode}
+          >
+            {settingCode ? 'Setting...' : 'Set code'}
           </button>
         </div>
       </Modal>

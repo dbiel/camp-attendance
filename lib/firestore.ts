@@ -915,6 +915,23 @@ export async function rotateCampCode(): Promise<string> {
   return code;
 }
 
+/**
+ * Set the teacher camp code to an explicit value. Unlike `rotateCampCode`
+ * this does not generate the code — the caller supplies it. The helper
+ * writes the value as-is (preserves case) so admins can choose a
+ * memorable phrase like `ttuboc2026`. Validation of charset/length is
+ * the caller's responsibility (see the POST route handler).
+ *
+ * Writes to `config/camp`, invalidates the cache, and returns the
+ * provided code so the caller can echo it back in the response.
+ */
+export async function setCampCode(code: string): Promise<string> {
+  const ref = configCol().doc('camp');
+  await ref.update({ camp_code: code });
+  invalidateCampConfigCache();
+  return code;
+}
+
 // ─── Rollover ───────────────────────────────────────────────────────────
 //
 // Yearly rollover archives the previous camp's attendance + session
