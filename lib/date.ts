@@ -5,7 +5,7 @@
 
 const DEFAULT_CAMP_TZ = 'America/Chicago';
 
-export type DayKey = 'M' | 'T' | 'W' | 'Th' | 'F' | 'S';
+export type DayKey = 'M' | 'T' | 'W' | 'Th' | 'F' | 'S' | 'Su';
 export type DayDates = Partial<Record<DayKey, string>>;
 
 const DAY_LABELS: Record<DayKey, string> = {
@@ -15,10 +15,21 @@ const DAY_LABELS: Record<DayKey, string> = {
   Th: 'Thu',
   F: 'Fri',
   S: 'Sat',
+  Su: 'Sun',
 };
 
-// Ordered day keys for deriveDayDates.
-const DAY_KEYS_ORDERED: DayKey[] = ['M', 'T', 'W', 'Th', 'F', 'S'];
+// Maps JS getDay() (0=Sun .. 6=Sat) to our short camp-day keys. The
+// codebase uses 'T' (not 'Tu') for Tuesday — preserved for backwards
+// compatibility with seed data, teacher UI, and existing tests.
+const DAY_KEY_BY_WEEKDAY: Record<number, DayKey> = {
+  0: 'Su',
+  1: 'M',
+  2: 'T',
+  3: 'W',
+  4: 'Th',
+  5: 'F',
+  6: 'S',
+};
 
 /** Today's ISO date (YYYY-MM-DD) in the given timezone. */
 export function todayIsoInTimezone(tz: string, now: Date = new Date()): string {
@@ -70,27 +81,63 @@ export function formatDayLabel(key: string): string {
   return DAY_LABELS[key as DayKey] ?? key;
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseLocalIsoDate(iso: string): Date {
+  if (!ISO_DATE_RE.test(iso)) {
+    throw new RangeError(`invalid ISO date: ${iso}`);
+  }
+  // Parse as a local calendar date (not UTC) so getDay() returns the
+  // weekday the user actually sees on their calendar regardless of the
+  // host machine's timezone.
+  const [y, m, d] = iso.split('-').map((n) => Number.parseInt(n, 10));
+  const date = new Date(y!, (m ?? 1) - 1, d);
+  // Guard against calendar rollovers like 2026-02-31 → March.
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== y ||
+    date.getMonth() !== (m ?? 1) - 1 ||
+    date.getDate() !== d
+  ) {
+    throw new RangeError(`invalid ISO date: ${iso}`);
+  }
+  return date;
+}
+
 /**
  * Derive a day_dates map from a camp start/end date.
- * Input: inclusive ISO dates (YYYY-MM-DD). Output: up to 6 day keys (M..S)
- * in order from startDate forward. Used by the Settings page to auto-fill
- * day_dates when the admin sets the camp date range.
+ *
+ * Walks every day in the inclusive range [startDate, endDate] and maps
+ * each date to its weekday key: Monday → 'M', Tuesday → 'T',
+ * Wednesday → 'W', Thursday → 'Th', Friday → 'F', Saturday → 'S',
+ * Sunday → 'Su'. (Note: the codebase uses 'T' for Tuesday — not 'Tu' —
+ * to stay compatible with existing seed data and teacher UI.)
+ *
+ * If the camp spans more than 7 days, keys REPEAT across the walk and
+ * **later occurrences win**. A 9-day camp starting on a Monday ends up
+ * with the second Monday's date under 'M'. Day keys are short UI labels,
+ * not unique identifiers — this matches how `day_dates` is consumed
+ * everywhere else in the app.
+ *
+ * Throws a RangeError when either input isn't a valid `YYYY-MM-DD`
+ * string or when `endDate < startDate`.
  */
 export function deriveDayDates(startDate: string, endDate: string): DayDates {
-  const out: DayDates = {};
-  // Parse as UTC noon to avoid timezone edge cases when incrementing.
-  const start = new Date(`${startDate}T12:00:00Z`);
-  const end = new Date(`${endDate}T12:00:00Z`);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return out;
-  if (start > end) return out;
+  const start = parseLocalIsoDate(startDate);
+  const end = parseLocalIsoDate(endDate);
+  if (end.getTime() < start.getTime()) {
+    throw new RangeError(`endDate (${endDate}) must be on or after startDate (${startDate})`);
+  }
 
-  let i = 0;
+  const out: DayDates = {};
   const cursor = new Date(start);
-  while (cursor <= end && i < DAY_KEYS_ORDERED.length) {
-    const key = DAY_KEYS_ORDERED[i]!;
-    out[key] = cursor.toISOString().slice(0, 10);
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-    i += 1;
+  while (cursor.getTime() <= end.getTime()) {
+    const key = DAY_KEY_BY_WEEKDAY[cursor.getDay()]!;
+    const y = cursor.getFullYear();
+    const m = String(cursor.getMonth() + 1).padStart(2, '0');
+    const d = String(cursor.getDate()).padStart(2, '0');
+    out[key] = `${y}-${m}-${d}`;
+    cursor.setDate(cursor.getDate() + 1);
   }
   return out;
 }

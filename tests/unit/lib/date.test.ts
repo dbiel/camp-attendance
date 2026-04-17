@@ -6,8 +6,9 @@ import {
   dateToDayKey,
   isDateInCamp,
   formatDayLabel,
-  deriveDayDates,
 } from '@/lib/date';
+
+// deriveDayDates has a dedicated spec in ./derive-day-dates.test.ts
 
 const CAMP_WEEK = {
   M: '2026-06-08',
@@ -86,24 +87,3 @@ describe('formatDayLabel', () => {
   });
 });
 
-describe('deriveDayDates', () => {
-  it('produces sequential day_dates for a 6-day camp', () => {
-    expect(deriveDayDates('2026-06-08', '2026-06-13')).toEqual(CAMP_WEEK);
-  });
-
-  it('stops at endDate when camp is shorter than 6 days', () => {
-    expect(deriveDayDates('2026-06-08', '2026-06-10')).toEqual({
-      M: '2026-06-08',
-      T: '2026-06-09',
-      W: '2026-06-10',
-    });
-  });
-
-  it('returns empty when start > end', () => {
-    expect(deriveDayDates('2026-06-13', '2026-06-08')).toEqual({});
-  });
-
-  it('returns empty when given garbage', () => {
-    expect(deriveDayDates('not-a-date', '2026-06-13')).toEqual({});
-  });
-});

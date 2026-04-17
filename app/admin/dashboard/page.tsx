@@ -635,7 +635,7 @@ export default function AdminDashboard() {
         )}
 
         {/* Quick Links */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-6">
           <Link href="/admin/data/students" className="camp-btn-outline block text-center py-3 font-semibold">
             Students
           </Link>
@@ -647,6 +647,9 @@ export default function AdminDashboard() {
           </Link>
           <Link href="/admin/import" className="camp-btn-outline block text-center py-3 font-semibold">
             Import Data
+          </Link>
+          <Link href="/admin/settings" className="camp-btn-outline block text-center py-3 font-semibold">
+            Settings
           </Link>
         </div>
       </div>
