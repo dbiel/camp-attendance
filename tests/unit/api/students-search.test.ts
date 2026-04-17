@@ -8,6 +8,8 @@ const { searchStudentsMock, verifyIdTokenMock } = vi.hoisted(() => ({
 
 vi.mock('@/lib/firestore', () => ({
   searchStudents: searchStudentsMock,
+  isAdminEmail: vi.fn().mockResolvedValue(true),
+  bootstrapAdminIfEmpty: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock('@/lib/firebase-admin', () => ({

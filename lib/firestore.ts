@@ -1220,6 +1220,136 @@ export async function performRollover(
   };
 }
 
+// ─── Admin Allowlist ────────────────────────────────────────────────────
+//
+// Admins are represented as docs in the `admins` collection, keyed by the
+// lowercased email. The shape is `{ email, added_by, added_at }`.
+//
+// Bootstrap: when the collection is empty, `ADMIN_BOOTSTRAP_EMAILS`
+// (comma-separated) acts as a recovery allowlist so the first admin can
+// sign in and seed themselves. Once any admin exists, the env var is
+// ignored — only admins/{email} grants access.
+//
+// Security rules (firestore.rules) default-deny all client access to this
+// collection; every read/write goes through the Admin SDK here.
+
+const adminsCol = () => adminDb.collection('admins');
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function bootstrapEmails(): string[] {
+  const raw = process.env.ADMIN_BOOTSTRAP_EMAILS || '';
+  return raw
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s.length > 0);
+}
+
+async function adminsCollectionIsEmpty(): Promise<boolean> {
+  // A `.limit(1).get()` keeps this cheap even as the collection grows.
+  const col = adminsCol() as unknown as {
+    limit?: (n: number) => { get: () => Promise<{ empty: boolean }> };
+    get: () => Promise<{ empty: boolean }>;
+  };
+  if (typeof col.limit === 'function') {
+    const snap = await col.limit(1).get();
+    return snap.empty;
+  }
+  const snap = await col.get();
+  return snap.empty;
+}
+
+/**
+ * Return true iff the given email is allowed to act as admin.
+ *
+ * Checks `admins/{email}` first (case-insensitive). If the collection is
+ * empty AND the email appears in `ADMIN_BOOTSTRAP_EMAILS`, returns true
+ * WITHOUT writing — seeding happens in `bootstrapAdminIfEmpty`.
+ */
+export async function isAdminEmail(email: string): Promise<boolean> {
+  if (!email) return false;
+  const key = email.toLowerCase();
+  const doc = await adminsCol().doc(key).get();
+  if (doc.exists) return true;
+
+  // Bootstrap path — only when the collection has no admins yet.
+  const bootstraps = bootstrapEmails();
+  if (bootstraps.length === 0) return false;
+  if (!bootstraps.includes(key)) return false;
+  return await adminsCollectionIsEmpty();
+}
+
+/**
+ * Seed the first admin when the collection is empty and the caller's
+ * email matches `ADMIN_BOOTSTRAP_EMAILS`. Returns true if a doc was
+ * written; false otherwise. Safe to call multiple times — idempotent.
+ *
+ * Note: there's a small race if two bootstrap-eligible users hit this
+ * simultaneously. Both may observe `empty` and both may write, landing
+ * as two admins. Acceptable — they're all on the allowlist by policy.
+ */
+export async function bootstrapAdminIfEmpty(email: string): Promise<boolean> {
+  if (!email) return false;
+  const key = email.toLowerCase();
+  const bootstraps = bootstrapEmails();
+  if (!bootstraps.includes(key)) return false;
+  if (!(await adminsCollectionIsEmpty())) return false;
+
+  await adminsCol().doc(key).set({
+    email: key,
+    added_by: 'bootstrap',
+    added_at: Date.now(),
+  });
+  return true;
+}
+
+/**
+ * List every admin entry. Returns an array of `{ email, added_by, added_at }`.
+ */
+export async function listAdmins(): Promise<
+  Array<{ email: string; added_by: string; added_at: number }>
+> {
+  const snap = await adminsCol().get();
+  return snap.docs.map((doc) => {
+    const d = doc.data() as { email?: string; added_by?: string; added_at?: number };
+    return {
+      email: d.email ?? doc.id,
+      added_by: d.added_by ?? 'unknown',
+      added_at: d.added_at ?? 0,
+    };
+  });
+}
+
+/**
+ * Add a new admin. Lowercases + validates email. Throws if email is
+ * malformed or if an admin with the same address already exists.
+ */
+export async function addAdmin(email: string, addedBy: string): Promise<void> {
+  const key = (email || '').trim().toLowerCase();
+  if (!EMAIL_REGEX.test(key)) {
+    throw new Error('Invalid email');
+  }
+  const ref = adminsCol().doc(key);
+  const existing = await ref.get();
+  if (existing.exists) {
+    throw new Error('Admin already exists');
+  }
+  await ref.set({
+    email: key,
+    added_by: addedBy,
+    added_at: Date.now(),
+  });
+}
+
+/**
+ * Remove an admin. Idempotent — no-op if not present.
+ */
+export async function removeAdmin(email: string): Promise<void> {
+  const key = (email || '').trim().toLowerCase();
+  if (!key) return;
+  await adminsCol().doc(key).delete();
+}
+
 // ─── Utility functions ──────────────────────────────────────────────────
 
 export async function getCurrentPeriod(): Promise<number | null> {

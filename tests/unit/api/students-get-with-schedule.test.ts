@@ -16,6 +16,8 @@ vi.mock('@/lib/firestore', () => ({
   getStudentScheduleForDate: getStudentScheduleForDateMock,
   updateStudent: vi.fn(),
   deleteStudent: vi.fn(),
+  isAdminEmail: vi.fn().mockResolvedValue(true),
+  bootstrapAdminIfEmpty: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock('@/lib/firebase-admin', () => ({

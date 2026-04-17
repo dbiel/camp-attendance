@@ -8,6 +8,8 @@ const { rotateCampCodeMock, verifyIdTokenMock } = vi.hoisted(() => ({
 
 vi.mock('@/lib/firestore', () => ({
   rotateCampCode: rotateCampCodeMock,
+  isAdminEmail: vi.fn().mockResolvedValue(true),
+  bootstrapAdminIfEmpty: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock('@/lib/firebase-admin', () => ({

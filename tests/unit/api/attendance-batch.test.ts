@@ -7,6 +7,8 @@ const { markAttendanceBatchMock } = vi.hoisted(() => ({
 
 vi.mock('@/lib/firestore', () => ({
   markAttendanceBatch: markAttendanceBatchMock,
+  isAdminEmail: vi.fn().mockResolvedValue(true),
+  bootstrapAdminIfEmpty: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock('@/lib/firebase-admin', () => ({

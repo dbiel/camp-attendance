@@ -22,8 +22,16 @@ vi.mock('@/lib/firebase-admin', () => {
   };
 });
 
+// Mock the admin allowlist helpers. verifyAdmin calls these after decoding
+// the token — we stub them so these tests stay focused on token handling.
+vi.mock('@/lib/firestore', () => ({
+  isAdminEmail: vi.fn(),
+  bootstrapAdminIfEmpty: vi.fn(),
+}));
+
 import { verifyAdmin, verifyTeacher, getCallerRole } from '@/lib/auth';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { isAdminEmail, bootstrapAdminIfEmpty } from '@/lib/firestore';
 
 function makeRequest(headers: Record<string, string> = {}): NextRequest {
   const h = new Headers(headers);
@@ -33,15 +41,18 @@ function makeRequest(headers: Record<string, string> = {}): NextRequest {
 describe('verifyAdmin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(isAdminEmail).mockResolvedValue(true);
+    vi.mocked(bootstrapAdminIfEmpty).mockResolvedValue(false);
   });
 
-  it('returns decoded token for valid Bearer token', async () => {
+  it('returns decoded token for valid Bearer token on allowlist', async () => {
     const decoded = { uid: 'admin-123', email: 'admin@test.com' };
     vi.mocked(adminAuth.verifyIdToken).mockResolvedValue(decoded as any);
 
     const result = await verifyAdmin(makeRequest({ Authorization: 'Bearer valid-token' }));
     expect(result).toEqual(decoded);
     expect(adminAuth.verifyIdToken).toHaveBeenCalledWith('valid-token');
+    expect(isAdminEmail).toHaveBeenCalledWith('admin@test.com');
   });
 
   it('returns null when no Authorization header', async () => {
@@ -59,6 +70,35 @@ describe('verifyAdmin', () => {
 
     const result = await verifyAdmin(makeRequest({ Authorization: 'Bearer bad-token' }));
     expect(result).toBeNull();
+  });
+
+  it('returns null when token is valid but email is not on allowlist', async () => {
+    const decoded = { uid: 'nope-1', email: 'mallory@test.com' };
+    vi.mocked(adminAuth.verifyIdToken).mockResolvedValue(decoded as any);
+    vi.mocked(isAdminEmail).mockResolvedValue(false);
+    vi.mocked(bootstrapAdminIfEmpty).mockResolvedValue(false);
+
+    const result = await verifyAdmin(makeRequest({ Authorization: 'Bearer valid-token' }));
+    expect(result).toBeNull();
+  });
+
+  it('returns decoded token when bootstrap seeding succeeds', async () => {
+    const decoded = { uid: 'first-1', email: 'firstadmin@test.com' };
+    vi.mocked(adminAuth.verifyIdToken).mockResolvedValue(decoded as any);
+    vi.mocked(isAdminEmail).mockResolvedValue(false);
+    vi.mocked(bootstrapAdminIfEmpty).mockResolvedValue(true);
+
+    const result = await verifyAdmin(makeRequest({ Authorization: 'Bearer valid-token' }));
+    expect(result).toEqual(decoded);
+    expect(bootstrapAdminIfEmpty).toHaveBeenCalledWith('firstadmin@test.com');
+  });
+
+  it('returns null when token has no email claim', async () => {
+    vi.mocked(adminAuth.verifyIdToken).mockResolvedValue({ uid: 'x' } as any);
+
+    const result = await verifyAdmin(makeRequest({ Authorization: 'Bearer valid-token' }));
+    expect(result).toBeNull();
+    expect(isAdminEmail).not.toHaveBeenCalled();
   });
 });
 
@@ -167,10 +207,12 @@ describe('getCallerRole', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.CAMP_CODE = 'test-camp-2026';
+    vi.mocked(isAdminEmail).mockResolvedValue(true);
+    vi.mocked(bootstrapAdminIfEmpty).mockResolvedValue(false);
   });
 
   it('returns "admin" when valid Bearer token present', async () => {
-    vi.mocked(adminAuth.verifyIdToken).mockResolvedValue({ uid: 'admin-123' } as any);
+    vi.mocked(adminAuth.verifyIdToken).mockResolvedValue({ uid: 'admin-123', email: 'a@b.com' } as any);
 
     const result = await getCallerRole(makeRequest({ Authorization: 'Bearer valid-token' }));
     expect(result).toBe('admin');
@@ -207,11 +249,30 @@ describe('getCallerRole', () => {
   });
 
   it('admin takes precedence when both auth types present', async () => {
-    vi.mocked(adminAuth.verifyIdToken).mockResolvedValue({ uid: 'admin-123' } as any);
+    vi.mocked(adminAuth.verifyIdToken).mockResolvedValue({ uid: 'admin-123', email: 'a@b.com' } as any);
 
     const result = await getCallerRole(
       makeRequest({ Authorization: 'Bearer valid', 'X-Camp-Code': 'test-camp-2026' })
     );
     expect(result).toBe('admin');
+  });
+
+  it('returns "teacher" when Bearer token present but email not on allowlist (and camp code valid)', async () => {
+    vi.mocked(adminAuth.verifyIdToken).mockResolvedValue({ uid: 'x', email: 'mallory@test.com' } as any);
+    vi.mocked(isAdminEmail).mockResolvedValue(false);
+    vi.mocked(bootstrapAdminIfEmpty).mockResolvedValue(false);
+
+    const mockGet = vi.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ camp_code: 'test-camp-2026' }),
+    });
+    vi.mocked(adminDb.collection).mockReturnValue({
+      doc: vi.fn().mockReturnValue({ get: mockGet }),
+    } as any);
+
+    const result = await getCallerRole(
+      makeRequest({ Authorization: 'Bearer valid', 'X-Camp-Code': 'test-camp-2026' })
+    );
+    expect(result).toBe('teacher');
   });
 });

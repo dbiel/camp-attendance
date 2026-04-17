@@ -16,10 +16,20 @@ See `docs/plans/` for the current architecture — that's the source of truth.
 ## TECH STACK
 
 - **Next.js 14** with App Router (NO static export — dynamic routes required)
-- **Firebase/Firestore** for data storage (collections: students, faculty, periods, sessions, session_students, attendance)
+- **Firebase/Firestore** for data storage (collections: students, faculty, periods, sessions, session_students, attendance, admins)
 - **Firebase Admin SDK** for server-side reads/writes in API routes
 - **Tailwind CSS** for styling
 - **TypeScript**
+
+### Admin Access
+
+Admin is gated by a Firestore `admins` collection (doc id = lowercased email). Any admin can manage the list from the Settings page. For the first-ever login, set `ADMIN_BOOTSTRAP_EMAILS` (comma-separated) to the first admin's email — they'll be auto-added on first successful Google sign-in. Once any admin exists, the env var is ignored.
+
+```
+ADMIN_BOOTSTRAP_EMAILS=david@bieldentalcabinets.com
+```
+
+If `ADMIN_BOOTSTRAP_EMAILS` is unset AND the `admins` collection is empty, no one can log in — add the env var, restart, and sign in with Google to seed yourself.
 
 ---
 

@@ -17,6 +17,8 @@ vi.mock('@/lib/firestore', () => ({
   // Other exports used by the module under import.
   markAttendance: vi.fn(),
   getSessionAttendance: vi.fn().mockResolvedValue([]),
+  isAdminEmail: vi.fn().mockResolvedValue(true),
+  bootstrapAdminIfEmpty: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock('@/lib/firebase-admin', () => ({

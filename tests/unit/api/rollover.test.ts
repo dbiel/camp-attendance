@@ -13,6 +13,8 @@ const {
 
 vi.mock('@/lib/firestore', () => ({
   performRollover: performRolloverMock,
+  isAdminEmail: vi.fn().mockResolvedValue(true),
+  bootstrapAdminIfEmpty: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock('@/lib/camp-config', () => ({

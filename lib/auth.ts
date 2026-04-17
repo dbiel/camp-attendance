@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
 import { adminAuth, adminDb } from './firebase-admin';
+import { bootstrapAdminIfEmpty, isAdminEmail } from './firestore';
 
 export type CallerRole = 'admin' | 'teacher' | null;
 
@@ -22,9 +23,19 @@ function safeEqual(a: string | undefined | null, b: string | undefined | null): 
 }
 
 /**
- * Verify that the request comes from an authenticated admin (Firebase Auth).
- * Expects Authorization: Bearer <idToken> header.
- * Returns the decoded token or null.
+ * Verify that the request comes from an authenticated admin (Firebase Auth)
+ * whose email is on the allowlist.
+ *
+ * Flow:
+ *   1. Decode the Bearer ID token via Firebase Admin.
+ *   2. Look up the decoded email in the `admins` Firestore collection.
+ *   3. If missing, try the bootstrap path — when the collection is empty
+ *      AND the email appears in `ADMIN_BOOTSTRAP_EMAILS`, seed the caller
+ *      as the first admin and proceed. Otherwise, reject.
+ *
+ * An authenticated user whose email is not allow-listed resolves to
+ * `null` — the caller-side code treats that identically to an
+ * unauthenticated request (401).
  */
 export async function verifyAdmin(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
@@ -33,7 +44,14 @@ export async function verifyAdmin(request: NextRequest) {
   const idToken = authHeader.slice(7);
   try {
     const decoded = await adminAuth.verifyIdToken(idToken);
-    return decoded;
+    const email = decoded.email;
+    if (!email) return null;
+
+    if (await isAdminEmail(email)) return decoded;
+    // Not in allowlist — try bootstrap seeding (no-op if collection non-empty
+    // or email not in ADMIN_BOOTSTRAP_EMAILS).
+    if (await bootstrapAdminIfEmpty(email)) return decoded;
+    return null;
   } catch {
     return null;
   }

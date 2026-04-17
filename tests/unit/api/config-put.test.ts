@@ -11,6 +11,8 @@ const { setCampConfigMock, loadActiveCampServerMock, invalidateCampConfigCacheMo
 
 vi.mock('@/lib/firestore', () => ({
   setCampConfig: setCampConfigMock,
+  isAdminEmail: vi.fn().mockResolvedValue(true),
+  bootstrapAdminIfEmpty: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock('@/lib/camp-config', () => ({

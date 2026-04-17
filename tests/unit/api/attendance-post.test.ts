@@ -8,6 +8,8 @@ const { markAttendanceMock } = vi.hoisted(() => ({
 vi.mock('@/lib/firestore', () => ({
   markAttendance: markAttendanceMock,
   getSessionAttendance: vi.fn().mockResolvedValue([]),
+  isAdminEmail: vi.fn().mockResolvedValue(true),
+  bootstrapAdminIfEmpty: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock('@/lib/firebase-admin', () => ({
