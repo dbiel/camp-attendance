@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Camp management and attendance tracking system for TTU Band and Orchestra Camp",
   "engines": {
-    "node": ">=20.0.0",
+    "node": "24",
     "npm": ">=10.0.0"
   },
   "scripts": {
