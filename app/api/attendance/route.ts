@@ -10,8 +10,8 @@ import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_STATUSES = new Set(['present', 'absent', 'tardy'] as const);
-type AttendanceStatus = 'present' | 'absent' | 'tardy';
+const ALLOWED_STATUSES = new Set(['present', 'absent'] as const);
+type AttendanceStatus = 'present' | 'absent';
 
 export async function GET(request: NextRequest) {
   try {

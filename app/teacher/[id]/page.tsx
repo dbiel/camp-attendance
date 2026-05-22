@@ -22,7 +22,6 @@ interface SessionInfo {
   total_students: number;
   present_count: number;
   absent_count: number;
-  tardy_count: number;
 }
 
 export default function TeacherDashboard({ params }: { params: { id: string } }) {
@@ -119,7 +118,7 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
   }
 
   function getAttendancePercent(session: SessionInfo): number {
-    const marked = session.present_count + session.absent_count + session.tardy_count;
+    const marked = session.present_count + session.absent_count;
     return session.total_students > 0 ? Math.round((marked / session.total_students) * 100) : 0;
   }
 
@@ -205,7 +204,7 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
                   </div>
                   <div className={`text-right ${currentPeriod === session.period_number ? 'text-white' : 'text-gray-700'}`}>
                     <div className="text-2xl font-bold">{getAttendancePercent(session)}%</div>
-                    <div className="text-xs">{session.present_count + session.absent_count + session.tardy_count}/{session.total_students}</div>
+                    <div className="text-xs">{session.present_count + session.absent_count}/{session.total_students}</div>
                   </div>
                 </div>
                 {session.location && (
@@ -220,11 +219,8 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
                   <span className={`px-2 py-1 rounded ${currentPeriod === session.period_number ? 'bg-white bg-opacity-20' : 'bg-red-100 text-red-800'}`}>
                     A {session.absent_count}
                   </span>
-                  <span className={`px-2 py-1 rounded ${currentPeriod === session.period_number ? 'bg-white bg-opacity-20' : 'bg-yellow-100 text-yellow-800'}`}>
-                    T {session.tardy_count}
-                  </span>
                   <span className={`px-2 py-1 rounded ${currentPeriod === session.period_number ? 'bg-white bg-opacity-20' : 'bg-gray-100 text-gray-800'}`}>
-                    ? {session.total_students - (session.present_count + session.absent_count + session.tardy_count)}
+                    ? {session.total_students - (session.present_count + session.absent_count)}
                   </span>
                 </div>
               </Link>

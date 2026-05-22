@@ -8,7 +8,7 @@
  * status — the server only ever needs the final intent.
  */
 
-export type AttendanceStatus = 'present' | 'absent' | 'tardy';
+export type AttendanceStatus = 'present' | 'absent';
 
 export interface AttendanceQueueItem {
   student_id: string;

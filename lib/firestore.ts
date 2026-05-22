@@ -190,7 +190,7 @@ export async function markAttendance(
   studentId: string,
   sessionId: string,
   date: string,
-  status: 'present' | 'absent' | 'tardy',
+  status: 'present' | 'absent',
   markedBy?: string
 ): Promise<void> {
   // Fetch student + session + period + faculty for denormalization
@@ -263,7 +263,7 @@ export interface AttendanceBatchItem {
   student_id: string;
   session_id: string;
   date: string;
-  status: 'present' | 'absent' | 'tardy';
+  status: 'present' | 'absent';
 }
 
 export interface AttendanceBatchResult {
@@ -398,13 +398,11 @@ export async function markAttendanceBatch(
   return result;
 }
 
-export async function getAttendanceReport(date: string, status?: 'absent' | 'tardy'): Promise<AttendanceReport[]> {
+export async function getAttendanceReport(date: string): Promise<AttendanceReport[]> {
   // Single where + client filter to avoid composite index requirement
   const snap = await attendanceCol().where('date', '==', date).get();
 
-  const filteredDocs = status
-    ? snap.docs.filter(doc => doc.data().status === status)
-    : snap.docs.filter(doc => ['absent', 'tardy'].includes(doc.data().status));
+  const filteredDocs = snap.docs.filter(doc => doc.data().status === 'absent');
 
   // Join parent contact + dorm info from students/{id} on the server side.
   // Admin client SDK can't read `students` (firestore.rules: if false), so this
@@ -429,7 +427,7 @@ export async function getAttendanceReport(date: string, status?: 'absent' | 'tar
       parent_last_name: student.parent_last_name ?? null,
       session_name: d.session_name,
       session_id: d.session_id,
-      status: d.status as 'absent' | 'tardy',
+      status: 'absent',
       period_number: d.period_number,
       period_name: d.period_name,
       teacher_name: d.teacher_name,
@@ -478,13 +476,12 @@ export async function getFacultySessions(facultyId: string, date?: string): Prom
       .where('session_id', '==', sess.id)
       .get();
 
-    let presentCount = 0, absentCount = 0, tardyCount = 0;
+    let presentCount = 0, absentCount = 0;
     for (const attDoc of attSnap.docs) {
       if (attDoc.data().date !== todayDate) continue;
       const st = attDoc.data().status;
       if (st === 'present') presentCount++;
       else if (st === 'absent') absentCount++;
-      else if (st === 'tardy') tardyCount++;
     }
 
     results.push({
@@ -501,7 +498,6 @@ export async function getFacultySessions(facultyId: string, date?: string): Prom
       total_students: totalStudents,
       present_count: presentCount,
       absent_count: absentCount,
-      tardy_count: tardyCount,
     });
   }
 
@@ -545,6 +541,12 @@ export async function getStudentSchedule(studentId: string, date?: string): Prom
     // Get attendance
     const att = await getAttendance(studentId, sessionId, todayDate);
 
+    const raw = att?.status as string | undefined;
+    const attendance_status: 'present' | 'absent' | 'unmarked' =
+      raw === undefined ? 'unmarked'
+      : raw === 'tardy' ? 'present'
+      : (raw as 'present' | 'absent');
+
     results.push({
       session_id: sess.id,
       name: sess.name,
@@ -555,7 +557,7 @@ export async function getStudentSchedule(studentId: string, date?: string): Prom
       end_time: period?.end_time ?? '',
       period_name: period?.name ?? '',
       teacher_name: teacherName,
-      attendance_status: att?.status ?? 'unmarked',
+      attendance_status,
       date: att?.date ?? null,
     });
   }
@@ -672,7 +674,7 @@ export interface StudentScheduleEntry {
   start_time: string;
   end_time: string;
   location: string | null;
-  status: 'present' | 'absent' | 'tardy' | 'unmarked';
+  status: 'present' | 'absent' | 'unmarked';
 }
 
 /**
@@ -703,6 +705,11 @@ export async function getStudentScheduleForDate(
     if (!sess) continue;
     const period = periodMap.get(sess.period_id);
     const att = await getAttendance(studentId, sessionId, date);
+    const rawStatus = att?.status as string | undefined;
+    const entryStatus: 'present' | 'absent' | 'unmarked' =
+      rawStatus === undefined ? 'unmarked'
+      : rawStatus === 'tardy' ? 'present'
+      : (rawStatus as 'present' | 'absent');
     entries.push({
       session_id: sess.id,
       session_name: sess.name,
@@ -710,7 +717,7 @@ export async function getStudentScheduleForDate(
       start_time: period?.start_time ?? '',
       end_time: period?.end_time ?? '',
       location: sess.location ?? null,
-      status: att?.status ?? 'unmarked',
+      status: entryStatus,
       _periodNumber: period?.number ?? 0,
     });
   }
@@ -833,23 +840,23 @@ export async function getDailyStats(date: string): Promise<DailyStats> {
     studentStatuses.get(data.student_id)!.add(data.status);
   }
 
-  let present = 0, absent = 0, tardy = 0, unmarked = 0;
+  let present = 0, absent = 0, unmarked = 0;
   for (const sDoc of studentsSnap.docs) {
     const statuses = studentStatuses.get(sDoc.id);
     if (!statuses) {
       unmarked++;
     } else if (statuses.has('absent')) {
       absent++;
-    } else if (statuses.has('tardy')) {
-      tardy++;
     } else if (statuses.has('present')) {
       present++;
+    } else if (statuses.has('tardy')) {
+      present++; // legacy coercion
     } else {
       unmarked++;
     }
   }
 
-  return { present, absent, tardy, unmarked, total: totalStudents };
+  return { present, absent, unmarked, total: totalStudents };
 }
 
 // ─── Authorization helpers ─────────────────────────────────────────────
