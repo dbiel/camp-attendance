@@ -402,6 +402,9 @@ export async function getAttendanceReport(date: string): Promise<AttendanceRepor
   // Single where + client filter to avoid composite index requirement
   const snap = await attendanceCol().where('date', '==', date).get();
 
+  // Legacy 'tardy' docs are intentionally excluded from the absence report —
+  // tardy ≠ absent. See getDailyStats / getStudentSchedule where legacy tardy
+  // is coerced to 'present' for non-report read paths.
   const filteredDocs = snap.docs.filter(doc => doc.data().status === 'absent');
 
   // Join parent contact + dorm info from students/{id} on the server side.
@@ -482,6 +485,7 @@ export async function getFacultySessions(facultyId: string, date?: string): Prom
       const st = attDoc.data().status;
       if (st === 'present') presentCount++;
       else if (st === 'absent') absentCount++;
+      // legacy 'tardy' docs are not counted here; they'll be migrated to 'present' separately.
     }
 
     results.push({

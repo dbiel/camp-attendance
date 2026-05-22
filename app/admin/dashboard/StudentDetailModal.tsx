@@ -6,7 +6,6 @@ import { useToast } from '@/components/Toast';
 import { useAuth } from '@/lib/auth-context';
 import { Student } from '@/lib/types';
 
-export type AttendanceStatus = 'present' | 'absent';
 type ScheduleStatus = 'present' | 'absent' | 'unmarked';
 
 interface ScheduleEntry {

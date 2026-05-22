@@ -28,6 +28,7 @@ interface SessionInfo {
   ensemble?: string;
 }
 
+// 2-state cycle: unmarked → present → absent → unmarked.
 type ClientStatus = 'unmarked' | 'present' | 'absent';
 
 export default function AttendancePage({
