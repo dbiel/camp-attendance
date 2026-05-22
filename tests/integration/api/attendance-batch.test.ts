@@ -72,7 +72,7 @@ describe('Batch Attendance API', () => {
         student_id: id,
         session_id: sessionId,
         date: testDate,
-        status: 'tardy',
+        status: 'present',
       }));
       const { status, data } = await teacherFetch('/api/attendance/batch', {
         method: 'POST',

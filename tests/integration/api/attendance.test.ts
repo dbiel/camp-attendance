@@ -42,7 +42,7 @@ describe('Attendance API', () => {
           student_id: studentId,
           session_id: sessionId,
           date: testDate,
-          status: 'tardy',
+          status: 'present',
           marked_by: 'teacher-test',
         },
       });

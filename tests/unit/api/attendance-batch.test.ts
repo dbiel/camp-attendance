@@ -128,14 +128,20 @@ describe('POST /api/attendance/batch', () => {
     expect(mockCall[1]).not.toBe('SPOOFED');
   });
 
-  it('accepts all three valid statuses', async () => {
-    markAttendanceBatchMock.mockResolvedValue({ written: 3, skipped: 0, errors: [] });
+  it('accepts present and absent statuses', async () => {
+    markAttendanceBatchMock.mockResolvedValue({ written: 2, skipped: 0, errors: [] });
     const items = [
       makeItem({ status: 'present' }),
       makeItem({ status: 'absent' }),
-      makeItem({ status: 'tardy' }),
     ];
     const res = await call(post({ items }));
     expect(res.status).toBe(200);
+  });
+
+  it('rejects tardy (removed status)', async () => {
+    const items = [makeItem({ status: 'tardy' })];
+    const res = await call(post({ items }));
+    expect(res.status).toBe(400);
+    expect(markAttendanceBatchMock).not.toHaveBeenCalled();
   });
 });

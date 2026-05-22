@@ -260,7 +260,7 @@ maybeDescribe('POST /api/camps/rollover', () => {
       student_id: 'replay',
       session_id: 'replay',
       date: '2026-06-08',
-      status: 'tardy',
+      status: 'present',
       marked_at: new Date().toISOString(),
       marked_by: 'replay',
       first_name: 'Replay',
