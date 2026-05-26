@@ -610,7 +610,13 @@ export default function AdminDashboard() {
         )}
 
         {/* Quick Links */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-6">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-3 mt-6">
+          <Link href="/admin/coverage" className="camp-btn-outline block text-center py-3 font-semibold">
+            Coverage
+          </Link>
+          <Link href="/admin/faculty-status" className="camp-btn-outline block text-center py-3 font-semibold">
+            Faculty Status
+          </Link>
           <Link href="/admin/data/students" className="camp-btn-outline block text-center py-3 font-semibold">
             Students
           </Link>
