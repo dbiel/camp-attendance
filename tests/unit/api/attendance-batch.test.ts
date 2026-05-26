@@ -129,7 +129,6 @@ describe('POST /api/attendance/batch', () => {
   });
 
   it('accepts present and absent statuses', async () => {
-    markAttendanceBatchMock.mockResolvedValue({ written: 2, skipped: 0, errors: [] });
     const items = [
       makeItem({ status: 'present' }),
       makeItem({ status: 'absent' }),
