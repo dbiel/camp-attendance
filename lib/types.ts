@@ -217,3 +217,20 @@ export interface DailyStats {
   unmarked: number;
   total: number;
 }
+
+export interface CoverageRow {
+  session_id: string;
+  session_name: string;
+  period_id: string;
+  period_number: number;
+  period_name: string;
+  start_time: string;
+  end_time: string;
+  ensemble: string | null;
+  instrument: string | null;
+  faculty_id: string | null;
+  teacher_name: string;
+  total_students: number;
+  marked_count: number;
+  absent_count: number;
+}

@@ -6,7 +6,7 @@ import {
   Attendance, AttendanceDenormalized, SessionStudentDenormalized,
   AttendanceReport, CampConfig,
   FacultySessionRow, StudentScheduleRow, ScheduleGridRow,
-  SessionWithPeriod, DailyStats,
+  SessionWithPeriod, DailyStats, CoverageRow,
 } from './types';
 import { getTodayDate, getCurrentTimeHHMM, deriveDayDates } from './date';
 import { invalidateCampConfigCache, loadActiveCampServer } from './camp-config';
@@ -507,6 +507,74 @@ export async function getFacultySessions(facultyId: string, date?: string): Prom
 
   results.sort((a, b) => a.period_number - b.period_number);
   return results;
+}
+
+// ─── Day Coverage (admin coverage dashboard) ────────────────────────────
+
+/**
+ * Return one CoverageRow per session for a given date.
+ *
+ * marked_count = total attendance docs for the session on this date
+ *   (any status: 'present' or 'absent'). Every doc is a mark.
+ * absent_count = docs where status === 'absent'.
+ * Legacy 'tardy' docs (if any remain) count as marked but NOT as absent —
+ *   they were 'present'-equivalent marks, not absences.
+ *
+ * Results are sorted by period_number asc, then session_name asc.
+ */
+export async function getDayCoverage(date: string): Promise<CoverageRow[]> {
+  const sessSnap = await sessionsCol().get();
+  if (sessSnap.empty) return [];
+
+  const periods = await getPeriods();
+  const periodMap = new Map(periods.map(p => [p.id, p]));
+
+  const facultyList = await getFaculty();
+  const facultyMap = new Map(facultyList.map(f => [f.id, f]));
+
+  // Pull all attendance for the date in one query, then bucket per session.
+  const attSnap = await attendanceCol().where('date', '==', date).get();
+  const byCount = new Map<string, { marked: number; absent: number }>();
+  for (const doc of attSnap.docs) {
+    const d = doc.data();
+    const bucket = byCount.get(d.session_id) ?? { marked: 0, absent: 0 };
+    bucket.marked++;
+    if (d.status === 'absent') bucket.absent++;
+    byCount.set(d.session_id, bucket);
+  }
+
+  const rows: CoverageRow[] = [];
+  for (const sessDoc of sessSnap.docs) {
+    const sess = { id: sessDoc.id, ...sessDoc.data() } as Session;
+    const period = periodMap.get(sess.period_id);
+    const enrolledSnap = await sessionStudentsCol()
+      .where('session_id', '==', sess.id)
+      .get();
+    const counts = byCount.get(sess.id) ?? { marked: 0, absent: 0 };
+    const teacher = sess.faculty_id ? facultyMap.get(sess.faculty_id) : undefined;
+    rows.push({
+      session_id: sess.id,
+      session_name: sess.name,
+      period_id: sess.period_id,
+      period_number: period?.number ?? 0,
+      period_name: period?.name ?? '',
+      start_time: period?.start_time ?? '',
+      end_time: period?.end_time ?? '',
+      ensemble: sess.ensemble ?? null,
+      instrument: sess.instrument ?? null,
+      faculty_id: sess.faculty_id ?? null,
+      teacher_name: teacher ? `${teacher.first_name} ${teacher.last_name}` : '',
+      total_students: enrolledSnap.size,
+      marked_count: counts.marked,
+      absent_count: counts.absent,
+    });
+  }
+
+  rows.sort((a, b) => {
+    if (a.period_number !== b.period_number) return a.period_number - b.period_number;
+    return a.session_name.localeCompare(b.session_name);
+  });
+  return rows;
 }
 
 // ─── Student Schedule ───────────────────────────────────────────────────
