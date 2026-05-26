@@ -42,7 +42,7 @@ interface AbsenceRecord {
   parent_last_name: string | null;
   session_name: string;
   session_id: string;
-  status: 'absent' | 'tardy';
+  status: 'absent';
   period_number: number;
   period_name: string;
   teacher_name: string;
@@ -86,7 +86,7 @@ export default function AdminDashboard() {
   const [ensembleFilter, setEnsembleFilter] = useState('');
   const [instrumentFilter, setInstrumentFilter] = useState('');
   const [dormFilter, setDormFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'' | 'absent' | 'tardy'>('absent');
+  const [statusFilter, setStatusFilter] = useState<'' | 'absent'>('absent');
 
   // Roster-wide search (finds students NOT already in the absence list)
   const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
@@ -119,7 +119,7 @@ export default function AdminDashboard() {
     const q = query(
       collection(clientDb, 'attendance'),
       where('date', '==', date),
-      where('status', 'in', ['absent', 'tardy'])
+      where('status', '==', 'absent')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -257,7 +257,6 @@ export default function AdminDashboard() {
     : allRecords;
 
   const absentCount = periodFiltered.filter(r => r.status === 'absent').length;
-  const tardyCount = periodFiltered.filter(r => r.status === 'tardy').length;
 
   // Apply all filters
   const filtered = periodFiltered.filter((record) => {
@@ -429,30 +428,10 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* Absent / Tardy Toggle */}
-        <div className="flex gap-3 mb-4">
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'absent' ? '' : 'absent')}
-            className={`flex-1 py-4 rounded-lg font-bold text-center transition-all ${
-              statusFilter === 'absent'
-                ? 'bg-red-600 text-white shadow-md ring-2 ring-red-400'
-                : 'bg-white text-red-600 border-2 border-red-300 hover:bg-red-50'
-            }`}
-          >
-            <div className="text-3xl">{absentCount}</div>
-            <div className="text-sm">Absent</div>
-          </button>
-          <button
-            onClick={() => setStatusFilter(statusFilter === 'tardy' ? '' : 'tardy')}
-            className={`flex-1 py-4 rounded-lg font-bold text-center transition-all ${
-              statusFilter === 'tardy'
-                ? 'bg-yellow-500 text-white shadow-md ring-2 ring-yellow-400'
-                : 'bg-white text-yellow-600 border-2 border-yellow-300 hover:bg-yellow-50'
-            }`}
-          >
-            <div className="text-3xl">{tardyCount}</div>
-            <div className="text-sm">Tardy</div>
-          </button>
+        {/* Absent Counter */}
+        <div className="bg-red-50 border-2 border-red-300 rounded-lg py-4 text-center mb-4">
+          <div className="text-3xl font-bold text-red-600">{absentCount}</div>
+          <div className="text-sm font-bold text-red-600">Absent</div>
         </div>
 
         {/* Search & Filter Bar */}
@@ -591,10 +570,8 @@ export default function AdminDashboard() {
                         {group.period_name} &bull; {group.teacher_name}
                       </span>
                     </div>
-                    <span className={`px-2 py-1 rounded text-xs font-bold ${
-                      statusFilter === 'tardy' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {group.students.length} {statusFilter || 'absent/tardy'}
+                    <span className="px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-800">
+                      {group.students.length} absent
                     </span>
                   </div>
                 </div>
@@ -618,9 +595,7 @@ export default function AdminDashboard() {
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                              record.status === 'absent' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                            }`}>
+                            <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800">
                               {record.status.toUpperCase()}
                             </span>
                           </div>
@@ -635,7 +610,13 @@ export default function AdminDashboard() {
         )}
 
         {/* Quick Links */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-6">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-3 mt-6">
+          <Link href="/admin/coverage" className="camp-btn-outline block text-center py-3 font-semibold">
+            Coverage
+          </Link>
+          <Link href="/admin/faculty-status" className="camp-btn-outline block text-center py-3 font-semibold">
+            Faculty Status
+          </Link>
           <Link href="/admin/data/students" className="camp-btn-outline block text-center py-3 font-semibold">
             Students
           </Link>

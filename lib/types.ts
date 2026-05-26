@@ -60,7 +60,7 @@ export interface Attendance {
   student_id: string;
   session_id: string;
   date: string;
-  status: 'present' | 'absent' | 'tardy';
+  status: 'present' | 'absent';
   marked_at: string;
   marked_by?: string;
 }
@@ -92,7 +92,7 @@ export interface AttendanceDenormalized {
   student_id: string;
   session_id: string;
   date: string;
-  status: 'present' | 'absent' | 'tardy';
+  status: 'present' | 'absent';
   marked_at: string;
   marked_by: string | null;
   // Display-only non-PII student fields
@@ -131,7 +131,7 @@ export interface AttendanceReport {
   parent_last_name: string | null;
   session_name: string;
   session_id: string;
-  status: 'absent' | 'tardy';
+  status: 'absent';
   period_number: number;
   period_name: string;
   teacher_name: string;
@@ -171,7 +171,6 @@ export interface FacultySessionRow {
   total_students: number;
   present_count: number;
   absent_count: number;
-  tardy_count: number;
 }
 
 export interface StudentScheduleRow {
@@ -184,7 +183,7 @@ export interface StudentScheduleRow {
   end_time: string;
   period_name: string;
   teacher_name: string;
-  attendance_status: 'present' | 'absent' | 'tardy' | 'unmarked';
+  attendance_status: 'present' | 'absent' | 'unmarked';
   date: string | null;
 }
 
@@ -215,7 +214,23 @@ export interface SessionWithPeriod extends Session {
 export interface DailyStats {
   present: number;
   absent: number;
-  tardy: number;
   unmarked: number;
   total: number;
+}
+
+export interface CoverageRow {
+  session_id: string;
+  session_name: string;
+  period_id: string;
+  period_number: number;
+  period_name: string;
+  start_time: string;
+  end_time: string;
+  ensemble: string | null;
+  instrument: string | null;
+  faculty_id: string | null;
+  teacher_name: string;
+  total_students: number;
+  marked_count: number;
+  absent_count: number;
 }

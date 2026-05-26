@@ -6,7 +6,7 @@ import {
   Attendance, AttendanceDenormalized, SessionStudentDenormalized,
   AttendanceReport, CampConfig,
   FacultySessionRow, StudentScheduleRow, ScheduleGridRow,
-  SessionWithPeriod, DailyStats,
+  SessionWithPeriod, DailyStats, CoverageRow,
 } from './types';
 import { getTodayDate, getCurrentTimeHHMM, deriveDayDates } from './date';
 import { invalidateCampConfigCache, loadActiveCampServer } from './camp-config';
@@ -190,7 +190,7 @@ export async function markAttendance(
   studentId: string,
   sessionId: string,
   date: string,
-  status: 'present' | 'absent' | 'tardy',
+  status: 'present' | 'absent',
   markedBy?: string
 ): Promise<void> {
   // Fetch student + session + period + faculty for denormalization
@@ -263,7 +263,7 @@ export interface AttendanceBatchItem {
   student_id: string;
   session_id: string;
   date: string;
-  status: 'present' | 'absent' | 'tardy';
+  status: 'present' | 'absent';
 }
 
 export interface AttendanceBatchResult {
@@ -398,13 +398,14 @@ export async function markAttendanceBatch(
   return result;
 }
 
-export async function getAttendanceReport(date: string, status?: 'absent' | 'tardy'): Promise<AttendanceReport[]> {
+export async function getAttendanceReport(date: string): Promise<AttendanceReport[]> {
   // Single where + client filter to avoid composite index requirement
   const snap = await attendanceCol().where('date', '==', date).get();
 
-  const filteredDocs = status
-    ? snap.docs.filter(doc => doc.data().status === status)
-    : snap.docs.filter(doc => ['absent', 'tardy'].includes(doc.data().status));
+  // Legacy 'tardy' docs are intentionally excluded from the absence report —
+  // tardy ≠ absent. See getDailyStats / getStudentSchedule where legacy tardy
+  // is coerced to 'present' for non-report read paths.
+  const filteredDocs = snap.docs.filter(doc => doc.data().status === 'absent');
 
   // Join parent contact + dorm info from students/{id} on the server side.
   // Admin client SDK can't read `students` (firestore.rules: if false), so this
@@ -429,7 +430,7 @@ export async function getAttendanceReport(date: string, status?: 'absent' | 'tar
       parent_last_name: student.parent_last_name ?? null,
       session_name: d.session_name,
       session_id: d.session_id,
-      status: d.status as 'absent' | 'tardy',
+      status: 'absent',
       period_number: d.period_number,
       period_name: d.period_name,
       teacher_name: d.teacher_name,
@@ -478,13 +479,13 @@ export async function getFacultySessions(facultyId: string, date?: string): Prom
       .where('session_id', '==', sess.id)
       .get();
 
-    let presentCount = 0, absentCount = 0, tardyCount = 0;
+    let presentCount = 0, absentCount = 0;
     for (const attDoc of attSnap.docs) {
       if (attDoc.data().date !== todayDate) continue;
       const st = attDoc.data().status;
       if (st === 'present') presentCount++;
       else if (st === 'absent') absentCount++;
-      else if (st === 'tardy') tardyCount++;
+      // legacy 'tardy' docs are not counted here; they'll be migrated to 'present' separately.
     }
 
     results.push({
@@ -501,12 +502,84 @@ export async function getFacultySessions(facultyId: string, date?: string): Prom
       total_students: totalStudents,
       present_count: presentCount,
       absent_count: absentCount,
-      tardy_count: tardyCount,
     });
   }
 
   results.sort((a, b) => a.period_number - b.period_number);
   return results;
+}
+
+// ─── Day Coverage (admin coverage dashboard) ────────────────────────────
+
+/**
+ * Return one CoverageRow per session for a given date.
+ *
+ * marked_count = total attendance docs for the session on this date
+ *   (any status: 'present' or 'absent'). Every doc is a mark.
+ * absent_count = docs where status === 'absent'.
+ * Legacy 'tardy' docs (if any remain) count as marked but NOT as absent —
+ *   they were 'present'-equivalent marks, not absences.
+ *
+ * Results are sorted by period_number asc, then session_name asc.
+ */
+export async function getDayCoverage(date: string): Promise<CoverageRow[]> {
+  const sessSnap = await sessionsCol().get();
+  if (sessSnap.empty) return [];
+
+  const periods = await getPeriods();
+  const periodMap = new Map(periods.map(p => [p.id, p]));
+
+  const facultyList = await getFaculty();
+  const facultyMap = new Map(facultyList.map(f => [f.id, f]));
+
+  // Pull all session_students once and bucket by session_id.
+  const ssSnap = await sessionStudentsCol().get();
+  const enrollmentBySession = new Map<string, number>();
+  for (const doc of ssSnap.docs) {
+    const sid = doc.data().session_id as string;
+    enrollmentBySession.set(sid, (enrollmentBySession.get(sid) ?? 0) + 1);
+  }
+
+  // Pull all attendance for the date in one query, then bucket per session.
+  const attSnap = await attendanceCol().where('date', '==', date).get();
+  const byCount = new Map<string, { marked: number; absent: number }>();
+  for (const doc of attSnap.docs) {
+    const d = doc.data();
+    const bucket = byCount.get(d.session_id) ?? { marked: 0, absent: 0 };
+    bucket.marked++;
+    if (d.status === 'absent') bucket.absent++;
+    byCount.set(d.session_id, bucket);
+  }
+
+  const rows: CoverageRow[] = [];
+  for (const sessDoc of sessSnap.docs) {
+    const sess = { id: sessDoc.id, ...sessDoc.data() } as Session;
+    const period = periodMap.get(sess.period_id);
+    const counts = byCount.get(sess.id) ?? { marked: 0, absent: 0 };
+    const teacher = sess.faculty_id ? facultyMap.get(sess.faculty_id) : undefined;
+    rows.push({
+      session_id: sess.id,
+      session_name: sess.name,
+      period_id: sess.period_id,
+      period_number: period?.number ?? 0,
+      period_name: period?.name ?? '',
+      start_time: period?.start_time ?? '',
+      end_time: period?.end_time ?? '',
+      ensemble: sess.ensemble ?? null,
+      instrument: sess.instrument ?? null,
+      faculty_id: sess.faculty_id ?? null,
+      teacher_name: teacher ? `${teacher.first_name} ${teacher.last_name}` : '',
+      total_students: enrollmentBySession.get(sess.id) ?? 0,
+      marked_count: counts.marked,
+      absent_count: counts.absent,
+    });
+  }
+
+  rows.sort((a, b) => {
+    if (a.period_number !== b.period_number) return a.period_number - b.period_number;
+    return a.session_name.localeCompare(b.session_name);
+  });
+  return rows;
 }
 
 // ─── Student Schedule ───────────────────────────────────────────────────
@@ -545,6 +618,12 @@ export async function getStudentSchedule(studentId: string, date?: string): Prom
     // Get attendance
     const att = await getAttendance(studentId, sessionId, todayDate);
 
+    const raw = att?.status as string | undefined;
+    const attendance_status: 'present' | 'absent' | 'unmarked' =
+      raw === undefined ? 'unmarked'
+      : raw === 'tardy' ? 'present'
+      : (raw as 'present' | 'absent');
+
     results.push({
       session_id: sess.id,
       name: sess.name,
@@ -555,7 +634,7 @@ export async function getStudentSchedule(studentId: string, date?: string): Prom
       end_time: period?.end_time ?? '',
       period_name: period?.name ?? '',
       teacher_name: teacherName,
-      attendance_status: att?.status ?? 'unmarked',
+      attendance_status,
       date: att?.date ?? null,
     });
   }
@@ -672,7 +751,7 @@ export interface StudentScheduleEntry {
   start_time: string;
   end_time: string;
   location: string | null;
-  status: 'present' | 'absent' | 'tardy' | 'unmarked';
+  status: 'present' | 'absent' | 'unmarked';
 }
 
 /**
@@ -703,6 +782,11 @@ export async function getStudentScheduleForDate(
     if (!sess) continue;
     const period = periodMap.get(sess.period_id);
     const att = await getAttendance(studentId, sessionId, date);
+    const rawStatus = att?.status as string | undefined;
+    const entryStatus: 'present' | 'absent' | 'unmarked' =
+      rawStatus === undefined ? 'unmarked'
+      : rawStatus === 'tardy' ? 'present'
+      : (rawStatus as 'present' | 'absent');
     entries.push({
       session_id: sess.id,
       session_name: sess.name,
@@ -710,7 +794,7 @@ export async function getStudentScheduleForDate(
       start_time: period?.start_time ?? '',
       end_time: period?.end_time ?? '',
       location: sess.location ?? null,
-      status: att?.status ?? 'unmarked',
+      status: entryStatus,
       _periodNumber: period?.number ?? 0,
     });
   }
@@ -833,23 +917,23 @@ export async function getDailyStats(date: string): Promise<DailyStats> {
     studentStatuses.get(data.student_id)!.add(data.status);
   }
 
-  let present = 0, absent = 0, tardy = 0, unmarked = 0;
+  let present = 0, absent = 0, unmarked = 0;
   for (const sDoc of studentsSnap.docs) {
     const statuses = studentStatuses.get(sDoc.id);
     if (!statuses) {
       unmarked++;
     } else if (statuses.has('absent')) {
       absent++;
-    } else if (statuses.has('tardy')) {
-      tardy++;
     } else if (statuses.has('present')) {
       present++;
+    } else if (statuses.has('tardy')) {
+      present++; // legacy coercion
     } else {
       unmarked++;
     }
   }
 
-  return { present, absent, tardy, unmarked, total: totalStudents };
+  return { present, absent, unmarked, total: totalStudents };
 }
 
 // ─── Authorization helpers ─────────────────────────────────────────────

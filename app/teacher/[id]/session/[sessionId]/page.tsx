@@ -28,9 +28,8 @@ interface SessionInfo {
   ensemble?: string;
 }
 
-// Server still accepts 'tardy'; admin UI can still set it. Teacher client
-// only cycles between unmarked ↔ present ↔ absent.
-type ClientStatus = 'unmarked' | 'present' | 'absent' | 'tardy';
+// 2-state cycle: unmarked → present → absent → unmarked.
+type ClientStatus = 'unmarked' | 'present' | 'absent';
 
 export default function AttendancePage({
   params,
@@ -80,7 +79,7 @@ export default function AttendancePage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDay, config]);
 
-  // Network send for POST (present/absent/tardy). Queue items carry this
+  // Network send for POST (present/absent). Queue items carry this
   // shape, so the same helper is used for live writes and queue flush.
   const send = useCallback(
     async (item: AttendanceQueueItem): Promise<boolean> => {
@@ -222,12 +221,10 @@ export default function AttendancePage({
 
   function toggleAttendance(studentId: string) {
     const current = attendance.get(studentId) || 'unmarked';
-    // 2-state client cycle: unmarked → present → absent → unmarked.
-    // If the record is somehow 'tardy' (admin-set), next-tap clears it.
     let next: ClientStatus;
     if (current === 'unmarked') next = 'present';
     else if (current === 'present') next = 'absent';
-    else next = 'unmarked'; // absent or tardy → unmarked
+    else next = 'unmarked';
 
     // Optimistic local update
     const newMap = new Map(attendance);
@@ -244,9 +241,6 @@ export default function AttendancePage({
     let ok: boolean;
     if (status === 'unmarked') {
       ok = await sendUnmark(studentId, params.sessionId, date);
-    } else if (status === 'tardy') {
-      // Shouldn't happen from the client cycle, but gate anyway.
-      ok = true;
     } else {
       ok = await send({
         student_id: studentId,
@@ -331,7 +325,7 @@ export default function AttendancePage({
   const absentCount = Array.from(attendance.values()).filter(s => s === 'absent').length;
   const unmarkedCount =
     students.length - Array.from(attendance.values()).filter(
-      s => s === 'present' || s === 'absent' || s === 'tardy'
+      s => s === 'present' || s === 'absent'
     ).length;
 
   // Sort by first_name since teachers only see first name + last initial
@@ -424,7 +418,7 @@ export default function AttendancePage({
               const displayName = student.preferred_name || student.first_name;
               const ariaLabel =
                 `${displayName} ${student.last_initial}., ${student.instrument}, ${status}`;
-              const isPressed = status === 'present' || status === 'absent' || status === 'tardy';
+              const isPressed = status === 'present' || status === 'absent';
               return (
                 <button
                   key={student.student_id}
@@ -446,7 +440,6 @@ export default function AttendancePage({
                     <div className="text-lg font-bold" aria-hidden="true">
                       {status === 'present' && 'P'}
                       {status === 'absent' && 'A'}
-                      {status === 'tardy' && 'T'}
                       {status === 'unmarked' && '\u2013'}
                     </div>
                   </div>

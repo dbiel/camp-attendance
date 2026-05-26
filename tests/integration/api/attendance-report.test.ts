@@ -27,15 +27,10 @@ describe('Attendance Report API', () => {
       }
     });
 
-    it('filters by status', async () => {
+    it('returns only absent records', async () => {
       const { data: absentOnly } = await adminFetch(`/api/attendance/report?date=${testDate}&status=absent`);
       for (const r of absentOnly) {
         expect(r.status).toBe('absent');
-      }
-
-      const { data: tardyOnly } = await adminFetch(`/api/attendance/report?date=${testDate}&status=tardy`);
-      for (const r of tardyOnly) {
-        expect(r.status).toBe('tardy');
       }
     });
 

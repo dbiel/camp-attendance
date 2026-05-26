@@ -14,9 +14,9 @@ describe('Stats API', () => {
       expect(data).toHaveProperty('date', testDate);
       expect(data).toHaveProperty('present');
       expect(data).toHaveProperty('absent');
-      expect(data).toHaveProperty('tardy');
       expect(data).toHaveProperty('unmarked');
       expect(data).toHaveProperty('total');
+      // tardy field removed — status=tardy no longer exists
       expect(typeof data.present).toBe('number');
       expect(typeof data.total).toBe('number');
     });
@@ -28,7 +28,8 @@ describe('Stats API', () => {
 
     it('counts sum to total', async () => {
       const { data } = await adminFetch(`/api/stats?date=${testDate}`);
-      expect(data.present + data.absent + data.tardy + data.unmarked).toBe(data.total);
+      // tardy removed from status set; sum is present + absent + unmarked
+      expect(data.present + data.absent + data.unmarked).toBe(data.total);
     });
   });
 });

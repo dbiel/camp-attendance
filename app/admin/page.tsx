@@ -14,7 +14,7 @@ export default function AdminLogin() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/admin/dashboard');
+      router.push('/admin/coverage');
     }
   }, [user, authLoading, router]);
 
@@ -25,7 +25,7 @@ export default function AdminLogin() {
 
     try {
       await signIn(email, password);
-      router.push('/admin/dashboard');
+      router.push('/admin/coverage');
     } catch (err: any) {
       if (err?.code === 'auth/invalid-credential' || err?.code === 'auth/wrong-password') {
         setError('Invalid email or password');
@@ -44,7 +44,7 @@ export default function AdminLogin() {
     setLoading(true);
     try {
       await signInWithGoogle();
-      router.push('/admin/dashboard');
+      router.push('/admin/coverage');
     } catch (err: any) {
       if (err?.code === 'auth/popup-closed-by-user') {
         // User dismissed the popup; no error message needed.

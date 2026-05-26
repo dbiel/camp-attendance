@@ -9,13 +9,12 @@ export const GET = withAuth(
   async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
-    const status = searchParams.get('status');
 
     if (!date) {
       return NextResponse.json({ error: 'Missing required parameter: date' }, { status: 400 });
     }
 
-    const report = await getAttendanceReport(date, status as 'absent' | 'tardy' | undefined);
+    const report = await getAttendanceReport(date);
     return NextResponse.json(report);
   },
   { rateLimitKey: 'attendance-report' }

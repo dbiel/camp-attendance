@@ -7,7 +7,7 @@ import { verifyAdmin } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 const MAX_ITEMS = 1000;
-const VALID_STATUSES = new Set(['present', 'absent', 'tardy']);
+const VALID_STATUSES = new Set(['present', 'absent']);
 
 export const POST = withAuth(
   'teacher',
@@ -53,7 +53,7 @@ export const POST = withAuth(
         student_id: it.student_id,
         session_id: it.session_id,
         date: it.date,
-        status: it.status as 'present' | 'absent' | 'tardy',
+        status: it.status as 'present' | 'absent',
       });
     }
 

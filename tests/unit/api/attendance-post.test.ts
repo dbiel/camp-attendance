@@ -47,14 +47,22 @@ describe('POST /api/attendance', () => {
     expect(markAttendanceMock).not.toHaveBeenCalled();
   });
 
-  it('accepts present/absent/tardy', async () => {
-    for (const status of ['present', 'absent', 'tardy']) {
+  it('accepts present and absent', async () => {
+    for (const status of ['present', 'absent']) {
       const res = await POST(
         post({ student_id: 's1', session_id: 'sess1', date: '2026-06-08', status })
       );
       expect(res.status).toBe(200);
     }
-    expect(markAttendanceMock).toHaveBeenCalledTimes(3);
+    expect(markAttendanceMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects tardy (removed status)', async () => {
+    const res = await POST(
+      post({ student_id: 's1', session_id: 'sess1', date: '2026-06-08', status: 'tardy' })
+    );
+    expect(res.status).toBe(400);
+    expect(markAttendanceMock).not.toHaveBeenCalled();
   });
 
   it('ignores client-supplied marked_by and derives from caller identity', async () => {

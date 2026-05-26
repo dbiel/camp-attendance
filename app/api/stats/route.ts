@@ -27,7 +27,6 @@ export async function GET(request: NextRequest) {
       date,
       present: stats.present || 0,
       absent: stats.absent || 0,
-      tardy: stats.tardy || 0,
       unmarked: stats.unmarked || 0,
       total: stats.total || 0,
     });

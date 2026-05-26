@@ -6,7 +6,7 @@ import { useToast } from '@/components/Toast';
 import { useAuth } from '@/lib/auth-context';
 import { Student } from '@/lib/types';
 
-type ScheduleStatus = 'present' | 'absent' | 'tardy' | 'unmarked';
+type ScheduleStatus = 'present' | 'absent' | 'unmarked';
 
 interface ScheduleEntry {
   session_id: string;
@@ -94,8 +94,6 @@ function statusPillClass(status: ScheduleStatus): string {
       return 'bg-green-100 text-green-800 border border-green-300';
     case 'absent':
       return 'bg-red-100 text-red-800 border border-red-300';
-    case 'tardy':
-      return 'bg-yellow-100 text-yellow-800 border border-yellow-300';
     default:
       return 'bg-gray-100 text-gray-700 border border-gray-300';
   }
