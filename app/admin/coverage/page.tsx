@@ -38,30 +38,15 @@ export default function AdminCoverage() {
     }
   }, [config, todayKey, selectedDay]);
 
-  // Initial snapshot
-  useEffect(() => {
-    if (!user || !config || !selectedDay) return;
-    const date = dayKeyToDate(selectedDay, config.day_dates);
-    if (!date) return;
-    setLoading(true);
-    (async () => {
-      const headers = await getAuthHeaders();
-      const res = await fetch(`/api/attendance/coverage?date=${date}`, { headers });
-      if (res.ok) {
-        const body = await res.json();
-        setRows(body.rows as CoverageRow[]);
-      }
-      setLoading(false);
-    })();
-  }, [user, config, selectedDay, getAuthHeaders]);
-
   // Live listener — any attendance change for the date triggers a re-fetch.
   // Simpler than diffing client-side; the API call is cheap.
+  // The first onSnapshot tick covers the initial data load (no separate initial-fetch effect needed).
   useEffect(() => {
     if (!user || !config || !selectedDay) return;
     const date = dayKeyToDate(selectedDay, config.day_dates);
     if (!date) return;
 
+    setLoading(true);
     const q = query(collection(clientDb, 'attendance'), where('date', '==', date));
     const unsub = onSnapshot(q, async () => {
       const headers = await getAuthHeaders();
@@ -70,9 +55,11 @@ export default function AdminCoverage() {
         const body = await res.json();
         setRows(body.rows as CoverageRow[]);
       }
+      setLoading(false);
     });
     return () => unsub();
-  }, [user, config, selectedDay, getAuthHeaders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, config, selectedDay]);
 
   const teachers = useMemo(() => {
     const map = new Map<string, string>();

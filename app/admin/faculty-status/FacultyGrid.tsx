@@ -44,24 +44,16 @@ export function FacultyGrid({ rows, onlyBehind, onCellClick }: Props) {
     [rows]
   );
 
-  // "Behind" = at least one of their sessions whose end_time has already passed
-  // is not mostly-done. Future sessions don't count.
-  const isBehind = (facultyRows: CoverageRow[]) => {
-    const now = Date.now();
-    const today = new Date().toISOString().slice(0, 10);
-    for (const r of facultyRows) {
-      const endIso = `${today}T${r.end_time}:00`;
-      const ended = new Date(endIso).getTime() < now;
-      if (!ended) continue;
+  // "Behind" = any session today is not yet mostly-done.
+  const isBehind = (facultyRows: CoverageRow[]) =>
+    facultyRows.some((r) => {
       const s = deriveCellState({
         total_students: r.total_students,
         marked_count: r.marked_count,
         absent_count: r.absent_count,
       });
-      if (s !== 'mostly-done') return true;
-    }
-    return false;
-  };
+      return s !== 'mostly-done';
+    });
 
   const visibleFaculty = onlyBehind ? byFaculty.filter((f) => isBehind(f.rows)) : byFaculty;
 

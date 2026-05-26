@@ -32,18 +32,11 @@ export default function AdminFacultyStatus() {
     }
   }, [config, todayKey, selectedDay]);
 
+  // Live listener — first tick covers initial load; no separate initial-fetch needed.
   useEffect(() => {
     if (!user || !config || !selectedDay) return;
     const date = dayKeyToDate(selectedDay, config.day_dates);
     if (!date) return;
-    (async () => {
-      const headers = await getAuthHeaders();
-      const res = await fetch(`/api/attendance/coverage?date=${date}`, { headers });
-      if (res.ok) {
-        const body = await res.json();
-        setRows(body.rows as CoverageRow[]);
-      }
-    })();
     const q = query(collection(clientDb, 'attendance'), where('date', '==', date));
     const unsub = onSnapshot(q, async () => {
       const headers = await getAuthHeaders();
@@ -54,9 +47,10 @@ export default function AdminFacultyStatus() {
       }
     });
     return () => unsub();
-  }, [user, config, selectedDay, getAuthHeaders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, config, selectedDay]);
 
-  // Summary chip: caught_up vs behind, ignoring faculty with no past-end sessions.
+  // "Behind" = any session today is not yet mostly-done.
   const facultyTotals = (() => {
     const map = new Map<string, CoverageRow[]>();
     for (const r of rows) if (r.faculty_id) {

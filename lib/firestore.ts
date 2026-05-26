@@ -532,6 +532,14 @@ export async function getDayCoverage(date: string): Promise<CoverageRow[]> {
   const facultyList = await getFaculty();
   const facultyMap = new Map(facultyList.map(f => [f.id, f]));
 
+  // Pull all session_students once and bucket by session_id.
+  const ssSnap = await sessionStudentsCol().get();
+  const enrollmentBySession = new Map<string, number>();
+  for (const doc of ssSnap.docs) {
+    const sid = doc.data().session_id as string;
+    enrollmentBySession.set(sid, (enrollmentBySession.get(sid) ?? 0) + 1);
+  }
+
   // Pull all attendance for the date in one query, then bucket per session.
   const attSnap = await attendanceCol().where('date', '==', date).get();
   const byCount = new Map<string, { marked: number; absent: number }>();
@@ -547,9 +555,6 @@ export async function getDayCoverage(date: string): Promise<CoverageRow[]> {
   for (const sessDoc of sessSnap.docs) {
     const sess = { id: sessDoc.id, ...sessDoc.data() } as Session;
     const period = periodMap.get(sess.period_id);
-    const enrolledSnap = await sessionStudentsCol()
-      .where('session_id', '==', sess.id)
-      .get();
     const counts = byCount.get(sess.id) ?? { marked: 0, absent: 0 };
     const teacher = sess.faculty_id ? facultyMap.get(sess.faculty_id) : undefined;
     rows.push({
@@ -564,7 +569,7 @@ export async function getDayCoverage(date: string): Promise<CoverageRow[]> {
       instrument: sess.instrument ?? null,
       faculty_id: sess.faculty_id ?? null,
       teacher_name: teacher ? `${teacher.first_name} ${teacher.last_name}` : '',
-      total_students: enrolledSnap.size,
+      total_students: enrollmentBySession.get(sess.id) ?? 0,
       marked_count: counts.marked,
       absent_count: counts.absent,
     });

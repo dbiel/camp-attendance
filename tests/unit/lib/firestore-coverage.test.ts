@@ -31,7 +31,7 @@ const fakeDocs: Record<string, any[]> = {
   attendance: [
     { id: 'a1', session_id: 's1', student_id: 'u1', date: '2026-06-08', status: 'present' },
     { id: 'a2', session_id: 's1', student_id: 'u2', date: '2026-06-08', status: 'absent' },
-    // u3 is unmarked — no attendance doc for this date
+    { id: 'a3', session_id: 's1', student_id: 'u3', date: '2026-06-08', status: 'tardy' },
   ],
 };
 
@@ -88,8 +88,8 @@ describe('getDayCoverage', () => {
       faculty_id: 'f1',
       teacher_name: 'John Smith',
       total_students: 3,
-      marked_count: 2,  // u1 (present) + u2 (absent) both have docs → marked
-      absent_count: 1,  // only u2 is absent
+      marked_count: 3,  // u1 (present) + u2 (absent) + u3 (tardy) all have docs → marked
+      absent_count: 1,  // only u2 is absent; tardy counts as marked but not absent
     });
   });
 
