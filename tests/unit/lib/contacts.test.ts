@@ -17,7 +17,7 @@ vi.mock('@/lib/firebase-admin', () => ({
   },
 }));
 
-import { normalizePhone, createContact, findContactByPhone } from '@/lib/contacts';
+import { normalizePhone, createContact, findContactByPhone, listContacts } from '@/lib/contacts';
 
 describe('normalizePhone', () => {
   it('normalizes 10-digit US numbers', () => {
@@ -38,7 +38,7 @@ describe('normalizePhone', () => {
 
 describe('createContact', () => {
   beforeEach(() => vi.clearAllMocks());
-  it('stores normalized phone and lowercased role', async () => {
+  it('stores normalized phone and role', async () => {
     addMock.mockResolvedValue({ id: 'c1' });
     const id = await createContact({ name: 'Sarah Lee', role: 'dorm_staff', phone: '806.555.0101' });
     expect(id).toBe('c1');
@@ -48,6 +48,23 @@ describe('createContact', () => {
   });
   it('rejects an unnormalizable phone', async () => {
     await expect(createContact({ name: 'X', role: 'faculty', phone: 'nope' })).rejects.toThrow(/phone/i);
+  });
+});
+
+describe('listContacts', () => {
+  beforeEach(() => vi.clearAllMocks());
+  it('maps docs to {id, ...data} ordered by name', async () => {
+    getMock.mockResolvedValue({
+      docs: [
+        { id: 'c1', data: () => ({ name: 'Alice Adams', phone: '+18065550101', role: 'faculty', created_at: '2026-06-09T00:00:00.000Z' }) },
+        { id: 'c2', data: () => ({ name: 'Sarah Lee', phone: '+18065550102', role: 'dorm_staff', created_at: '2026-06-09T00:00:00.000Z' }) },
+      ],
+    });
+    const contacts = await listContacts();
+    expect(contacts).toEqual([
+      { id: 'c1', name: 'Alice Adams', phone: '+18065550101', role: 'faculty', created_at: '2026-06-09T00:00:00.000Z' },
+      { id: 'c2', name: 'Sarah Lee', phone: '+18065550102', role: 'dorm_staff', created_at: '2026-06-09T00:00:00.000Z' },
+    ]);
   });
 });
 

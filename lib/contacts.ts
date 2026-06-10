@@ -37,8 +37,8 @@ export async function createContact(input: {
     name: input.name.trim(),
     role: input.role,
     phone,
-    ...(input.dorm_building ? { dorm_building: input.dorm_building } : {}),
-    ...(input.notes ? { notes: input.notes } : {}),
+    ...(input.dorm_building?.trim() ? { dorm_building: input.dorm_building.trim() } : {}),
+    ...(input.notes?.trim() ? { notes: input.notes.trim() } : {}),
     created_at: new Date().toISOString(),
   };
   const ref = await adminDb.collection(COLLECTION).add(doc);
