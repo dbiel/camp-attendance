@@ -64,17 +64,17 @@ export async function parseReport(
     const response = await client.messages.create({
       model: process.env.CASE_PARSE_MODEL || 'claude-opus-4-8',
       max_tokens: 2048,
+      // Roster and contacts get separate cache breakpoints: contact additions
+      // (learn-as-you-go) must not invalidate the large cached roster prefix.
       system: [
         { type: 'text', text: INSTRUCTIONS },
-        {
-          type: 'text',
-          text: `${rosterBlock(students)}\n\n${contactsBlock(contacts)}`,
-          cache_control: { type: 'ephemeral' },
-        },
+        { type: 'text', text: rosterBlock(students), cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: contactsBlock(contacts), cache_control: { type: 'ephemeral' } },
       ],
       output_config: { format: { type: 'json_schema', schema: PARSE_SCHEMA } },
       messages: [{ role: 'user', content: rawText }],
     });
+    console.log('[case-parse] usage:', response.usage);
     const textBlock = response.content.find((b) => b.type === 'text');
     if (!textBlock || textBlock.type !== 'text') return null;
     const parsed = JSON.parse(textBlock.text) as ParsedReport;

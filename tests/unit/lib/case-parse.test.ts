@@ -44,8 +44,11 @@ describe('parseReport', () => {
     await parseReport('whatever', students, contacts);
     const req = createMock.mock.calls[0][0];
     const systemBlocks = req.system as Array<{ text: string; cache_control?: object }>;
-    expect(systemBlocks.some((b) => b.text.includes('Jonathan'))).toBe(true);
-    expect(systemBlocks[systemBlocks.length - 1].cache_control).toEqual({ type: 'ephemeral' });
+    const rosterBlock = systemBlocks.find((b) => b.text.includes('Jonathan'));
+    const contactsBlock = systemBlocks.find((b) => b.text.includes('Mr. Jones'));
+    expect(rosterBlock?.cache_control).toEqual({ type: 'ephemeral' });
+    expect(contactsBlock?.cache_control).toEqual({ type: 'ephemeral' });
+    expect(rosterBlock).not.toBe(contactsBlock);
     expect(req.output_config?.format?.type).toBe('json_schema');
   });
 
