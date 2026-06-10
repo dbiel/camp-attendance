@@ -56,6 +56,8 @@ export default function CaseHistory() {
     return <main className="p-4 text-sm text-gray-500">Loading…</main>;
   }
 
+  if (authLoading || !user) return null;
+
   const visible = cases.filter((c) =>
     c.student_name.toLowerCase().includes(filter.toLowerCase())
   );
@@ -95,10 +97,12 @@ export default function CaseHistory() {
             </Link>
           </li>
         ))}
-        {visible.length === 0 && (
-          <p className="text-sm text-gray-500">No resolved cases.</p>
-        )}
       </ul>
+      {visible.length === 0 && (
+        <p className="mt-3 text-sm text-gray-500">
+          {cases.length > 0 ? 'No matches.' : 'No resolved cases.'}
+        </p>
+      )}
     </main>
   );
 }
