@@ -136,7 +136,7 @@ export default function CaseDetail() {
         <section className="mt-4 flex flex-col gap-2">
           {student?.parent_phone && (
             <SmsAction
-              label={`Text parent (${student.parent_first_name})`}
+              label={student.parent_first_name ? `Text parent (${student.parent_first_name})` : 'Text parent'}
               href={smsHref(student.parent_phone, parentBody)}
               body={parentBody}
               onSent={() => logEvent('parent_texted', `Texted parent ${student.parent_phone}`)}
