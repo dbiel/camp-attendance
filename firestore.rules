@@ -49,6 +49,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Incident command center collections: server-side only via Admin SDK.
+    // Share-link access (Phase 2) goes through token-validating API routes.
+    match /cases/{caseId} {
+      allow read, write: if false;
+    }
+    match /case_events/{eventId} {
+      allow read, write: if false;
+    }
+    match /contacts/{contactId} {
+      allow read, write: if false;
+    }
+
     // Catch-all default deny. Any new collection added via the Admin SDK
     // is read/write-denied to clients until an explicit `match` block is
     // added above this line. Prevents "forgot to write a rule" footguns.
