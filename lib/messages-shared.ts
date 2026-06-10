@@ -19,5 +19,7 @@ export function renderTemplate(template: string, vars: Record<string, string>): 
 
 /** Cross-platform sms: URI (the `?&body=` form works on both iOS and Android). */
 export function smsHref(phone: string, body: string): string {
-  return `sms:${phone}?&body=${encodeURIComponent(body)}`;
+  // Phones may be stored display-formatted ("(806) 555-1234") — strip to +digits.
+  const cleaned = phone.replace(/[^+\d]/g, '');
+  return `sms:${cleaned}?&body=${encodeURIComponent(body)}`;
 }

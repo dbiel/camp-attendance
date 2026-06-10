@@ -25,6 +25,9 @@ describe('smsHref', () => {
   it('builds an sms URI with encoded body', () => {
     expect(smsHref('+18065550101', 'Hi Beth & co')).toBe('sms:+18065550101?&body=Hi%20Beth%20%26%20co');
   });
+  it('sanitizes display-formatted phone numbers', () => {
+    expect(smsHref('(806) 555-0101', 'Hi')).toBe('sms:8065550101?&body=Hi');
+  });
 });
 
 describe('getMessageTemplates', () => {

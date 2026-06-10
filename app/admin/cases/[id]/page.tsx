@@ -43,6 +43,7 @@ export default function CaseDetail() {
         fetch('/api/contacts', { headers }),
       ]);
       if (dres.ok) setDetail(await dres.json());
+      else setLoadError(`Failed to load case (${dres.status})`);
       if (tres.ok) setTemplates((await tres.json()).templates);
       if (cres.ok) setDormStaff(((await cres.json()).contacts as Contact[]).filter((c) => c.role === 'dorm_staff'));
     } catch {
@@ -184,16 +185,26 @@ export default function CaseDetail() {
 }
 
 function SmsAction({ label, href, body, onSent }: { label: string; href: string; body: string; onSent: () => void }) {
+  const [copyError, setCopyError] = useState(false);
   return (
     <div className="flex items-center gap-2">
       <a href={href} onClick={onSent} className="flex-1 rounded bg-red-700 px-4 py-2 text-white">📱 {label}</a>
       <button
-        onClick={() => { navigator.clipboard.writeText(body); onSent(); }}
+        onClick={() => {
+          setCopyError(false);
+          const write = navigator.clipboard?.writeText(body);
+          if (!write) {
+            setCopyError(true);
+            return;
+          }
+          write.then(onSent).catch(() => setCopyError(true));
+        }}
         className="rounded border px-3 py-2 text-sm"
         title="Copy message"
       >
         Copy
       </button>
+      {copyError && <span className="text-xs text-red-700">Copy unavailable</span>}
     </div>
   );
 }
