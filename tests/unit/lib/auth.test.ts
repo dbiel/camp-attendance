@@ -27,11 +27,12 @@ vi.mock('@/lib/firebase-admin', () => {
 vi.mock('@/lib/firestore', () => ({
   isAdminEmail: vi.fn(),
   bootstrapAdminIfEmpty: vi.fn(),
+  getAdminRole: vi.fn(),
 }));
 
 import { verifyAdmin, verifyTeacher, getCallerRole } from '@/lib/auth';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { isAdminEmail, bootstrapAdminIfEmpty } from '@/lib/firestore';
+import { isAdminEmail, bootstrapAdminIfEmpty, getAdminRole } from '@/lib/firestore';
 
 function makeRequest(headers: Record<string, string> = {}): NextRequest {
   const h = new Headers(headers);
@@ -228,6 +229,7 @@ describe('getCallerRole', () => {
     process.env.CAMP_CODE = 'test-camp-2026';
     vi.mocked(isAdminEmail).mockResolvedValue(true);
     vi.mocked(bootstrapAdminIfEmpty).mockResolvedValue(false);
+    vi.mocked(getAdminRole).mockResolvedValue('super_admin');
   });
 
   it('returns "admin" when valid Bearer token present', async () => {
@@ -293,5 +295,48 @@ describe('getCallerRole', () => {
       makeRequest({ Authorization: 'Bearer valid', 'X-Camp-Code': 'test-camp-2026' })
     );
     expect(result).toBe('teacher');
+  });
+
+  it('returns "admin" only for super_admin role', async () => {
+    vi.mocked(adminAuth.verifyIdToken).mockResolvedValue({ uid: 'boss-1', email: 'boss@test.com' } as any);
+    vi.mocked(getAdminRole).mockResolvedValue('super_admin');
+
+    const result = await getCallerRole(makeRequest({ Authorization: 'Bearer valid-token' }));
+    expect(result).toBe('admin');
+    expect(getAdminRole).toHaveBeenCalledWith('boss@test.com');
+  });
+
+  it('does NOT return "admin" for dorm_admin — falls through to teacher when camp code valid', async () => {
+    vi.mocked(adminAuth.verifyIdToken).mockResolvedValue({ uid: 'dorm-1', email: 'dorm@test.com' } as any);
+    vi.mocked(getAdminRole).mockResolvedValue('dorm_admin');
+
+    const mockGet = vi.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ camp_code: 'test-camp-2026' }),
+    });
+    vi.mocked(adminDb.collection).mockReturnValue({
+      doc: vi.fn().mockReturnValue({ get: mockGet }),
+    } as any);
+
+    const result = await getCallerRole(
+      makeRequest({ Authorization: 'Bearer valid', 'X-Camp-Code': 'test-camp-2026' })
+    );
+    expect(result).toBe('teacher');
+  });
+
+  it('returns null for dorm_admin with no camp code', async () => {
+    vi.mocked(adminAuth.verifyIdToken).mockResolvedValue({ uid: 'dorm-1', email: 'dorm@test.com' } as any);
+    vi.mocked(getAdminRole).mockResolvedValue('dorm_admin');
+
+    const mockGet = vi.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ camp_code: 'test-camp-2026' }),
+    });
+    vi.mocked(adminDb.collection).mockReturnValue({
+      doc: vi.fn().mockReturnValue({ get: mockGet }),
+    } as any);
+
+    const result = await getCallerRole(makeRequest({ Authorization: 'Bearer valid-token' }));
+    expect(result).toBeNull();
   });
 });

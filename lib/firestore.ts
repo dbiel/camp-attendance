@@ -1382,14 +1382,26 @@ export async function isAdminEmail(email: string): Promise<boolean> {
 }
 
 /**
+ * Coerce a raw Firestore `role` value to an AdminRole. Fail-closed:
+ * - undefined (legacy doc written before roles existed) → 'super_admin'
+ * - 'super_admin' / 'dorm_admin' → themselves
+ * - any other value (typos, unexpected strings) → null
+ */
+function coerceAdminRole(value: unknown): AdminRole | null {
+  if (value === undefined) return 'super_admin';
+  return value === 'super_admin' || value === 'dorm_admin' ? value : null;
+}
+
+/**
  * Return the role for an allow-listed admin email, or null if not found.
- * Missing role field on a legacy doc is treated as 'super_admin'.
+ * Missing role field on a legacy doc is treated as 'super_admin'; an
+ * unrecognized role value resolves to null (deny) rather than granting
+ * a default privilege.
  */
 export async function getAdminRole(email: string): Promise<AdminRole | null> {
   const doc = await adminsCol().doc(email.toLowerCase()).get();
   if (!doc.exists) return null;
-  const role = doc.data()?.role;
-  return role === 'dorm_admin' ? 'dorm_admin' : 'super_admin';
+  return coerceAdminRole(doc.data()?.role);
 }
 
 /**
@@ -1418,9 +1430,11 @@ export async function bootstrapAdminIfEmpty(email: string): Promise<boolean> {
 
 /**
  * List every admin entry. Returns an array of `{ email, added_by, added_at, role }`.
+ * `role` is `'unknown'` when the stored value is present but unrecognized —
+ * such entries get no privileges (see `coerceAdminRole`).
  */
 export async function listAdmins(): Promise<
-  Array<{ email: string; added_by: string; added_at: number; role: AdminRole }>
+  Array<{ email: string; added_by: string; added_at: number; role: AdminRole | 'unknown' }>
 > {
   const snap = await adminsCol().get();
   return snap.docs.map((doc) => {
@@ -1429,7 +1443,7 @@ export async function listAdmins(): Promise<
       email: d.email ?? doc.id,
       added_by: d.added_by ?? 'unknown',
       added_at: d.added_at ?? 0,
-      role: d.role === 'dorm_admin' ? 'dorm_admin' : 'super_admin',
+      role: coerceAdminRole(d.role) ?? 'unknown',
     };
   });
 }

@@ -18,6 +18,7 @@ vi.mock('@/lib/firestore', () => ({
   deleteStudent: vi.fn(),
   isAdminEmail: vi.fn().mockResolvedValue(true),
   bootstrapAdminIfEmpty: vi.fn().mockResolvedValue(false),
+  getAdminRole: vi.fn().mockResolvedValue('super_admin'),
 }));
 
 vi.mock('@/lib/firebase-admin', () => ({

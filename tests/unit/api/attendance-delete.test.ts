@@ -19,6 +19,7 @@ vi.mock('@/lib/firestore', () => ({
   getSessionAttendance: vi.fn().mockResolvedValue([]),
   isAdminEmail: vi.fn().mockResolvedValue(true),
   bootstrapAdminIfEmpty: vi.fn().mockResolvedValue(false),
+  getAdminRole: vi.fn().mockResolvedValue('super_admin'),
 }));
 
 vi.mock('@/lib/firebase-admin', () => ({

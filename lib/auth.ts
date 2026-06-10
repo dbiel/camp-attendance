@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
 import { adminAuth, adminDb } from './firebase-admin';
-import { bootstrapAdminIfEmpty, isAdminEmail } from './firestore';
+import { bootstrapAdminIfEmpty, getAdminRole, isAdminEmail } from './firestore';
 
 export type CallerRole = 'admin' | 'teacher' | null;
 
@@ -88,10 +88,17 @@ export async function verifyTeacher(request: NextRequest): Promise<boolean> {
 /**
  * Determine the caller's role from the request.
  * Checks admin auth first (higher privilege), then camp code.
+ *
+ * Only allow-listed admins whose role is 'super_admin' resolve to 'admin'.
+ * A 'dorm_admin' (or any unrecognized role) does NOT get legacy admin
+ * access — dorm admins will get their own scoped routes in Phase 2. They
+ * can still fall through to 'teacher' if they present a valid camp code.
  */
 export async function getCallerRole(request: NextRequest): Promise<CallerRole> {
   const admin = await verifyAdmin(request);
-  if (admin) return 'admin';
+  if (admin?.email && (await getAdminRole(admin.email)) === 'super_admin') {
+    return 'admin';
+  }
 
   const isTeacher = await verifyTeacher(request);
   if (isTeacher) return 'teacher';

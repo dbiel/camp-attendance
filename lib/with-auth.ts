@@ -35,7 +35,12 @@ export interface WithAuthOptions {
  * - Returns 429 if unauth attempts exceed the rate limit (when key set).
  * - Returns 500 on any thrown error (logs via console.error).
  *
- * Role hierarchy: admin > teacher. Requiring 'teacher' accepts both.
+ * Role hierarchy: super_admin > admin > teacher. Requiring 'teacher'
+ * accepts both teacher and admin. Requiring 'super_admin' verifies the
+ * caller's Firebase ID token AND that their `admins/{email}` doc resolves
+ * to the 'super_admin' role (legacy docs without a role field qualify;
+ * dorm_admin and unrecognized roles get 403). The handler receives
+ * `role: 'admin'` on success.
  */
 export function withAuth<P = Record<string, string>>(
   required: RequiredRole,

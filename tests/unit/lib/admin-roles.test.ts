@@ -39,6 +39,11 @@ describe('getAdminRole', () => {
     expect(await getAdminRole('john@example.com')).toBe('dorm_admin');
   });
 
+  it('returns null for unrecognized role values (fail closed)', async () => {
+    docGetMock.mockResolvedValue({ exists: true, data: () => ({ role: 'viewer' }) });
+    expect(await getAdminRole('typo@example.com')).toBeNull();
+  });
+
   it('lowercases the email for lookup', async () => {
     docGetMock.mockResolvedValue({ exists: false });
     expect(await getAdminRole('MiXeD@Example.COM')).toBeNull();

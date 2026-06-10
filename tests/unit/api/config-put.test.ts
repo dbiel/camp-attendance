@@ -13,6 +13,7 @@ vi.mock('@/lib/firestore', () => ({
   setCampConfig: setCampConfigMock,
   isAdminEmail: vi.fn().mockResolvedValue(true),
   bootstrapAdminIfEmpty: vi.fn().mockResolvedValue(false),
+  getAdminRole: vi.fn().mockResolvedValue('super_admin'),
 }));
 
 vi.mock('@/lib/camp-config', () => ({
