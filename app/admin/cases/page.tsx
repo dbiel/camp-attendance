@@ -19,10 +19,15 @@ export default function ActiveCases() {
   }, [user, authLoading, router]);
 
   const refresh = useCallback(async () => {
-    const headers = await getAuthHeaders();
-    const res = await fetch('/api/cases?status=active', { headers });
-    if (res.ok) setCases((await res.json()).cases as Case[]);
-    setLoading(false);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/cases?status=active', { headers });
+      if (res.ok) setCases((await res.json()).cases as Case[]);
+    } catch {
+      // Offline / transient network error — keep the last known list.
+    } finally {
+      setLoading(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 

@@ -33,6 +33,18 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
   const [reporterRole, setReporterRole] = useState('faculty');
   const [needsContactSave, setNeedsContactSave] = useState(false);
 
+  /** Clear any state left over from a previous parse so a failed parse can't
+   * silently file a report against the wrong student or reporter. */
+  function resetParsedState() {
+    setCandidates([]);
+    setStudentId('');
+    setSummary('');
+    setReporterContactId(null);
+    setReporterName('');
+    setReporterPhone('');
+    setNeedsContactSave(false);
+  }
+
   async function parse() {
     setBusy(true);
     setError('');
@@ -41,6 +53,7 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
       const res = await fetch('/api/cases/parse', { method: 'POST', headers, body: JSON.stringify({ text: rawText }) });
       const body = await res.json();
       if (body.ok) {
+        resetParsedState();
         const p = body.parsed as ParsedReport;
         setCandidates(body.candidates as Candidate[]);
         setStudentId((body.candidates as Candidate[])[0]?.id ?? '');
@@ -53,11 +66,12 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
           setNeedsContactSave(Boolean(p.reporter_phone));
         }
       } else {
-        setCandidates([]);
-        setSummary('');
+        resetParsedState();
+        setError('Parse failed — fill in the case manually.');
       }
       setStage('confirm');
     } catch {
+      resetParsedState();
       setError('Parse failed — fill in the case manually.');
       setStage('confirm');
     } finally {
@@ -77,7 +91,13 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
           method: 'POST', headers,
           body: JSON.stringify({ name: reporterName, phone: reporterPhone, role: reporterRole }),
         });
-        if (cres.ok) contactId = (await cres.json()).id;
+        if (cres.ok) {
+          contactId = (await cres.json()).id;
+          // Persist so a retry after a failed case-create reuses this contact
+          // instead of creating a duplicate.
+          setReporterContactId(contactId);
+          setNeedsContactSave(false);
+        }
       }
       const res = await fetch('/api/cases', {
         method: 'POST', headers,
@@ -90,7 +110,15 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
           session_label: sessionLabel || null,
         }),
       });
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Create failed');
+      if (!res.ok) {
+        let message = 'Create failed';
+        try {
+          message = (await res.json()).error ?? message;
+        } catch {
+          // Non-JSON error body — keep the fallback message.
+        }
+        throw new Error(message);
+      }
       const { id } = await res.json();
       onCreated();
       router.push(`/admin/cases/${id}`);
@@ -127,10 +155,14 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
     <div className="rounded-lg border bg-white p-4 shadow-sm">
       <h2 className="mb-2 font-semibold">Confirm case</h2>
       <StudentPicker candidates={candidates} value={studentId} onChange={setStudentId} getAuthHeaders={getAuthHeaders} />
-      <label className="mt-3 block text-sm font-medium">Summary</label>
-      <input value={summary} onChange={(e) => setSummary(e.target.value)} className="w-full rounded border p-2 text-sm" />
-      <label className="mt-3 block text-sm font-medium">Where / when missed</label>
-      <input value={sessionLabel} onChange={(e) => setSessionLabel(e.target.value)} className="w-full rounded border p-2 text-sm" />
+      <label className="mt-3 block text-sm font-medium">
+        Summary
+        <input value={summary} onChange={(e) => setSummary(e.target.value)} className="mt-1 w-full rounded border p-2 text-sm font-normal" />
+      </label>
+      <label className="mt-3 block text-sm font-medium">
+        Where / when missed
+        <input value={sessionLabel} onChange={(e) => setSessionLabel(e.target.value)} className="mt-1 w-full rounded border p-2 text-sm font-normal" />
+      </label>
       {!reporterContactId && (
         <fieldset className="mt-3 rounded border p-2">
           <legend className="px-1 text-sm font-medium">Who reported this?</legend>
@@ -196,10 +228,12 @@ function StudentPicker({ candidates, value, onChange, getAuthHeaders }: {
   const options = candidates.length > 0 ? candidates : results;
   return (
     <div>
-      <label className="block text-sm font-medium">Student</label>
-      {candidates.length === 0 && (
-        <input value={query} onChange={(e) => search(e.target.value)} placeholder="Search roster…" className="mb-2 w-full rounded border p-2 text-sm" />
-      )}
+      <label className="block text-sm font-medium">
+        Student
+        {candidates.length === 0 && (
+          <input value={query} onChange={(e) => search(e.target.value)} placeholder="Search roster…" className="mb-2 mt-1 w-full rounded border p-2 text-sm font-normal" />
+        )}
+      </label>
       <div className="flex flex-col gap-1">
         {options.map((c) => (
           <button
