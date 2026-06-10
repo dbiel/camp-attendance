@@ -9,7 +9,7 @@ vi.mock('@/lib/firebase-admin', () => ({
   adminDb: { collection: () => ({ doc: () => ({ get: docGetMock, set: docSetMock }) }) },
 }));
 
-import { renderTemplate, smsHref, getMessageTemplates, DEFAULT_TEMPLATES } from '@/lib/messages';
+import { renderTemplate, smsHref, getMessageTemplates, setMessageTemplates, DEFAULT_TEMPLATES } from '@/lib/messages';
 
 describe('renderTemplate', () => {
   it('substitutes placeholders', () => {
@@ -38,5 +38,19 @@ describe('getMessageTemplates', () => {
     const t = await getMessageTemplates();
     expect(t.parent).toBe('custom');
     expect(t.dorm_staff).toBe(DEFAULT_TEMPLATES.dorm_staff);
+  });
+});
+
+describe('setMessageTemplates', () => {
+  beforeEach(() => vi.clearAllMocks());
+  it('calls .set with merge:true and returns the merged result', async () => {
+    docSetMock.mockResolvedValue(undefined);
+    // After set, getMessageTemplates will call get again — return custom value
+    docGetMock.mockResolvedValue({ exists: true, data: () => ({ parent: 'new-parent' }) });
+    const partial = { parent: 'new-parent' };
+    const result = await setMessageTemplates(partial);
+    expect(docSetMock).toHaveBeenCalledWith(partial, { merge: true });
+    expect(result.parent).toBe('new-parent');
+    expect(result.dorm_staff).toBe(DEFAULT_TEMPLATES.dorm_staff);
   });
 });
