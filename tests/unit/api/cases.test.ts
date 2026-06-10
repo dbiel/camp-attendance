@@ -33,6 +33,8 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 import { GET, POST } from '@/app/api/cases/route';
+import { GET as GET_CASE, PATCH } from '@/app/api/cases/[id]/route';
+import { POST as POST_EVENT } from '@/app/api/cases/[id]/events/route';
 
 function req(method: string, body?: unknown, url = 'http://test/api/cases') {
   return new NextRequest(url, {
@@ -84,5 +86,49 @@ describe('POST /api/cases', () => {
     m.getStudent.mockResolvedValue(undefined);
     const res = await POST(req('POST', { student_id: 'nope', summary: 'x', raw_text: 'y' }), { params: {} });
     expect(res.status).toBe(400);
+  });
+});
+
+describe('GET /api/cases/[id]', () => {
+  it('404s on unknown case', async () => {
+    m.getCase.mockResolvedValue(null);
+    const res = await GET_CASE(req('GET', undefined, 'http://test/api/cases/nope'), { params: { id: 'nope' } });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('PATCH /api/cases/[id]', () => {
+  it('400s on missing resolution_note', async () => {
+    const res = await PATCH(req('PATCH', {}, 'http://test/api/cases/c1'), { params: { id: 'c1' } });
+    expect(res.status).toBe(400);
+    expect(m.resolveCase).not.toHaveBeenCalled();
+  });
+  it('409s on already-resolved case', async () => {
+    m.getCase.mockResolvedValue({ id: 'c1', status: 'resolved' });
+    const res = await PATCH(
+      req('PATCH', { resolution_note: 'found him' }, 'http://test/api/cases/c1'),
+      { params: { id: 'c1' } }
+    );
+    expect(res.status).toBe(409);
+    expect(m.resolveCase).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/cases/[id]/events', () => {
+  it('400s on disallowed type', async () => {
+    const res = await POST_EVENT(
+      req('POST', { type: 'resolved', body: 'note text' }, 'http://test/api/cases/c1/events'),
+      { params: { id: 'c1' } }
+    );
+    expect(res.status).toBe(400);
+    expect(m.addCaseEvent).not.toHaveBeenCalled();
+  });
+  it('400s on empty body', async () => {
+    const res = await POST_EVENT(
+      req('POST', { type: 'note', body: '   ' }, 'http://test/api/cases/c1/events'),
+      { params: { id: 'c1' } }
+    );
+    expect(res.status).toBe(400);
+    expect(m.addCaseEvent).not.toHaveBeenCalled();
   });
 });

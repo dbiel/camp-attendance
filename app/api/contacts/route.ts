@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/with-auth';
-import { listContacts, createContact, ContactRole } from '@/lib/contacts';
+import { listContacts, createContact, normalizePhone, ContactRole } from '@/lib/contacts';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,17 +21,16 @@ export const POST = withAuth(
         typeof role !== 'string' || !ROLES.includes(role as ContactRole)) {
       return NextResponse.json({ error: 'name, phone, and valid role required' }, { status: 400 });
     }
-    try {
-      const id = await createContact({
-        name, phone,
-        role: role as ContactRole,
-        dorm_building: typeof dorm_building === 'string' ? dorm_building : undefined,
-        notes: typeof notes === 'string' ? notes : undefined,
-      });
-      return NextResponse.json({ id });
-    } catch (err) {
-      return NextResponse.json({ error: (err as Error).message }, { status: 400 });
+    if (!normalizePhone(phone)) {
+      return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 });
     }
+    const id = await createContact({
+      name, phone,
+      role: role as ContactRole,
+      dorm_building: typeof dorm_building === 'string' ? dorm_building : undefined,
+      notes: typeof notes === 'string' ? notes : undefined,
+    });
+    return NextResponse.json({ id });
   },
   { rateLimitKey: 'contacts' }
 );

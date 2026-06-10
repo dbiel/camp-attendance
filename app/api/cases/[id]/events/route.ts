@@ -12,12 +12,13 @@ export const POST = withAuth<{ id: string }>(
   async (request, { params }) => {
     const body = await request.json().catch(() => null);
     const { type, body: text } = (body ?? {}) as Record<string, unknown>;
-    if (typeof type !== 'string' || !ALLOWED.includes(type as CaseEventType) || typeof text !== 'string') {
+    if (typeof type !== 'string' || !ALLOWED.includes(type as CaseEventType) ||
+        typeof text !== 'string' || !text.trim()) {
       return NextResponse.json({ error: `type must be one of ${ALLOWED.join(', ')}; body required` }, { status: 400 });
     }
     if (!(await getCase(params.id))) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     const caller = await verifyAdmin(request);
-    const id = await addCaseEvent(params.id, type as CaseEventType, text, caller?.email || 'unknown');
+    const id = await addCaseEvent(params.id, type as CaseEventType, text.trim(), caller?.email || 'unknown');
     return NextResponse.json({ id });
   },
   { rateLimitKey: 'cases' }

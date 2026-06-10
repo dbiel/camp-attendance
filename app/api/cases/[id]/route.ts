@@ -36,6 +36,9 @@ export const PATCH = withAuth<{ id: string }>(
     }
     const c = await getCase(params.id);
     if (!c) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (c.status === 'resolved') {
+      return NextResponse.json({ error: 'Already resolved' }, { status: 409 });
+    }
     const caller = await verifyAdmin(request);
     await resolveCase(params.id, note.trim(), caller?.email || 'unknown');
     return NextResponse.json({ ok: true });
