@@ -68,6 +68,10 @@ npm install -g firebase-tools
    NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef
    NEXT_PUBLIC_ADMIN_PASSWORD=your-secret-password-here
    ```
+
+   Additional server-side variables:
+   - `ANTHROPIC_API_KEY` — key for the case-report parser (`/api/cases/parse`). Never exposed to the client.
+   - `CASE_PARSE_MODEL` — optional override for the parse model (default `claude-opus-4-8`).
 4. Edit `.firebaserc` and replace `YOUR-PROJECT-ID` with your actual Firebase project ID
 5. Run these commands:
    ```
