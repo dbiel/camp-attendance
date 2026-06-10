@@ -4,9 +4,23 @@ import { withAuth } from '@/lib/with-auth';
 
 vi.mock('@/lib/auth', () => ({
   getCallerRole: vi.fn(),
+  verifyAdmin: vi.fn(),
 }));
 
-import { getCallerRole } from '@/lib/auth';
+vi.mock('@/lib/firestore', () => ({
+  getAdminRole: vi.fn(),
+}));
+
+vi.mock('@/lib/rate-limit', () => ({
+  checkRateLimit: vi.fn(),
+  getClientIp: vi.fn(() => '1.2.3.4'),
+}));
+
+import { getCallerRole, verifyAdmin } from '@/lib/auth';
+import { getAdminRole } from '@/lib/firestore';
+import { checkRateLimit } from '@/lib/rate-limit';
+
+type DecodedToken = Awaited<ReturnType<typeof verifyAdmin>>;
 
 function makeReq(): NextRequest {
   return new NextRequest('http://localhost/api/test');
@@ -15,6 +29,10 @@ function makeReq(): NextRequest {
 describe('withAuth', () => {
   beforeEach(() => {
     vi.mocked(getCallerRole).mockReset();
+    vi.mocked(verifyAdmin).mockReset();
+    vi.mocked(getAdminRole).mockReset();
+    vi.mocked(checkRateLimit).mockReset();
+    vi.mocked(checkRateLimit).mockReturnValue(true);
   });
 
   it('returns 401 when no role', async () => {
@@ -63,5 +81,53 @@ describe('withAuth', () => {
     const handler = withAuth('teacher', async () => Response.json({ ok: true }));
     const res = await handler(makeReq(), { params: {} });
     expect(res.status).toBe(200);
+  });
+
+  describe('super_admin requirement', () => {
+    it('returns 401 when unauthenticated', async () => {
+      vi.mocked(verifyAdmin).mockResolvedValue(null);
+      const handler = withAuth('super_admin', async () => new Response('ok'));
+      const res = await handler(makeReq(), { params: {} });
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body).toEqual({ error: 'Unauthorized' });
+      expect(getAdminRole).not.toHaveBeenCalled();
+    });
+
+    it('returns 429 when unauthenticated and rate limit bucket is exhausted', async () => {
+      vi.mocked(verifyAdmin).mockResolvedValue(null);
+      vi.mocked(checkRateLimit).mockReturnValue(false);
+      const handler = withAuth('super_admin', async () => new Response('ok'), {
+        rateLimitKey: 'test',
+      });
+      const res = await handler(makeReq(), { params: {} });
+      expect(res.status).toBe(429);
+      const body = await res.json();
+      expect(body).toEqual({ error: 'Too many requests' });
+      expect(checkRateLimit).toHaveBeenCalledWith('test:1.2.3.4');
+    });
+
+    it('returns 403 when authenticated but role is dorm_admin', async () => {
+      vi.mocked(verifyAdmin).mockResolvedValue({ email: 'john@test.com' } as DecodedToken);
+      vi.mocked(getAdminRole).mockResolvedValue('dorm_admin');
+      const handler = withAuth('super_admin', async () => new Response('ok'));
+      const res = await handler(makeReq(), { params: {} });
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body).toEqual({ error: 'Super admin access required' });
+    });
+
+    it('calls handler with role admin when caller is super_admin', async () => {
+      vi.mocked(verifyAdmin).mockResolvedValue({ email: 'boss@test.com' } as DecodedToken);
+      vi.mocked(getAdminRole).mockResolvedValue('super_admin');
+      const inner = vi.fn(async () => Response.json({ ok: true }));
+      const handler = withAuth('super_admin', inner);
+      const res = await handler(makeReq(), { params: {} });
+      expect(res.status).toBe(200);
+      expect(inner).toHaveBeenCalledOnce();
+      const call = (inner.mock.calls[0] as unknown as [unknown, { role: string }]);
+      expect(call[1].role).toBe('admin');
+      expect(getAdminRole).toHaveBeenCalledWith('boss@test.com');
+    });
   });
 });

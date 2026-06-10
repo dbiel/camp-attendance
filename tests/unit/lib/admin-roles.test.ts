@@ -1,14 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { docGetMock, docSetMock } = vi.hoisted(() => ({
+const { docGetMock, docSetMock, docPathMock } = vi.hoisted(() => ({
   docGetMock: vi.fn(),
   docSetMock: vi.fn(),
+  docPathMock: vi.fn(),
 }));
 
 vi.mock('@/lib/firebase-admin', () => ({
   adminDb: {
     collection: () => ({
-      doc: () => ({ get: docGetMock, set: docSetMock }),
+      doc: (path: string) => {
+        docPathMock(path);
+        return { get: docGetMock, set: docSetMock };
+      },
       limit: () => ({ get: async () => ({ empty: false }) }),
     }),
   },
@@ -37,8 +41,8 @@ describe('getAdminRole', () => {
 
   it('lowercases the email for lookup', async () => {
     docGetMock.mockResolvedValue({ exists: false });
-    await getAdminRole('MiXeD@Example.COM');
-    // lookup happened (doc path is built inside the mock); just assert no throw + null
+    expect(await getAdminRole('MiXeD@Example.COM')).toBeNull();
+    expect(docPathMock).toHaveBeenCalledWith('mixed@example.com');
   });
 });
 
