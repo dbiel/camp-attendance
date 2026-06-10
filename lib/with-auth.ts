@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCallerRole, CallerRole } from './auth';
+import { getCallerRole, CallerRole, verifyAdmin } from './auth';
 import { checkRateLimit, getClientIp } from './rate-limit';
+import { getAdminRole } from './firestore';
 
-export type RequiredRole = 'admin' | 'teacher';
+export type RequiredRole = 'admin' | 'teacher' | 'super_admin';
 
 export interface AuthedHandlerContext<P = Record<string, string>> {
   params: P;
@@ -43,6 +44,24 @@ export function withAuth<P = Record<string, string>>(
 ) {
   return async (request: NextRequest, context: RouteContext<P>): Promise<Response> => {
     try {
+      if (required === 'super_admin') {
+        const caller = await verifyAdmin(request);
+        const adminRole = caller?.email ? await getAdminRole(caller.email) : null;
+        if (adminRole !== 'super_admin') {
+          if (!caller && options.rateLimitKey) {
+            const ip = getClientIp(request);
+            if (!checkRateLimit(`${options.rateLimitKey}:${ip}`)) {
+              return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+            }
+          }
+          return NextResponse.json(
+            { error: caller ? 'Super admin access required' : 'Unauthorized' },
+            { status: caller ? 403 : 401 }
+          );
+        }
+        return await handler(request, { params: context.params, role: 'admin' });
+      }
+
       const role = await getCallerRole(request);
 
       if (!role) {

@@ -7,6 +7,7 @@ import {
   AttendanceReport, CampConfig,
   FacultySessionRow, StudentScheduleRow, ScheduleGridRow,
   SessionWithPeriod, DailyStats, CoverageRow,
+  AdminRole,
 } from './types';
 import { getTodayDate, getCurrentTimeHHMM, deriveDayDates } from './date';
 import { invalidateCampConfigCache, loadActiveCampServer } from './camp-config';
@@ -1381,6 +1382,17 @@ export async function isAdminEmail(email: string): Promise<boolean> {
 }
 
 /**
+ * Return the role for an allow-listed admin email, or null if not found.
+ * Missing role field on a legacy doc is treated as 'super_admin'.
+ */
+export async function getAdminRole(email: string): Promise<AdminRole | null> {
+  const doc = await adminsCol().doc(email.toLowerCase()).get();
+  if (!doc.exists) return null;
+  const role = doc.data()?.role;
+  return role === 'dorm_admin' ? 'dorm_admin' : 'super_admin';
+}
+
+/**
  * Seed the first admin when the collection is empty and the caller's
  * email matches `ADMIN_BOOTSTRAP_EMAILS`. Returns true if a doc was
  * written; false otherwise. Safe to call multiple times — idempotent.
@@ -1405,18 +1417,19 @@ export async function bootstrapAdminIfEmpty(email: string): Promise<boolean> {
 }
 
 /**
- * List every admin entry. Returns an array of `{ email, added_by, added_at }`.
+ * List every admin entry. Returns an array of `{ email, added_by, added_at, role }`.
  */
 export async function listAdmins(): Promise<
-  Array<{ email: string; added_by: string; added_at: number }>
+  Array<{ email: string; added_by: string; added_at: number; role: AdminRole }>
 > {
   const snap = await adminsCol().get();
   return snap.docs.map((doc) => {
-    const d = doc.data() as { email?: string; added_by?: string; added_at?: number };
+    const d = doc.data() as { email?: string; added_by?: string; added_at?: number; role?: string };
     return {
       email: d.email ?? doc.id,
       added_by: d.added_by ?? 'unknown',
       added_at: d.added_at ?? 0,
+      role: d.role === 'dorm_admin' ? 'dorm_admin' : 'super_admin',
     };
   });
 }
@@ -1425,7 +1438,11 @@ export async function listAdmins(): Promise<
  * Add a new admin. Lowercases + validates email. Throws if email is
  * malformed or if an admin with the same address already exists.
  */
-export async function addAdmin(email: string, addedBy: string): Promise<void> {
+export async function addAdmin(
+  email: string,
+  addedBy: string,
+  role: AdminRole = 'super_admin'
+): Promise<void> {
   const key = (email || '').trim().toLowerCase();
   if (!EMAIL_REGEX.test(key)) {
     throw new Error('Invalid email');
@@ -1439,6 +1456,7 @@ export async function addAdmin(email: string, addedBy: string): Promise<void> {
     email: key,
     added_by: addedBy,
     added_at: Date.now(),
+    role,
   });
 }
 

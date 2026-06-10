@@ -1,3 +1,5 @@
+export type AdminRole = 'super_admin' | 'dorm_admin';
+
 export interface Student {
   id: string;
   first_name: string;
