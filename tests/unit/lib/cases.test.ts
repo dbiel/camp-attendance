@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const state = vi.hoisted(() => ({
-  added: [] as any[],
   addMock: vi.fn(),
   docGetMock: vi.fn(),
   docUpdateMock: vi.fn(),

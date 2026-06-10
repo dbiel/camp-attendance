@@ -111,13 +111,14 @@ export async function addCaseEvent(
   body: string,
   actor: string
 ): Promise<string> {
-  const ref = await adminDb.collection(EVENTS).add({
+  const doc: Omit<CaseEvent, 'id'> = {
     case_id: caseId,
     type,
     body,
     actor,
     created_at: new Date().toISOString(),
-  });
+  };
+  const ref = await adminDb.collection(EVENTS).add(doc);
   return ref.id;
 }
 
