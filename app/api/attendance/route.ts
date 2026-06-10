@@ -5,7 +5,7 @@ import {
   isFacultyAssignedToSession,
   deleteAttendance,
 } from '@/lib/firestore';
-import { verifyAdmin, verifyTeacher } from '@/lib/auth';
+import { getCallerRole, verifyAdmin } from '@/lib/auth';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -15,9 +15,12 @@ type AttendanceStatus = 'present' | 'absent';
 
 export async function GET(request: NextRequest) {
   try {
-    const admin = await verifyAdmin(request);
-    const isTeacher = admin ? false : await verifyTeacher(request);
-    if (!admin && !isTeacher) {
+    // Role-gated: only super_admins resolve to 'admin' (see getCallerRole).
+    // A dorm_admin token gets no admin treatment here — at most teacher
+    // scoping when a valid camp code is also presented.
+    const role = await getCallerRole(request);
+    const isAdmin = role === 'admin';
+    if (!role) {
       if (!checkRateLimit(`attendance:${getClientIp(request)}`)) {
         return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
       }
@@ -36,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Teacher scoping: must present X-Faculty-Id and be assigned to the session.
-    if (!admin) {
+    if (!isAdmin) {
       const facultyId = request.headers.get('X-Faculty-Id');
       if (!facultyId) {
         return NextResponse.json({ error: 'Missing X-Faculty-Id' }, { status: 403 });
@@ -53,7 +56,7 @@ export async function GET(request: NextRequest) {
     const attendance = await getSessionAttendance(sessionId, date);
 
     // Teachers only see non-PII fields
-    if (!admin) {
+    if (!isAdmin) {
       const sanitized = attendance.map(a => ({
         id: a.id,
         student_id: a.student_id,
@@ -74,9 +77,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const admin = await verifyAdmin(request);
-    const isTeacher = admin ? false : await verifyTeacher(request);
-    if (!admin && !isTeacher) {
+    // Role-gated: only super_admins resolve to 'admin' (see getCallerRole).
+    const role = await getCallerRole(request);
+    if (!role) {
       if (!checkRateLimit(`attendance:${getClientIp(request)}`)) {
         return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
       }
@@ -96,7 +99,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
-    // Derive marked_by from verified identity; ignore any client-supplied value.
+    // Derive marked_by from verified identity; ignore any client-supplied
+    // value. verifyAdmin here is identity attribution only — the auth
+    // decision above came from getCallerRole.
+    const admin = role === 'admin' ? await verifyAdmin(request) : null;
     const markedBy = admin
       ? `admin:${admin.uid}`
       : `teacher:${getClientIp(request)}`;
@@ -124,13 +130,15 @@ export async function POST(request: NextRequest) {
  * for this session/date", and that's the result either way.
  *
  * Auth mirrors the POST/GET handlers in this file: admin via Bearer token
- * OR teacher via X-Camp-Code + X-Faculty-Id with session-assignment check.
+ * (super_admin role required) OR teacher via X-Camp-Code + X-Faculty-Id
+ * with session-assignment check.
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const admin = await verifyAdmin(request);
-    const isTeacher = admin ? false : await verifyTeacher(request);
-    if (!admin && !isTeacher) {
+    // Role-gated: only super_admins resolve to 'admin' (see getCallerRole).
+    const role = await getCallerRole(request);
+    const isAdmin = role === 'admin';
+    if (!role) {
       if (!checkRateLimit(`attendance:${getClientIp(request)}`)) {
         return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
       }
@@ -150,7 +158,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Teacher scoping: must present X-Faculty-Id and be assigned to the session.
-    if (!admin) {
+    if (!isAdmin) {
       const facultyId = request.headers.get('X-Faculty-Id');
       if (!facultyId) {
         return NextResponse.json({ error: 'Missing X-Faculty-Id' }, { status: 403 });

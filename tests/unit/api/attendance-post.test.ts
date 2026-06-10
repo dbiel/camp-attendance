@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { markAttendanceMock } = vi.hoisted(() => ({
+const { markAttendanceMock, getAdminRoleMock } = vi.hoisted(() => ({
   markAttendanceMock: vi.fn(),
+  getAdminRoleMock: vi.fn(),
 }));
 
 vi.mock('@/lib/firestore', () => ({
@@ -10,7 +11,7 @@ vi.mock('@/lib/firestore', () => ({
   getSessionAttendance: vi.fn().mockResolvedValue([]),
   isAdminEmail: vi.fn().mockResolvedValue(true),
   bootstrapAdminIfEmpty: vi.fn().mockResolvedValue(false),
-  getAdminRole: vi.fn().mockResolvedValue('super_admin'),
+  getAdminRole: getAdminRoleMock,
 }));
 
 vi.mock('@/lib/firebase-admin', () => ({
@@ -25,6 +26,7 @@ vi.mock('@/lib/firebase-admin', () => ({
 }));
 
 import { POST } from '@/app/api/attendance/route';
+import { _resetRateLimitForTests } from '@/lib/rate-limit';
 
 function post(body: unknown, headers: Record<string, string> = { Authorization: 'Bearer fake' }) {
   return new NextRequest('http://localhost/api/attendance', {
@@ -38,6 +40,9 @@ describe('POST /api/attendance', () => {
   beforeEach(() => {
     markAttendanceMock.mockReset();
     markAttendanceMock.mockResolvedValue(undefined);
+    getAdminRoleMock.mockReset();
+    getAdminRoleMock.mockResolvedValue('super_admin');
+    _resetRateLimitForTests();
   });
 
   it('rejects invalid status', async () => {
@@ -86,5 +91,33 @@ describe('POST /api/attendance', () => {
     const res = await POST(post({ student_id: 's1', session_id: 'sess1' }));
     expect(res.status).toBe(400);
     expect(markAttendanceMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 for dorm_admin Bearer token with no camp code (no admin treatment)', async () => {
+    getAdminRoleMock.mockResolvedValue('dorm_admin');
+    const res = await POST(
+      post({ student_id: 's1', session_id: 'sess1', date: '2026-06-08', status: 'present' })
+    );
+    expect(res.status).toBe(401);
+    expect(markAttendanceMock).not.toHaveBeenCalled();
+  });
+
+  it('treats dorm_admin Bearer + valid camp code as teacher, not admin (marked_by)', async () => {
+    getAdminRoleMock.mockResolvedValue('dorm_admin');
+    process.env.CAMP_CODE = 'teachercode';
+
+    const res = await POST(
+      post(
+        { student_id: 's1', session_id: 'sess1', date: '2026-06-08', status: 'present' },
+        { Authorization: 'Bearer fake', 'X-Camp-Code': 'teachercode' }
+      )
+    );
+    expect(res.status).toBe(200);
+    const call = markAttendanceMock.mock.calls[0];
+    expect(call).toBeDefined();
+    expect(call![4]).toMatch(/^teacher:/);
+    expect(call![4]).not.toMatch(/^admin:/);
+
+    delete process.env.CAMP_CODE;
   });
 });
