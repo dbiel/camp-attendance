@@ -81,6 +81,38 @@ describe('Firestore Security Rules', () => {
       const db = testEnv.authenticatedContext('admin-uid').firestore();
       await assertFails(db.doc('config/camp').get());
     });
+
+    it('cannot read texts (super-admin-only, server-side only)', async () => {
+      const db = testEnv.authenticatedContext('admin-uid').firestore();
+      await assertFails(db.collection('texts').get());
+    });
+
+    it('cannot write texts', async () => {
+      const db = testEnv.authenticatedContext('admin-uid').firestore();
+      await assertFails(db.collection('texts').add({ body: 'x' }));
+    });
+
+    it('cannot read ingest_state (watcher cursor, server-side only)', async () => {
+      const db = testEnv.authenticatedContext('admin-uid').firestore();
+      await assertFails(db.doc('ingest_state/cursor').get());
+    });
+
+    it('cannot write ingest_state', async () => {
+      const db = testEnv.authenticatedContext('admin-uid').firestore();
+      await assertFails(db.doc('ingest_state/cursor').set({ rowid: 1 }));
+    });
+  });
+
+  describe('Unauthenticated cannot touch ingest collections', () => {
+    it('cannot read texts', async () => {
+      const db = testEnv.unauthenticatedContext().firestore();
+      await assertFails(db.collection('texts').get());
+    });
+
+    it('cannot read ingest_state', async () => {
+      const db = testEnv.unauthenticatedContext().firestore();
+      await assertFails(db.doc('ingest_state/cursor').get());
+    });
   });
 
   describe('No client can write to any collection', () => {

@@ -61,6 +61,17 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // iMessage ingest (Plan B): server-side only via Admin SDK. The `texts`
+    // collection holds private inbound messages (super-admin-only, read via
+    // GET /api/texts); `ingest_state` holds the watcher's delta cursor. No
+    // client ever touches either.
+    match /texts/{id} {
+      allow read, write: if false;
+    }
+    match /ingest_state/{id} {
+      allow read, write: if false;
+    }
+
     // Catch-all default deny. Any new collection added via the Admin SDK
     // is read/write-denied to clients until an explicit `match` block is
     // added above this line. Prevents "forgot to write a rule" footguns.
