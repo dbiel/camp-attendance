@@ -160,6 +160,30 @@ export interface CampConfig {
 // Teacher-safe projection of CampConfig — no camp_code.
 export type PublicCampConfig = Omit<CampConfig, 'camp_code'>;
 
+// ─── iMessage ingest (`texts` collection) ──────────────────────────────
+// Super-admin-only. Written by the Mac Mini watcher via the Admin SDK and
+// read only through GET /api/texts. Idempotency key = message.guid (doc id).
+// Firestore rejects `undefined`, so nullable fields use `| null`.
+export type TextTag = 'camp' | 'personal' | 'unknown';
+
+export interface TextDoc {
+  id: string; // == message.guid (idempotency key)
+  rowid: number; // chat.db delta cursor reference
+  service: string; // 'iMessage' | 'SMS' | 'RCS' | … (whatever chat.db reports)
+  sender_handle: string; // raw handle.id (phone E.164 or email)
+  sender_contact_id: string | null;
+  sender_name: string | null; // denormalized from the contact
+  body: string;
+  has_attachments: boolean;
+  decode_failed: boolean;
+  tag: TextTag;
+  tag_reason: string;
+  sent_at: string; // ISO, from message.date
+  created_at: string; // ISO, ingest time
+  escalated_case_id: string | null; // set by Plan C on escalation
+  purge_after: string; // ISO; camp end + 30d (or sentAt + 90d fallback)
+}
+
 // ─── Firestore query return shapes ─────────────────────────────────────
 // Row shapes for the cross-collection joins in lib/firestore.ts. These
 // were previously `any` — typing them here gives callers IntelliSense
