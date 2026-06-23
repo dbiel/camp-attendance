@@ -1,4 +1,4 @@
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, applicationDefault, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getAuth, Auth } from 'firebase-admin/auth';
 
@@ -13,13 +13,19 @@ function getApp(): App {
     _app = existing[0]!;
     return _app;
   }
-  _app = initializeApp({
-    credential: cert({
-      projectId: process.env.FB_PROJECT_ID || process.env.FIREBASE_PROJECT_ID!,
-      clientEmail: process.env.FB_CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL!,
-      privateKey: (process.env.FB_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY)?.replace(/\\n/g, '\n'),
-    }),
-  });
+  // Local/dev: explicit service-account credentials from env.
+  // Prod (Cloud Functions/frameworks): no env key present, so fall back to
+  // Application Default Credentials — the deployed function's own service
+  // account — instead of crashing. Keeps secrets out of the deployed bundle.
+  const projectId = process.env.FB_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FB_CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = (process.env.FB_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY)?.replace(/\\n/g, '\n');
+
+  _app = initializeApp(
+    privateKey && clientEmail
+      ? { credential: cert({ projectId, clientEmail, privateKey }) }
+      : { credential: applicationDefault(), projectId }
+  );
   return _app;
 }
 

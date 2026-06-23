@@ -7,7 +7,11 @@
     "source": ".",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "frameworksBackend": {
-      "region": "us-central1"
+      "region": "us-central1",
+      "maxInstances": 5,
+      "minInstances": 0,
+      "memory": "256MiB",
+      "concurrency": 80
     }
   },
   "emulators": {
