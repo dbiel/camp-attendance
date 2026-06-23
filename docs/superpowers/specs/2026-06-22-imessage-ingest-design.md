@@ -84,7 +84,7 @@ recoverable — the inbox lets him flip a text's tag, and re-tagging never delet
 ```
 id            : message.guid (idempotency key)
 rowid         : number          // delta cursor reference
-service       : 'iMessage' | 'SMS'
+service       : string          // 'iMessage' | 'SMS' | 'RCS' | etc. (whatever chat.db reports)
 sender_handle : string          // raw handle.id (phone/email)
 sender_contact_id : string | null
 sender_name   : string | null   // denormalized from contact
