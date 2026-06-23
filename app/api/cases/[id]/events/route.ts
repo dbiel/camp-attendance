@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 const ALLOWED: CaseEventType[] = ['parent_texted', 'dorm_staff_texted', 'note'];
 
 export const POST = withAuth<{ id: string }>(
-  'super_admin',
+  'lookup_admin',
   async (request, { params }) => {
     const body = await request.json().catch(() => null);
     const { type, body: text } = (body ?? {}) as Record<string, unknown>;

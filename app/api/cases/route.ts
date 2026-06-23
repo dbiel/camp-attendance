@@ -7,7 +7,7 @@ import { verifyAdmin } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 export const GET = withAuth(
-  'super_admin',
+  'lookup_admin',
   async (request: NextRequest) => {
     const status = request.nextUrl.searchParams.get('status') === 'resolved' ? 'resolved' : 'active';
     const cases = await listCases(status);

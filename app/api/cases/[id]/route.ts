@@ -7,7 +7,7 @@ import { verifyAdmin } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 export const GET = withAuth<{ id: string }>(
-  'super_admin',
+  'lookup_admin',
   async (_request, { params }) => {
     const c = await getCase(params.id);
     if (!c) return NextResponse.json({ error: 'Not found' }, { status: 404 });

@@ -62,8 +62,14 @@ describe('GET /api/cases', () => {
     await GET(req('GET', undefined, 'http://test/api/cases?status=resolved'), { params: {} });
     expect(m.listCases).toHaveBeenCalledWith('resolved');
   });
-  it('403s for lookup_admin', async () => {
+  it('allows lookup_admin (read lowered)', async () => {
     m.getAdminRole.mockResolvedValue('lookup_admin');
+    m.listCases.mockResolvedValue([]);
+    const res = await GET(req('GET'), { params: {} });
+    expect(res.status).toBe(200);
+  });
+  it('403s for teacher', async () => {
+    m.getAdminRole.mockResolvedValue('teacher');
     const res = await GET(req('GET'), { params: {} });
     expect(res.status).toBe(403);
   });
@@ -87,6 +93,12 @@ describe('POST /api/cases', () => {
     const res = await POST(req('POST', { student_id: 'nope', summary: 'x', raw_text: 'y' }), { params: {} });
     expect(res.status).toBe(400);
   });
+  it('403s for lookup_admin (create stays super_admin)', async () => {
+    m.getAdminRole.mockResolvedValue('lookup_admin');
+    const res = await POST(req('POST', { student_id: 's1', summary: 'x', raw_text: 'y' }), { params: {} });
+    expect(res.status).toBe(403);
+    expect(m.createCase).not.toHaveBeenCalled();
+  });
 });
 
 describe('GET /api/cases/[id]', () => {
@@ -94,6 +106,20 @@ describe('GET /api/cases/[id]', () => {
     m.getCase.mockResolvedValue(null);
     const res = await GET_CASE(req('GET', undefined, 'http://test/api/cases/nope'), { params: { id: 'nope' } });
     expect(res.status).toBe(404);
+  });
+  it('allows lookup_admin (read lowered)', async () => {
+    m.getAdminRole.mockResolvedValue('lookup_admin');
+    m.getCase.mockResolvedValue({ id: 'c1', status: 'active', student_id: 's1' });
+    m.listCaseEvents.mockResolvedValue([]);
+    m.getStudent.mockResolvedValue(null);
+    m.listCasesForStudent.mockResolvedValue([]);
+    const res = await GET_CASE(req('GET', undefined, 'http://test/api/cases/c1'), { params: { id: 'c1' } });
+    expect(res.status).toBe(200);
+  });
+  it('403s for teacher', async () => {
+    m.getAdminRole.mockResolvedValue('teacher');
+    const res = await GET_CASE(req('GET', undefined, 'http://test/api/cases/c1'), { params: { id: 'c1' } });
+    expect(res.status).toBe(403);
   });
 });
 
@@ -110,6 +136,15 @@ describe('PATCH /api/cases/[id]', () => {
       { params: { id: 'c1' } }
     );
     expect(res.status).toBe(409);
+    expect(m.resolveCase).not.toHaveBeenCalled();
+  });
+  it('403s for lookup_admin (resolve stays super_admin)', async () => {
+    m.getAdminRole.mockResolvedValue('lookup_admin');
+    const res = await PATCH(
+      req('PATCH', { resolution_note: 'found him' }, 'http://test/api/cases/c1'),
+      { params: { id: 'c1' } }
+    );
+    expect(res.status).toBe(403);
     expect(m.resolveCase).not.toHaveBeenCalled();
   });
 });
@@ -129,6 +164,26 @@ describe('POST /api/cases/[id]/events', () => {
       { params: { id: 'c1' } }
     );
     expect(res.status).toBe(400);
+    expect(m.addCaseEvent).not.toHaveBeenCalled();
+  });
+  it('allows lookup_admin to add a note (note path lowered)', async () => {
+    m.getAdminRole.mockResolvedValue('lookup_admin');
+    m.getCase.mockResolvedValue({ id: 'c1', status: 'active' });
+    m.addCaseEvent.mockResolvedValue('e1');
+    const res = await POST_EVENT(
+      req('POST', { type: 'note', body: 'looked in cafeteria' }, 'http://test/api/cases/c1/events'),
+      { params: { id: 'c1' } }
+    );
+    expect(res.status).toBe(200);
+    expect(m.addCaseEvent).toHaveBeenCalled();
+  });
+  it('403s for teacher', async () => {
+    m.getAdminRole.mockResolvedValue('teacher');
+    const res = await POST_EVENT(
+      req('POST', { type: 'note', body: 'x' }, 'http://test/api/cases/c1/events'),
+      { params: { id: 'c1' } }
+    );
+    expect(res.status).toBe(403);
     expect(m.addCaseEvent).not.toHaveBeenCalled();
   });
 });
