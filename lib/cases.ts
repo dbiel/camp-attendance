@@ -9,7 +9,8 @@ export type CaseEventType =
   | 'dorm_staff_texted'
   | 'note'
   | 'resolved'
-  | 'reopened';
+  | 'reopened'
+  | 'staff_update';
 
 export interface Case {
   id: string;
@@ -22,6 +23,11 @@ export interface Case {
   raw_text: string; // original pasted report, always preserved
   session_label: string | null; // free text: where/when they were missed
   share_token: string;
+  // ─── Two-way staff link (Plan C) — all nullable; Firestore rejects undefined.
+  share_issued_at: string | null; // ISO; when the current token was issued
+  share_expires_at: string | null; // ISO; issued + 4h
+  share_revoked: boolean; // manual revoke kills the link immediately
+  share_recipient_label: string | null; // who David sent it to (his tracking)
   resolution_note: string | null;
   created_by: string;
   created_at: string;
@@ -63,6 +69,10 @@ export async function createCase(input: CreateCaseInput): Promise<string> {
     raw_text: input.raw_text,
     session_label: input.session_label ?? null,
     share_token: randomBytes(16).toString('hex'),
+    share_issued_at: null,
+    share_expires_at: null,
+    share_revoked: false,
+    share_recipient_label: null,
     resolution_note: null,
     created_by: input.created_by,
     created_at: now,
@@ -120,6 +130,69 @@ export async function addCaseEvent(
   };
   const ref = await adminDb.collection(EVENTS).add(doc);
   return ref.id;
+}
+
+// ─── Two-way staff share links (Plan C) ────────────────────────────────────
+// Links are per-Report, time-boxed (4h), and revocable. Re-issuing rotates the
+// token so the previous link dies immediately. The public viewer never touches
+// Firestore directly — only the token-validating /api/r/* routes do, via these
+// helpers and the Admin SDK.
+
+const SHARE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+export interface IssuedShareLink {
+  token: string;
+  url: string; // relative path, e.g. /r/<token>
+  expires_at: string; // ISO
+}
+
+/**
+ * Issues (or re-issues) a share link for a case. Rotates `share_token` to a new
+ * random hex so any previously-issued link validates as invalid, and sets a
+ * fresh 4h window. `recipientLabel` is free text for David's own tracking.
+ */
+export async function issueShareLink(
+  caseId: string,
+  recipientLabel: string | null,
+  now: Date = new Date()
+): Promise<IssuedShareLink> {
+  const token = randomBytes(16).toString('hex');
+  const issuedAt = now.toISOString();
+  const expiresAt = new Date(now.getTime() + SHARE_TTL_MS).toISOString();
+  await adminDb.collection(CASES).doc(caseId).update({
+    share_token: token,
+    share_issued_at: issuedAt,
+    share_expires_at: expiresAt,
+    share_revoked: false,
+    share_recipient_label: recipientLabel ?? null,
+  });
+  return { token, url: `/r/${token}`, expires_at: expiresAt };
+}
+
+/** Manually revokes the active share link; the token immediately stops validating. */
+export async function revokeShareLink(caseId: string): Promise<void> {
+  await adminDb.collection(CASES).doc(caseId).update({ share_revoked: true });
+}
+
+/**
+ * Resolves a share token to a case id, enforcing validity. Returns null when the
+ * token is unknown, the link was never issued, has been revoked, or `now` is at
+ * or past `share_expires_at`. Callers (the public /api/r/* routes) must return a
+ * uniform failure for all null cases — no enumeration signal.
+ */
+export async function validateShareToken(
+  token: string,
+  now: Date = new Date()
+): Promise<{ caseId: string } | null> {
+  if (!token) return null;
+  const snap = await adminDb.collection(CASES).where('share_token', '==', token).limit(1).get();
+  if (snap.empty || snap.docs.length === 0) return null;
+  const doc = snap.docs[0]!;
+  const data = doc.data() as Omit<Case, 'id'>;
+  if (data.share_revoked) return null;
+  if (!data.share_expires_at) return null; // link was never issued
+  if (now.getTime() >= new Date(data.share_expires_at).getTime()) return null;
+  return { caseId: doc.id };
 }
 
 export async function listCaseEvents(caseId: string): Promise<CaseEvent[]> {
