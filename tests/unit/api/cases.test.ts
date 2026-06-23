@@ -62,8 +62,8 @@ describe('GET /api/cases', () => {
     await GET(req('GET', undefined, 'http://test/api/cases?status=resolved'), { params: {} });
     expect(m.listCases).toHaveBeenCalledWith('resolved');
   });
-  it('403s for dorm_admin', async () => {
-    m.getAdminRole.mockResolvedValue('dorm_admin');
+  it('403s for lookup_admin', async () => {
+    m.getAdminRole.mockResolvedValue('lookup_admin');
     const res = await GET(req('GET'), { params: {} });
     expect(res.status).toBe(403);
   });

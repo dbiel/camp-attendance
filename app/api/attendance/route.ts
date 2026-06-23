@@ -16,7 +16,7 @@ type AttendanceStatus = 'present' | 'absent';
 export async function GET(request: NextRequest) {
   try {
     // Role-gated: only super_admins resolve to 'admin' (see getCallerRole).
-    // A dorm_admin token gets no admin treatment here — at most teacher
+    // A lookup_admin token gets no admin treatment here — at most teacher
     // scoping when a valid camp code is also presented.
     const role = await getCallerRole(request);
     const isAdmin = role === 'admin';

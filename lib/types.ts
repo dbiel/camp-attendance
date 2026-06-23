@@ -1,4 +1,7 @@
-export type AdminRole = 'super_admin' | 'dorm_admin';
+// `lookup_admin` replaces the legacy `dorm_admin` slot (general lookup, not
+// dorm-scoped). Docs stored as `dorm_admin` are read back as `lookup_admin`
+// for back-compat — see coerceAdminRole in lib/firestore.ts.
+export type AdminRole = 'super_admin' | 'lookup_admin';
 
 export interface Student {
   id: string;
@@ -21,6 +24,9 @@ export interface Student {
   medical_notes?: string;
   additional_info?: string;
   created_at: string;
+  // Attribution for the last edit (set server-side; never trusted from client).
+  updated_by?: string;
+  updated_at?: string;
 }
 
 export interface Faculty {

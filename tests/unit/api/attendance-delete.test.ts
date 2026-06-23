@@ -210,7 +210,7 @@ function makeGetRequest(
   return new NextRequest(url, { headers: new Headers(headers) });
 }
 
-describe('dorm_admin role gating on /api/attendance', () => {
+describe('lookup_admin role gating on /api/attendance', () => {
   beforeEach(() => {
     deleteAttendanceMock.mockReset();
     deleteAttendanceMock.mockResolvedValue(true);
@@ -219,11 +219,11 @@ describe('dorm_admin role gating on /api/attendance', () => {
     verifyIdTokenMock.mockReset();
     verifyIdTokenMock.mockResolvedValue({ uid: 'dorm-1', email: 'dorm@test.com' });
     getAdminRoleMock.mockReset();
-    getAdminRoleMock.mockResolvedValue('dorm_admin');
+    getAdminRoleMock.mockResolvedValue('lookup_admin');
     _resetRateLimitForTests();
   });
 
-  it('DELETE: dorm_admin Bearer with no camp code gets 401, not admin treatment', async () => {
+  it('DELETE: lookup_admin Bearer with no camp code gets 401, not admin treatment', async () => {
     const res = await DELETE(
       makeRequest(
         { student_id: 's1', session_id: 'sess1', date: '2026-06-08' },
@@ -234,7 +234,7 @@ describe('dorm_admin role gating on /api/attendance', () => {
     expect(deleteAttendanceMock).not.toHaveBeenCalled();
   });
 
-  it('DELETE: dorm_admin Bearer + valid camp code is teacher-scoped (403 without X-Faculty-Id)', async () => {
+  it('DELETE: lookup_admin Bearer + valid camp code is teacher-scoped (403 without X-Faculty-Id)', async () => {
     process.env.CAMP_CODE = 'teachercode';
     const res = await DELETE(
       makeRequest(
@@ -243,13 +243,13 @@ describe('dorm_admin role gating on /api/attendance', () => {
       )
     );
     // An admin would skip the X-Faculty-Id requirement — 403 proves the
-    // dorm_admin landed on the teacher branch.
+    // lookup_admin landed on the teacher branch.
     expect(res.status).toBe(403);
     expect(deleteAttendanceMock).not.toHaveBeenCalled();
     delete process.env.CAMP_CODE;
   });
 
-  it('GET: dorm_admin Bearer with no camp code gets 401', async () => {
+  it('GET: lookup_admin Bearer with no camp code gets 401', async () => {
     const res = await GET(
       makeGetRequest(
         { session_id: 'sess1', date: '2026-06-08' },
@@ -259,7 +259,7 @@ describe('dorm_admin role gating on /api/attendance', () => {
     expect(res.status).toBe(401);
   });
 
-  it('GET: dorm_admin Bearer + valid camp code is teacher-scoped (403 without X-Faculty-Id)', async () => {
+  it('GET: lookup_admin Bearer + valid camp code is teacher-scoped (403 without X-Faculty-Id)', async () => {
     process.env.CAMP_CODE = 'teachercode';
     const res = await GET(
       makeGetRequest(

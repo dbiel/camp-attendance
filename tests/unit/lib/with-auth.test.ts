@@ -107,9 +107,9 @@ describe('withAuth', () => {
       expect(checkRateLimit).toHaveBeenCalledWith('test:1.2.3.4');
     });
 
-    it('returns 403 when authenticated but role is dorm_admin', async () => {
+    it('returns 403 when authenticated but role is lookup_admin', async () => {
       vi.mocked(verifyAdmin).mockResolvedValue({ email: 'john@test.com' } as DecodedToken);
-      vi.mocked(getAdminRole).mockResolvedValue('dorm_admin');
+      vi.mocked(getAdminRole).mockResolvedValue('lookup_admin');
       const handler = withAuth('super_admin', async () => new Response('ok'));
       const res = await handler(makeReq(), { params: {} });
       expect(res.status).toBe(403);
@@ -128,6 +128,48 @@ describe('withAuth', () => {
       const call = (inner.mock.calls[0] as unknown as [unknown, { role: string }]);
       expect(call[1].role).toBe('admin');
       expect(getAdminRole).toHaveBeenCalledWith('boss@test.com');
+    });
+  });
+
+  describe('lookup_admin requirement', () => {
+    it('returns 401 when unauthenticated', async () => {
+      vi.mocked(verifyAdmin).mockResolvedValue(null);
+      const handler = withAuth('lookup_admin', async () => new Response('ok'));
+      const res = await handler(makeReq(), { params: {} });
+      expect(res.status).toBe(401);
+      expect(getAdminRole).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 when authenticated but not on the admin allowlist', async () => {
+      vi.mocked(verifyAdmin).mockResolvedValue({ email: 'nobody@test.com' } as DecodedToken);
+      vi.mocked(getAdminRole).mockResolvedValue(null);
+      const handler = withAuth('lookup_admin', async () => new Response('ok'));
+      const res = await handler(makeReq(), { params: {} });
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body).toEqual({ error: 'Admin access required' });
+    });
+
+    it('accepts a lookup_admin and passes role lookup_admin', async () => {
+      vi.mocked(verifyAdmin).mockResolvedValue({ email: 'helper@test.com' } as DecodedToken);
+      vi.mocked(getAdminRole).mockResolvedValue('lookup_admin');
+      const inner = vi.fn(async () => Response.json({ ok: true }));
+      const handler = withAuth('lookup_admin', inner);
+      const res = await handler(makeReq(), { params: {} });
+      expect(res.status).toBe(200);
+      const call = (inner.mock.calls[0] as unknown as [unknown, { role: string }]);
+      expect(call[1].role).toBe('lookup_admin');
+    });
+
+    it('accepts a super_admin and passes role admin (tier preserved)', async () => {
+      vi.mocked(verifyAdmin).mockResolvedValue({ email: 'boss@test.com' } as DecodedToken);
+      vi.mocked(getAdminRole).mockResolvedValue('super_admin');
+      const inner = vi.fn(async () => Response.json({ ok: true }));
+      const handler = withAuth('lookup_admin', inner);
+      const res = await handler(makeReq(), { params: {} });
+      expect(res.status).toBe(200);
+      const call = (inner.mock.calls[0] as unknown as [unknown, { role: string }]);
+      expect(call[1].role).toBe('admin');
     });
   });
 });

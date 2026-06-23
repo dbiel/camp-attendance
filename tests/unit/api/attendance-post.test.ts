@@ -93,8 +93,8 @@ describe('POST /api/attendance', () => {
     expect(markAttendanceMock).not.toHaveBeenCalled();
   });
 
-  it('returns 401 for dorm_admin Bearer token with no camp code (no admin treatment)', async () => {
-    getAdminRoleMock.mockResolvedValue('dorm_admin');
+  it('returns 401 for lookup_admin Bearer token with no camp code (no admin treatment)', async () => {
+    getAdminRoleMock.mockResolvedValue('lookup_admin');
     const res = await POST(
       post({ student_id: 's1', session_id: 'sess1', date: '2026-06-08', status: 'present' })
     );
@@ -102,8 +102,8 @@ describe('POST /api/attendance', () => {
     expect(markAttendanceMock).not.toHaveBeenCalled();
   });
 
-  it('treats dorm_admin Bearer + valid camp code as teacher, not admin (marked_by)', async () => {
-    getAdminRoleMock.mockResolvedValue('dorm_admin');
+  it('treats lookup_admin Bearer + valid camp code as teacher, not admin (marked_by)', async () => {
+    getAdminRoleMock.mockResolvedValue('lookup_admin');
     process.env.CAMP_CODE = 'teachercode';
 
     const res = await POST(

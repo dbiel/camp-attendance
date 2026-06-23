@@ -34,9 +34,14 @@ describe('getAdminRole', () => {
     expect(await getAdminRole('david@example.com')).toBe('super_admin');
   });
 
-  it('returns dorm_admin when set', async () => {
+  it('returns lookup_admin when set', async () => {
+    docGetMock.mockResolvedValue({ exists: true, data: () => ({ role: 'lookup_admin' }) });
+    expect(await getAdminRole('john@example.com')).toBe('lookup_admin');
+  });
+
+  it('maps legacy dorm_admin docs to lookup_admin (back-compat)', async () => {
     docGetMock.mockResolvedValue({ exists: true, data: () => ({ role: 'dorm_admin' }) });
-    expect(await getAdminRole('john@example.com')).toBe('dorm_admin');
+    expect(await getAdminRole('john@example.com')).toBe('lookup_admin');
   });
 
   it('returns null for unrecognized role values (fail closed)', async () => {
@@ -54,19 +59,19 @@ describe('getAdminRole', () => {
 describe('addAdmin role param', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('writes role super_admin by default', async () => {
+  it('writes role lookup_admin by default (least privilege)', async () => {
     docGetMock.mockResolvedValue({ exists: false });
     await addAdmin('new@example.com', 'david@example.com');
     expect(docSetMock).toHaveBeenCalledWith(
-      expect.objectContaining({ role: 'super_admin' })
+      expect.objectContaining({ role: 'lookup_admin' })
     );
   });
 
-  it('writes dorm_admin when specified', async () => {
+  it('writes super_admin when specified', async () => {
     docGetMock.mockResolvedValue({ exists: false });
-    await addAdmin('john@example.com', 'david@example.com', 'dorm_admin');
+    await addAdmin('john@example.com', 'david@example.com', 'super_admin');
     expect(docSetMock).toHaveBeenCalledWith(
-      expect.objectContaining({ role: 'dorm_admin' })
+      expect.objectContaining({ role: 'super_admin' })
     );
   });
 });

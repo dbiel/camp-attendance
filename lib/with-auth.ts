@@ -3,7 +3,7 @@ import { getCallerRole, CallerRole, verifyAdmin } from './auth';
 import { checkRateLimit, getClientIp } from './rate-limit';
 import { getAdminRole } from './firestore';
 
-export type RequiredRole = 'admin' | 'teacher' | 'super_admin';
+export type RequiredRole = 'admin' | 'lookup_admin' | 'teacher' | 'super_admin';
 
 export interface AuthedHandlerContext<P = Record<string, string>> {
   params: P;
@@ -35,12 +35,17 @@ export interface WithAuthOptions {
  * - Returns 429 if unauth attempts exceed the rate limit (when key set).
  * - Returns 500 on any thrown error (logs via console.error).
  *
- * Role hierarchy: super_admin > admin > teacher. Requiring 'teacher'
- * accepts both teacher and admin. Requiring 'super_admin' verifies the
- * caller's Firebase ID token AND that their `admins/{email}` doc resolves
- * to the 'super_admin' role (legacy docs without a role field qualify;
- * dorm_admin and unrecognized roles get 403). The handler receives
- * `role: 'admin'` on success.
+ * Role hierarchy: super_admin > lookup_admin > teacher. Requiring 'teacher'
+ * accepts teacher and (super) admin. Requiring 'super_admin' (or its legacy
+ * alias 'admin') verifies the caller's Firebase ID token AND that their
+ * `admins/{email}` doc resolves to 'super_admin' (legacy docs without a role
+ * field qualify; lookup_admin and unrecognized roles get 403); handler
+ * receives `role: 'admin'`.
+ *
+ * Requiring 'lookup_admin' verifies the ID token and accepts BOTH 'super_admin'
+ * and 'lookup_admin' allowlist roles. The handler receives `role: 'admin'` for
+ * a super admin and `role: 'lookup_admin'` for a lookup admin, so handlers can
+ * still distinguish tiers when needed.
  */
 export function withAuth<P = Record<string, string>>(
   required: RequiredRole,
@@ -65,6 +70,26 @@ export function withAuth<P = Record<string, string>>(
           );
         }
         return await handler(request, { params: context.params, role: 'admin' });
+      }
+
+      if (required === 'lookup_admin') {
+        const caller = await verifyAdmin(request);
+        const adminRole = caller?.email ? await getAdminRole(caller.email) : null;
+        if (adminRole !== 'super_admin' && adminRole !== 'lookup_admin') {
+          if (!caller && options.rateLimitKey) {
+            const ip = getClientIp(request);
+            if (!checkRateLimit(`${options.rateLimitKey}:${ip}`)) {
+              return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+            }
+          }
+          return NextResponse.json(
+            { error: caller ? 'Admin access required' : 'Unauthorized' },
+            { status: caller ? 403 : 401 }
+          );
+        }
+        // Preserve tier distinction: super admin → 'admin', lookup admin → 'lookup_admin'.
+        const resolved = adminRole === 'super_admin' ? 'admin' : 'lookup_admin';
+        return await handler(request, { params: context.params, role: resolved });
       }
 
       const role = await getCallerRole(request);

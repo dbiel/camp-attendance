@@ -1384,12 +1384,15 @@ export async function isAdminEmail(email: string): Promise<boolean> {
 /**
  * Coerce a raw Firestore `role` value to an AdminRole. Fail-closed:
  * - undefined (legacy doc written before roles existed) → 'super_admin'
- * - 'super_admin' / 'dorm_admin' → themselves
+ * - 'super_admin' → 'super_admin'
+ * - 'lookup_admin' or legacy 'dorm_admin' → 'lookup_admin' (back-compat)
  * - any other value (typos, unexpected strings) → null
  */
 function coerceAdminRole(value: unknown): AdminRole | null {
   if (value === undefined) return 'super_admin';
-  return value === 'super_admin' || value === 'dorm_admin' ? value : null;
+  if (value === 'super_admin') return 'super_admin';
+  if (value === 'lookup_admin' || value === 'dorm_admin') return 'lookup_admin';
+  return null;
 }
 
 /**
@@ -1455,7 +1458,7 @@ export async function listAdmins(): Promise<
 export async function addAdmin(
   email: string,
   addedBy: string,
-  role: AdminRole = 'super_admin'
+  role: AdminRole = 'lookup_admin'
 ): Promise<void> {
   const key = (email || '').trim().toLowerCase();
   if (!EMAIL_REGEX.test(key)) {

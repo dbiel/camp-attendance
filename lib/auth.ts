@@ -3,7 +3,11 @@ import { timingSafeEqual } from 'node:crypto';
 import { adminAuth, adminDb } from './firebase-admin';
 import { bootstrapAdminIfEmpty, getAdminRole, isAdminEmail } from './firestore';
 
-export type CallerRole = 'admin' | 'teacher' | null;
+// 'admin' == super_admin (legacy name kept so existing route checks and tests
+// don't move). 'lookup_admin' is only ever produced by withAuth('lookup_admin');
+// getCallerRole never returns it (it stays admin|teacher|null), so the
+// teacher/attendance flows are unaffected.
+export type CallerRole = 'admin' | 'lookup_admin' | 'teacher' | null;
 
 /**
  * Constant-time string comparison. Returns false for unequal-length inputs

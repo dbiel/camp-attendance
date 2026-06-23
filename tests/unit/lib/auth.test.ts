@@ -306,9 +306,9 @@ describe('getCallerRole', () => {
     expect(getAdminRole).toHaveBeenCalledWith('boss@test.com');
   });
 
-  it('does NOT return "admin" for dorm_admin — falls through to teacher when camp code valid', async () => {
+  it('does NOT return "admin" for lookup_admin — falls through to teacher when camp code valid', async () => {
     vi.mocked(adminAuth.verifyIdToken).mockResolvedValue({ uid: 'dorm-1', email: 'dorm@test.com' } as any);
-    vi.mocked(getAdminRole).mockResolvedValue('dorm_admin');
+    vi.mocked(getAdminRole).mockResolvedValue('lookup_admin');
 
     const mockGet = vi.fn().mockResolvedValue({
       exists: true,
@@ -324,9 +324,9 @@ describe('getCallerRole', () => {
     expect(result).toBe('teacher');
   });
 
-  it('returns null for dorm_admin with no camp code', async () => {
+  it('returns null for lookup_admin with no camp code', async () => {
     vi.mocked(adminAuth.verifyIdToken).mockResolvedValue({ uid: 'dorm-1', email: 'dorm@test.com' } as any);
-    vi.mocked(getAdminRole).mockResolvedValue('dorm_admin');
+    vi.mocked(getAdminRole).mockResolvedValue('lookup_admin');
 
     const mockGet = vi.fn().mockResolvedValue({
       exists: true,
