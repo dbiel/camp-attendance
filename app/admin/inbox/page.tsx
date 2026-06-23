@@ -103,7 +103,7 @@ export default function Inbox() {
             Dashboard
           </Link>
           <Link href="/admin/cases" className="text-gray-500 underline">
-            Cases
+            Reports
           </Link>
         </nav>
       </header>

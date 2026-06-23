@@ -43,7 +43,7 @@ export default function ActiveCases() {
   return (
     <main className="mx-auto max-w-2xl p-4">
       <header className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Active Cases</h1>
+        <h1 className="text-xl font-bold">Active Reports</h1>
         <nav className="flex gap-3 text-sm">
           <Link href="/admin/cases/history" className="text-red-700 underline">History</Link>
           <Link href="/admin/coverage" className="text-gray-500 underline">Coverage</Link>
@@ -58,7 +58,7 @@ export default function ActiveCases() {
         {loading && <p className="text-sm text-gray-500">Loading…</p>}
         {!loading && cases.length === 0 && (
           <p className="rounded border border-green-300 bg-green-50 p-4 text-sm text-green-800">
-            No active cases. 🎺
+            No active reports. 🎺
           </p>
         )}
         {cases.map((c) => <CaseCard key={c.id} c={c} />)}

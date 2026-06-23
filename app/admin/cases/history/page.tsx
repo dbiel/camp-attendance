@@ -65,9 +65,9 @@ export default function CaseHistory() {
   return (
     <main className="mx-auto max-w-2xl p-4">
       <Link href="/admin/cases" className="text-sm text-red-700 underline">
-        ← Active cases
+        ← Active reports
       </Link>
-      <h1 className="mt-2 text-xl font-bold">Case History</h1>
+      <h1 className="mt-2 text-xl font-bold">Report History</h1>
       <label className="mt-2 block">
         <span className="sr-only">Filter by student name</span>
         <input
@@ -100,7 +100,7 @@ export default function CaseHistory() {
       </ul>
       {visible.length === 0 && (
         <p className="mt-3 text-sm text-gray-500">
-          {cases.length > 0 ? 'No matches.' : 'No resolved cases.'}
+          {cases.length > 0 ? 'No matches.' : 'No resolved reports.'}
         </p>
       )}
     </main>

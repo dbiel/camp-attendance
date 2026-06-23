@@ -153,7 +153,7 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
 
   return (
     <div className="rounded-lg border bg-white p-4 shadow-sm">
-      <h2 className="mb-2 font-semibold">Confirm case</h2>
+      <h2 className="mb-2 font-semibold">Confirm report</h2>
       <StudentPicker candidates={candidates} value={studentId} onChange={setStudentId} getAuthHeaders={getAuthHeaders} />
       <label className="mt-3 block text-sm font-medium">
         Summary
@@ -177,7 +177,7 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
       )}
       <div className="mt-3 flex gap-2">
         <button onClick={create} disabled={busy} className="rounded bg-red-700 px-4 py-2 text-white disabled:opacity-50">
-          {busy ? 'Creating…' : 'Create case'}
+          {busy ? 'Creating…' : 'Create report'}
         </button>
         <button onClick={() => setStage('paste')} className="rounded border px-4 py-2">Back</button>
       </div>

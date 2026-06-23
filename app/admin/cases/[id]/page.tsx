@@ -112,7 +112,7 @@ export default function CaseDetail() {
 
   return (
     <main className="mx-auto max-w-2xl p-4">
-      <Link href="/admin/cases" className="text-sm text-red-700 underline">← Active cases</Link>
+      <Link href="/admin/cases" className="text-sm text-red-700 underline">← Active reports</Link>
       <h1 className="mt-2 text-xl font-bold">{c.student_name}</h1>
       <p className="text-sm text-gray-600">{c.summary}{c.session_label ? ` — ${c.session_label}` : ''}</p>
       {c.status === 'resolved' && (
@@ -127,7 +127,7 @@ export default function CaseDetail() {
           <p><span className="font-medium">Ensemble:</span> {student.ensemble} ({student.instrument})</p>
           {student.medical_notes && <p className="text-red-700"><span className="font-medium">Medical:</span> {student.medical_notes}</p>}
           {prior_cases.length > 0 && (
-            <p className="mt-1 text-amber-700">⚠ {prior_cases.length} prior incident{prior_cases.length > 1 ? 's' : ''}</p>
+            <p className="mt-1 text-amber-700">⚠ {prior_cases.length} prior report{prior_cases.length > 1 ? 's' : ''}</p>
           )}
         </section>
       )}
@@ -144,7 +144,7 @@ export default function CaseDetail() {
           )}
           <DormStaffAction staff={dormStaff} body={dormBody} onSent={(name) => logEvent('dorm_staff_texted', `Texted dorm staff ${name}`)} />
           <button onClick={() => setShowResolve(true)} className="rounded bg-green-700 px-4 py-2 text-left text-white">
-            ✓ Resolve case
+            ✓ Resolve report
           </button>
           {showResolve && (
             <div className="rounded border p-3">
