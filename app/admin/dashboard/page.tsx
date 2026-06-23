@@ -617,6 +617,9 @@ export default function AdminDashboard() {
           <Link href="/admin/faculty-status" className="camp-btn-outline block text-center py-3 font-semibold">
             Faculty Status
           </Link>
+          <Link href="/admin/inbox" className="camp-btn-outline block text-center py-3 font-semibold">
+            Inbox
+          </Link>
           <Link href="/admin/data/students" className="camp-btn-outline block text-center py-3 font-semibold">
             Students
           </Link>

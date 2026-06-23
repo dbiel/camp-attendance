@@ -23,8 +23,14 @@ function matchesOp(actual: unknown, op: string, value: unknown): boolean {
   }
 }
 
-function makeQuery(filter?: (d: Record<string, unknown>) => boolean) {
-  const api: Record<string, unknown> = {
+interface FakeQuery {
+  where: (field: string, op: string, value: unknown) => FakeQuery;
+  orderBy: () => FakeQuery;
+  get: () => Promise<{ docs: { id: string; data: () => unknown; ref: { id: string } }[]; empty: boolean; size: number }>;
+}
+
+function makeQuery(filter?: (d: Record<string, unknown>) => boolean): FakeQuery {
+  const api: FakeQuery = {
     where: (field: string, op: string, value: unknown) =>
       makeQuery((d) => (filter ? filter(d) : true) && matchesOp(d[field], op, value)),
     orderBy: () => api,
