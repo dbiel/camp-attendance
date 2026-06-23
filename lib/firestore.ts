@@ -1437,16 +1437,34 @@ export async function bootstrapAdminIfEmpty(email: string): Promise<boolean> {
  * such entries get no privileges (see `coerceAdminRole`).
  */
 export async function listAdmins(): Promise<
-  Array<{ email: string; added_by: string; added_at: number; role: AdminRole | 'unknown' }>
+  Array<{
+    email: string;
+    added_by: string;
+    added_at: number;
+    role: AdminRole | 'unknown';
+    auth_type: 'google' | 'password';
+    name?: string;
+  }>
 > {
   const snap = await adminsCol().get();
   return snap.docs.map((doc) => {
-    const d = doc.data() as { email?: string; added_by?: string; added_at?: number; role?: string };
+    const d = doc.data() as {
+      email?: string;
+      added_by?: string;
+      added_at?: number;
+      role?: string;
+      auth_type?: string;
+      name?: string;
+    };
     return {
       email: d.email ?? doc.id,
       added_by: d.added_by ?? 'unknown',
       added_at: d.added_at ?? 0,
       role: coerceAdminRole(d.role) ?? 'unknown',
+      // Accounts without an explicit auth_type predate password accounts and
+      // are Google sign-in by definition.
+      auth_type: d.auth_type === 'password' ? 'password' : 'google',
+      ...(d.name ? { name: d.name } : {}),
     };
   });
 }
@@ -1458,7 +1476,8 @@ export async function listAdmins(): Promise<
 export async function addAdmin(
   email: string,
   addedBy: string,
-  role: AdminRole = 'lookup_admin'
+  role: AdminRole = 'lookup_admin',
+  extra: Record<string, unknown> = {}
 ): Promise<void> {
   const key = (email || '').trim().toLowerCase();
   if (!EMAIL_REGEX.test(key)) {
@@ -1474,7 +1493,32 @@ export async function addAdmin(
     added_by: addedBy,
     added_at: Date.now(),
     role,
+    ...extra,
   });
+}
+
+/**
+ * Change an existing admin's role. Throws if the admin does not exist.
+ * Caller is responsible for guarding against self-demotion / removing the
+ * last super_admin (see the API route).
+ */
+export async function setAdminRole(email: string, role: AdminRole): Promise<void> {
+  const key = (email || '').trim().toLowerCase();
+  const ref = adminsCol().doc(key);
+  const existing = await ref.get();
+  if (!existing.exists) {
+    throw new Error('Admin not found');
+  }
+  await ref.update({ role });
+}
+
+/**
+ * Count super_admins on the allowlist. Used to block removing/demoting the
+ * last super admin (which would lock everyone out of admin management).
+ */
+export async function countSuperAdmins(): Promise<number> {
+  const snap = await adminsCol().get();
+  return snap.docs.filter((d) => coerceAdminRole(d.data()?.role) === 'super_admin').length;
 }
 
 /**
