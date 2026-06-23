@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd agent for the TTUBOC iMessage watcher.
+
+  install.sh templates the {{NODE_BIN}} and {{WATCHER_DIR}} placeholders to the
+  real paths on this Mac Mini, then copies the result to
+  ~/Library/LaunchAgents/com.ttuboc.imessage-watcher.plist.
+
+  Runs as a LaunchAgent (user session) because reading ~/Library/Messages/chat.db
+  requires Full Disk Access granted to the user's process, not a system daemon.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.ttuboc.imessage-watcher</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>{{NODE_BIN}}</string>
+    <string>{{WATCHER_DIR}}/index.js</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>{{WATCHER_DIR}}</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <!-- Back off if it crash-loops so we don't hammer the CPU. -->
+  <key>ThrottleInterval</key>
+  <integer>15</integer>
+
+  <key>StandardOutPath</key>
+  <string>{{WATCHER_DIR}}/logs/watcher.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>{{WATCHER_DIR}}/logs/watcher.err.log</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>
