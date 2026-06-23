@@ -38,26 +38,18 @@ jobs:
           CASE_PARSE_MODEL=${{ secrets.CASE_PARSE_MODEL }}
           EOF
 
-      - name: Build
-        run: npm run build
-
-      - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TTUBOC_ATTENDANCE }}
-          channelId: live
-          projectId: ttuboc-attendance
-        env:
-          FIREBASE_CLI_EXPERIMENTS: webframeworks
-          # Host Node can stall framework spec extraction; give it room.
-          FUNCTIONS_DISCOVERY_TIMEOUT: "60"
-
-      - name: Deploy Firestore rules & indexes
+      # Deploy directly via firebase-tools — the action-hosting-deploy action
+      # only handles static hosting and cannot deploy a Next.js frameworks SSR
+      # function. This mirrors the working local deploy: webframeworks builds
+      # the app (reading .env.local written above) and pushes the SSR function.
+      - name: Deploy (hosting + rules + indexes)
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
           npm install -g firebase-tools
           GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" \
-            firebase deploy --only firestore:rules,firestore:indexes --project ttuboc-attendance
+            firebase deploy --only hosting,firestore:rules,firestore:indexes \
+              --project ttuboc-attendance --non-interactive
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TTUBOC_ATTENDANCE }}
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
+          FUNCTIONS_DISCOVERY_TIMEOUT: "60"
