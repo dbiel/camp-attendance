@@ -54,8 +54,16 @@ describe('getTodayDate', () => {
     expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it('returns today\'s date', () => {
-    const expected = new Date().toISOString().split('T')[0];
+  it('returns today\'s date in the camp timezone', () => {
+    // getTodayDate() resolves "today" in the camp timezone (America/Chicago),
+    // NOT UTC — comparing against toISOString() flakes every evening once UTC
+    // has rolled to the next day. Derive the expectation the same way.
+    const expected = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
     expect(getTodayDate()).toBe(expected);
   });
 });
