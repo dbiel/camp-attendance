@@ -6,15 +6,16 @@
 
 ---
 
-## As of 2026-06-21 — Current State
+## As of 2026-06-22 — Current State
 
-- **Branch:** `feat/incident-command-center` (Phase 1, **not merged to main**). Local == `origin` (`e0b9fda`).
-- **Repo just relocated** out of iCloud (`~/Documents/...`, which had been wedged ~11 days and evicting files) to `~/projects/camp-app`. Git is fast here. The old iCloud folder is left in place as a backup until this is confirmed good.
-- **Deps installed** (`npm ci --legacy-peer-deps` under Node 24).
-- **⚠️ One outstanding gap:** `.env` / `.env.local` (gitignored secrets) did NOT survive the iCloud eviction — they need to be restored from a backup or reconstructed before the app can run/deploy. Everything else is intact. See **Run / build / deploy**.
-- **Phase 1** (incident command center) built & pushed, 333 tests, awaiting David's merge decision (merge to `main` = prod deploy via CI).
+- **🟢 LIVE in production:** https://ttuboc-attendance.web.app → redirects to `/admin` (Google sign-in, allowlisted via `admins/{email}`; no camp-code gate). Dummy data. Deployed via `firebase deploy --only hosting` (Blaze plan, Node 24, `FIREBASE_CLI_EXPERIMENTS=webframeworks`). Go-live commit `7c4f3f5`.
+- **Branch:** `feat/incident-command-center` (Phase 1, **not merged to main**). Deployed directly, not via CI.
+- **Repo at `~/projects/camp-app`** (rescued off wedged iCloud 2026-06-21 via fresh clone). Git fast, deps installed, typecheck clean. Old iCloud folder `~/Documents/Claude/camp-app-handoff` kept as backup — deletable once confirmed good.
+- **Secrets reconstructed + verified** in `.env.local` (Firebase web config, new Admin SDK key, Anthropic key). Camp code: `ttuboc2026`.
+- **Admin-only:** `/`→`/admin`; dormant teacher landing preserved at `/teacher`. `firebase-admin` uses ADC in prod (function's own SA), env creds locally.
+- **Cost guard:** `firebase.json` `frameworksBackend.maxInstances: 5`, `minInstances: 0`.
+- **⚠️ Open items:** (1) prod **`ANTHROPIC_API_KEY` not set** → live case-parser won't work (admin reads/writes do); wire as a Firebase secret to enable. (2) Create billing **budget alert** ($5/mo) at console.cloud.google.com/billing/budgets. (3) Optional hard billing kill-switch offered. (4) Merge `feat/incident-command-center` → main when ready.
 - **Phase 2 backlog:** role picker in Settings (assign `dorm_admin`), reporter-name denormalization, note-entry UI, search debounce, `getAuthHeaders` memoization, templates-section 403 handling.
-- **Next actions:** (1) restore `.env`/`.env.local`; (2) decide merge of Phase 1 → main.
 
 ---
 
