@@ -169,18 +169,172 @@ export default function CaseDetail() {
         </section>
       )}
 
+      <ShareLinkControls c={c} getAuthHeaders={getAuthHeaders} onChanged={refresh} />
+
       <section className="mt-6">
         <h2 className="font-semibold">Timeline</h2>
         <ol className="mt-2 flex flex-col gap-1 text-sm">
-          {events.map((e) => (
-            <li key={e.id} className="rounded border-l-4 border-gray-300 bg-white p-2">
-              <span className="text-xs text-gray-500">{new Date(e.created_at).toLocaleTimeString()} · {e.actor}</span>
-              <p>{e.body}</p>
-            </li>
-          ))}
+          {events.map((e) => {
+            const isStaff = e.type === 'staff_update';
+            return (
+              <li
+                key={e.id}
+                className={
+                  isStaff
+                    ? 'rounded border-l-4 border-blue-400 bg-blue-50 p-2'
+                    : 'rounded border-l-4 border-gray-300 bg-white p-2'
+                }
+              >
+                <span className="text-xs text-gray-500">
+                  {new Date(e.created_at).toLocaleTimeString()} · {e.actor}
+                  {isStaff && <span className="ml-1 font-medium text-blue-700">· staff link</span>}
+                </span>
+                <p>{e.body}</p>
+              </li>
+            );
+          })}
         </ol>
       </section>
     </main>
+  );
+}
+
+/** Two-way staff link controls (super_admin). Issues a 4h tokenized link to a
+ * single staff recipient, shows the copyable /r/<token> URL with an expiry
+ * countdown, and supports Revoke / Re-issue. */
+function ShareLinkControls({
+  c,
+  getAuthHeaders,
+  onChanged,
+}: {
+  c: Case;
+  getAuthHeaders: () => Promise<Record<string, string>>;
+  onChanged: () => void;
+}) {
+  const [label, setLabel] = useState(c.share_recipient_label ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [issuedUrl, setIssuedUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  // Tick once a second so the countdown stays live.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const expiresAt = c.share_expires_at ? new Date(c.share_expires_at).getTime() : null;
+  const active = !c.share_revoked && expiresAt !== null && now < expiresAt;
+
+  function countdown(): string {
+    if (!expiresAt) return '';
+    const ms = expiresAt - now;
+    if (ms <= 0) return 'expired';
+    const mins = Math.floor(ms / 60000);
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+  }
+
+  // Build an absolute URL for copy/paste convenience.
+  const path = issuedUrl ?? (c.share_token ? `/r/${c.share_token}` : null);
+  const absoluteUrl =
+    path && typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
+
+  async function issue() {
+    setBusy(true);
+    setError(null);
+    try {
+      const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' };
+      const res = await fetch(`/api/cases/${c.id}/share`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ recipient_label: label || null }),
+      });
+      if (!res.ok) throw new Error(`Failed to issue link (${res.status})`);
+      const data = await res.json();
+      setIssuedUrl(data.url as string);
+      onChanged();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revoke() {
+    setBusy(true);
+    setError(null);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`/api/cases/${c.id}/share`, { method: 'DELETE', headers });
+      if (!res.ok) throw new Error(`Failed to revoke (${res.status})`);
+      setIssuedUrl(null);
+      onChanged();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function copy() {
+    if (!absoluteUrl) return;
+    setCopied(false);
+    const write = navigator.clipboard?.writeText(absoluteUrl);
+    if (!write) return;
+    write.then(() => setCopied(true)).catch(() => setCopied(false));
+  }
+
+  return (
+    <section className="mt-6 rounded border bg-white p-3 text-sm">
+      <h2 className="font-semibold">Staff link</h2>
+      <p className="mt-1 text-xs text-gray-500">
+        Send a single staff member a scoped, two-way link. It expires 4 hours after you send it.
+      </p>
+
+      <label className="mt-2 block">
+        <span className="text-xs text-gray-600">Who are you sending this to?</span>
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="e.g. Counselor Jane"
+          className="mt-1 w-full rounded border p-2 text-sm"
+        />
+      </label>
+
+      {active && absoluteUrl && (
+        <div className="mt-2 rounded border border-blue-200 bg-blue-50 p-2">
+          <div className="flex items-center gap-2">
+            <code className="flex-1 break-all text-xs">{absoluteUrl}</code>
+            <button onClick={copy} className="rounded border bg-white px-2 py-1 text-xs">
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-blue-700">
+            {c.share_recipient_label ? `To ${c.share_recipient_label} · ` : ''}
+            {countdown()}
+          </p>
+        </div>
+      )}
+
+      <div className="mt-2 flex gap-2">
+        <button
+          onClick={issue}
+          disabled={busy}
+          className="rounded bg-blue-600 px-3 py-1.5 text-white disabled:opacity-50"
+        >
+          {busy ? 'Working…' : active ? 'Re-issue link' : 'Send staff link'}
+        </button>
+        {active && (
+          <button onClick={revoke} disabled={busy} className="rounded border px-3 py-1.5">
+            Revoke
+          </button>
+        )}
+      </div>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+    </section>
   );
 }
 
