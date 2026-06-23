@@ -55,6 +55,16 @@ describe('classifyText', () => {
     expect(r.tag).toBe('personal');
   });
 
+  it('ignores roster names shorter than 3 chars (single-letter preferred names)', () => {
+    const r = classifyText({ body: 'g whiz that was great', rosterNames: ['G', 'Jo'] });
+    expect(r.tag).toBe('personal');
+  });
+
+  it('still matches a 3+ char roster name', () => {
+    const r = classifyText({ body: 'is Ana coming', rosterNames: ['Ana'] });
+    expect(r.tag).toBe('camp');
+  });
+
   it('tags personal when there is a body but no signal', () => {
     const r = classifyText({ body: 'happy birthday! love you' });
     expect(r.tag).toBe('personal');

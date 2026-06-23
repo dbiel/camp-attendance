@@ -45,17 +45,23 @@ function escapeRegExp(s: string): string {
 
 /**
  * Find the first term from `terms` that appears in `text` as a whole word
- * (case-insensitive). Returns the matched term, or null.
+ * (case-insensitive). Returns the matched term, or null. Terms shorter than
+ * `minLen` are skipped — roster data contains single-letter preferred names
+ * and 2-char initials that would otherwise match common words and flood the
+ * camp queue with false positives.
  */
-function findWordMatch(text: string, terms: string[]): string | null {
+function findWordMatch(text: string, terms: string[], minLen = 1): string | null {
   for (const term of terms) {
     const t = term.trim();
-    if (!t) continue;
+    if (t.length < minLen) continue;
     const re = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(t)}(?![\\p{L}\\p{N}])`, 'iu');
     if (re.test(text)) return t;
   }
   return null;
 }
+
+// Roster/dorm names below this length are too noisy to match safely.
+const NAME_MIN_LEN = 3;
 
 export function classifyText(input: ClassifyInput): ClassifyResult {
   const body = (input.body ?? '').trim();
@@ -71,10 +77,10 @@ export function classifyText(input: ClassifyInput): ClassifyResult {
   }
 
   // 2. Body signals, in priority order: roster name, dorm, instrument, keyword.
-  const rosterHit = findWordMatch(body, input.rosterNames ?? []);
+  const rosterHit = findWordMatch(body, input.rosterNames ?? [], NAME_MIN_LEN);
   if (rosterHit) return { tag: 'camp', reason: `roster name: ${rosterHit}` };
 
-  const dormHit = findWordMatch(body, input.dormNames ?? []);
+  const dormHit = findWordMatch(body, input.dormNames ?? [], NAME_MIN_LEN);
   if (dormHit) return { tag: 'camp', reason: `dorm building: ${dormHit}` };
 
   const instrumentHit = findWordMatch(body, INSTRUMENT_TERMS);

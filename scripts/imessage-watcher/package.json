@@ -1,0 +1,21 @@
+{
+  "name": "ttuboc-imessage-watcher",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Read-only Mac Mini watcher that ingests incoming Messages (chat.db) into the TTUBOC camp app's Firestore `texts` collection. Isolated from the Next.js app's dependencies on purpose (better-sqlite3 is a native module the web app must never pull in).",
+  "scripts": {
+    "start": "node index.js",
+    "once": "node index.js --once",
+    "dry-run": "node index.js --once --dry-run",
+    "test": "vitest run --config vitest.config.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "firebase-admin": "^13.0.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.0"
+  }
+}
