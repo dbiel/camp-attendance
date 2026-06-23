@@ -78,6 +78,7 @@ import {
   listTexts,
   retagText,
   dismissText,
+  getText,
   setTextEscalated,
   purgeExpiredTexts,
   computePurgeAfter,
@@ -178,6 +179,13 @@ describe('retagText / dismissText / setTextEscalated', () => {
   it('setTextEscalated stamps the case id', async () => {
     await setTextEscalated('A', 'CASE-9');
     expect(store.get('A')!.escalated_case_id).toBe('CASE-9');
+  });
+
+  it('getText returns the doc when it exists, null otherwise', async () => {
+    const found = await getText('A');
+    expect(found?.id).toBe('A');
+    const missing = await getText('ZZZ');
+    expect(missing).toBeNull();
   });
 });
 

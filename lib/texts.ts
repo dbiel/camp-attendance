@@ -51,6 +51,11 @@ export async function listTexts(opts: { tag?: TextTag } = {}): Promise<TextDoc[]
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<TextDoc, 'id'>) }));
 }
 
+export async function getText(id: string): Promise<TextDoc | null> {
+  const doc = await adminDb.collection(COLLECTION).doc(id).get();
+  return doc.exists ? ({ id: doc.id, ...(doc.data() as Omit<TextDoc, 'id'>) }) : null;
+}
+
 export async function retagText(id: string, tag: TextTag, reason: string): Promise<void> {
   await adminDb.collection(COLLECTION).doc(id).update({ tag, tag_reason: reason });
 }

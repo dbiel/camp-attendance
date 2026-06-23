@@ -9,6 +9,8 @@ const {
   listTextsMock,
   retagTextMock,
   dismissTextMock,
+  getTextMock,
+  setTextEscalatedMock,
   verifyIdTokenMock,
   getAdminRoleMock,
   isAdminEmailMock,
@@ -17,6 +19,8 @@ const {
   listTextsMock: vi.fn(),
   retagTextMock: vi.fn(),
   dismissTextMock: vi.fn(),
+  getTextMock: vi.fn(),
+  setTextEscalatedMock: vi.fn(),
   verifyIdTokenMock: vi.fn(),
   getAdminRoleMock: vi.fn(),
   isAdminEmailMock: vi.fn(),
@@ -27,6 +31,8 @@ vi.mock('@/lib/texts', () => ({
   listTexts: listTextsMock,
   retagText: retagTextMock,
   dismissText: dismissTextMock,
+  getText: getTextMock,
+  setTextEscalated: setTextEscalatedMock,
 }));
 
 vi.mock('@/lib/firestore', () => ({
@@ -136,6 +142,38 @@ describe('PATCH /api/texts/[id]', () => {
       params: { id: 'A' },
     });
     expect(retagTextMock).toHaveBeenCalledWith('A', 'camp', 'real report');
+  });
+
+  it('escalation: stamps escalated_case_id when the text is not yet escalated', async () => {
+    getTextMock.mockResolvedValue({ id: 'A', escalated_case_id: null });
+    setTextEscalatedMock.mockResolvedValue(undefined);
+    const res = await PATCH(
+      req('http://localhost/api/texts/A', 'PATCH', { escalated_case_id: 'CASE-9' }),
+      { params: { id: 'A' } }
+    );
+    expect(res.status).toBe(200);
+    expect(setTextEscalatedMock).toHaveBeenCalledWith('A', 'CASE-9');
+    expect(retagTextMock).not.toHaveBeenCalled();
+  });
+
+  it('escalation: blocks double-escalation with 409', async () => {
+    getTextMock.mockResolvedValue({ id: 'A', escalated_case_id: 'CASE-1' });
+    const res = await PATCH(
+      req('http://localhost/api/texts/A', 'PATCH', { escalated_case_id: 'CASE-9' }),
+      { params: { id: 'A' } }
+    );
+    expect(res.status).toBe(409);
+    expect(setTextEscalatedMock).not.toHaveBeenCalled();
+  });
+
+  it('escalation: 404 when the text is unknown', async () => {
+    getTextMock.mockResolvedValue(null);
+    const res = await PATCH(
+      req('http://localhost/api/texts/nope', 'PATCH', { escalated_case_id: 'CASE-9' }),
+      { params: { id: 'nope' } }
+    );
+    expect(res.status).toBe(404);
+    expect(setTextEscalatedMock).not.toHaveBeenCalled();
   });
 });
 

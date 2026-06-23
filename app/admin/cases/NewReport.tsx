@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import type { ParsedReport } from '@/lib/case-parse';
@@ -15,14 +15,24 @@ interface Candidate {
 
 type Stage = 'paste' | 'confirm';
 
-export function NewReport({ onCreated }: { onCreated: () => void }) {
+export function NewReport({
+  onCreated,
+  seedText,
+  sourceTextId,
+}: {
+  onCreated: () => void;
+  /** When escalating from the inbox, pre-fill + auto-parse from this text body. */
+  seedText?: string;
+  /** Originating text id — linked to the Report (escalated_case_id) on create. */
+  sourceTextId?: string;
+}) {
   const router = useRouter();
   const { getAuthHeaders } = useAuth();
   const [stage, setStage] = useState<Stage>('paste');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const [rawText, setRawText] = useState('');
+  const [rawText, setRawText] = useState(seedText ?? '');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [studentId, setStudentId] = useState('');
   const [summary, setSummary] = useState('');
@@ -32,6 +42,7 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
   const [reporterPhone, setReporterPhone] = useState('');
   const [reporterRole, setReporterRole] = useState('faculty');
   const [needsContactSave, setNeedsContactSave] = useState(false);
+  const seededRef = useRef(false);
 
   /** Clear any state left over from a previous parse so a failed parse can't
    * silently file a report against the wrong student or reporter. */
@@ -45,12 +56,13 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
     setNeedsContactSave(false);
   }
 
-  async function parse() {
+  async function parse(textOverride?: string) {
+    const text = textOverride ?? rawText;
     setBusy(true);
     setError('');
     try {
       const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' };
-      const res = await fetch('/api/cases/parse', { method: 'POST', headers, body: JSON.stringify({ text: rawText }) });
+      const res = await fetch('/api/cases/parse', { method: 'POST', headers, body: JSON.stringify({ text }) });
       const body = await res.json();
       if (body.ok) {
         resetParsedState();
@@ -78,6 +90,16 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
       setBusy(false);
     }
   }
+
+  // When escalating from the inbox, auto-run the parse once on mount so David
+  // lands straight on the confirm step pre-filled from the text body.
+  useEffect(() => {
+    if (seedText && seedText.trim() && !seededRef.current) {
+      seededRef.current = true;
+      parse(seedText);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedText]);
 
   async function create() {
     if (!studentId) { setError('Pick a student.'); return; }
@@ -120,6 +142,19 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
         throw new Error(message);
       }
       const { id } = await res.json();
+      // Link the originating text to this Report (one-way; server blocks
+      // double-escalation). Best-effort: the Report exists either way.
+      if (sourceTextId) {
+        try {
+          await fetch(`/api/texts/${sourceTextId}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ escalated_case_id: id }),
+          });
+        } catch {
+          // Network error linking the text — the Report is still created.
+        }
+      }
       onCreated();
       router.push(`/admin/cases/${id}`);
     } catch (err) {
@@ -140,7 +175,7 @@ export function NewReport({ onCreated }: { onCreated: () => void }) {
           className="h-28 w-full rounded border p-2 text-sm"
         />
         <button
-          onClick={parse}
+          onClick={() => parse()}
           disabled={busy || !rawText.trim()}
           className="mt-2 rounded bg-red-700 px-4 py-2 text-white disabled:opacity-50"
         >

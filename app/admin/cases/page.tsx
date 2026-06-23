@@ -1,18 +1,33 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import type { Case } from '@/lib/cases';
+import type { TextDoc } from '@/lib/types';
 import { CaseCard } from './CaseCard';
 import { NewReport } from './NewReport';
 
-export default function ActiveCases() {
+// useSearchParams() requires a Suspense boundary in Next 14 App Router so the
+// page can statically render its shell; the inner component reads ?from_text.
+export default function ActiveCasesPage() {
+  return (
+    <Suspense fallback={null}>
+      <ActiveCases />
+    </Suspense>
+  );
+}
+
+function ActiveCases() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromText = searchParams.get('from_text');
   const { user, loading: authLoading, signOut, getAuthHeaders } = useAuth();
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seedText, setSeedText] = useState<string | undefined>(undefined);
+  const [seedReady, setSeedReady] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/admin');
@@ -38,6 +53,35 @@ export default function ActiveCases() {
     return () => clearInterval(interval);
   }, [user, refresh]);
 
+  // Escalation from the inbox: look up the originating text's body to seed the
+  // NewReport auto-parse. We only need this once when arriving via ?from_text.
+  useEffect(() => {
+    if (!user || !fromText) {
+      setSeedReady(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch('/api/texts?tag=all', { headers });
+        if (res.ok) {
+          const texts = (await res.json()).texts as TextDoc[];
+          const t = texts.find((x) => x.id === fromText);
+          if (!cancelled && t) setSeedText(t.body);
+        }
+      } catch {
+        // If the lookup fails, fall back to an empty New report form.
+      } finally {
+        if (!cancelled) setSeedReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, fromText]);
+
   if (authLoading || !user) return null;
 
   return (
@@ -52,7 +96,14 @@ export default function ActiveCases() {
         </nav>
       </header>
 
-      <NewReport onCreated={refresh} />
+      {seedReady && (
+        <NewReport
+          key={fromText ?? 'new'}
+          onCreated={refresh}
+          seedText={seedText}
+          sourceTextId={fromText ?? undefined}
+        />
+      )}
 
       <section className="mt-4 flex flex-col gap-2">
         {loading && <p className="text-sm text-gray-500">Loading…</p>}
