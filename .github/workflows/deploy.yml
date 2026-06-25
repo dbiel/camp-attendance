@@ -52,12 +52,27 @@ jobs:
       - name: Deploy (hosting + rules + indexes)
         id: deploy
         run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          # Validate the SA key file without leaking it: confirm valid JSON,
+          # right client_email, and a PEM private key with real newlines.
+          node -e '
+            const fs=require("fs");
+            const p=process.env.GOOGLE_APPLICATION_CREDENTIALS;
+            const raw=fs.readFileSync(p,"utf8");
+            console.log("sa.json bytes:", raw.length);
+            let j; try { j=JSON.parse(raw); } catch(e){ console.error("INVALID JSON:", e.message); process.exit(1);}
+            console.log("type:", j.type, "| client_email:", j.client_email);
+            console.log("private_key present:", !!j.private_key,
+                        "| has BEGIN:", (j.private_key||"").includes("BEGIN PRIVATE KEY"),
+                        "| literal-\\n count:", ((j.private_key||"").match(/\\n/g)||[]).length,
+                        "| real-newline count:", ((j.private_key||"").match(/\n/g)||[]).length);
+          '
           npm install -g firebase-tools
           GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" \
             firebase deploy --only hosting,firestore:rules,firestore:indexes \
-              --project ttuboc-attendance --non-interactive
+              --project ttuboc-attendance --non-interactive --debug 2>&1 | tail -40
         env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TTUBOC_ATTENDANCE }}
           FIREBASE_CLI_EXPERIMENTS: webframeworks
           FUNCTIONS_DISCOVERY_TIMEOUT: "60"
