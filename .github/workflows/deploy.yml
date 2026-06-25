@@ -3,6 +3,7 @@ name: Deploy to Firebase Hosting
 on:
   push:
     branches: [main]
+  workflow_dispatch: {}
 
 jobs:
   build-and-deploy:
@@ -45,13 +46,11 @@ jobs:
       # Auto-deploy via firebase-tools + service account (mirrors the working
       # local deploy: webframeworks builds and pushes the SSR function, reading
       # .env.local written above). The action-hosting-deploy action can't deploy
-      # a Next SSR frameworks function, so we deploy directly. This is allowed
-      # to fail WITHOUT failing the workflow until the CI service account is
-      # granted deploy IAM (see guidance below). Once the roles are granted it
-      # deploys on every push to main with no further changes.
+      # a Next SSR frameworks function, so we deploy directly. The CI service
+      # account (firebase-adminsdk-fbsvc) has been granted deploy IAM, so this
+      # is a real gate — a failed deploy fails the workflow.
       - name: Deploy (hosting + rules + indexes)
         id: deploy
-        continue-on-error: true
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
           npm install -g firebase-tools
@@ -62,15 +61,3 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TTUBOC_ATTENDANCE }}
           FIREBASE_CLI_EXPERIMENTS: webframeworks
           FUNCTIONS_DISCOVERY_TIMEOUT: "60"
-
-      - name: Deploy guidance
-        if: steps.deploy.outcome == 'failure'
-        run: |
-          echo "::warning::CI deploy failed — the CI service account likely lacks"
-          echo "deploy IAM. The app is deployed manually via local 'firebase"
-          echo "deploy' until then. To enable CI deploy, grant the SA (client_email"
-          echo "in FIREBASE_SERVICE_ACCOUNT_TTUBOC_ATTENDANCE) these roles on"
-          echo "project ttuboc-attendance:"
-          echo "  firebaserules.admin, datastore.indexAdmin, cloudfunctions.admin,"
-          echo "  run.admin, iam.serviceAccountUser, firebasehosting.admin,"
-          echo "  artifactregistry.admin, cloudbuild.builds.editor"
