@@ -16,9 +16,16 @@
  *   <dir>/sessions.json  [{ name, type, period_number, ensemble?, instrument?,
  *                           location?, faculty_id?, id? }]
  *
- * `session_students` (enrollments) are DERIVED: a student is enrolled in every
- * session whose `ensemble` matches the student's `ensemble`. Provide
- * <dir>/session_students.json to override the derivation.
+ * `session_students` (enrollments) come from TWO sources unioned together:
+ *   1. ENSEMBLE BASE — derived here: a student is enrolled in every session
+ *      whose `ensemble` matches the student's `ensemble` (rehearsals, sectionals,
+ *      assembly, lunch, etc.).
+ *   2. ELECTIVES — NOT derivable from ensemble; they come from separate
+ *      per-elective rosters. Supply them as explicit rows in
+ *      <dir>/session_students.json (merged in) until a dedicated electives
+ *      format is wired up. Without them, elective periods show "no class".
+ * Providing <dir>/session_students.json REPLACES the ensemble derivation
+ * entirely (use it when you have the full enrollment list incl. electives).
  *
  * IDs: periods → `String(number)` (so session.period_id lines up). faculty /
  * students / sessions → the record's `id` if present, else its 1-based index.

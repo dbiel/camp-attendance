@@ -280,3 +280,14 @@ David (2026-06-27) concretized the "current/next class" idea. Build alongside th
 - Same now/next logic feeds the report card "now / next" line (Phase 4 C1) — build the helper once, reuse.
 
 **To discuss when we start it:** does "current session" use period start/end windows (gaps = "no class"), and should the next-session column show the *time* it starts too?
+
+### Schedule derivation (2026-06-27, David) — base + electives
+
+A student's full schedule = **two sources**, unioned into `session_students`:
+1. **Ensemble base schedule** — the fixed sessions for the student's ensemble (rehearsals, sectionals, assembly, lunch, etc.). Derivable from `student.ensemble === session.ensemble` (what the seed does today).
+2. **Electives** — each student's elective picks come from **separate per-elective rosters** (a list per elective naming its students). NOT derivable from ensemble — needs explicit roster data.
+
+Implications:
+- **`scripts/seed-camp.mjs`** currently derives only the ensemble base. It needs an **elective-roster input** (e.g. `electives.json`: per-elective → student list) merged into `session_students`. Until that format lands (David's files tomorrow), elective enrollments can be supplied via the existing `session_students.json` override. **Open question: elective roster file shape + how students are keyed (id vs name — name matching is fragile with duplicate surnames).**
+- **Current/Next session columns, report "now/next", Phase 6 ensemble pages** all read the unioned `session_students`, so electives appear automatically once seeded.
+- A period may hold a student's *elective* (not their ensemble) — so "current session" must resolve against the student's full enrollment, not just their ensemble's base.
