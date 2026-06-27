@@ -266,3 +266,9 @@ Net: every name on a teacher's text produces a report — matched cleanly, match
 2. **Score order** — supply the canonical concert-score instrument ordering (David offered); default sort = score order or last name?
 3. **Exact ensemble list** — Bands 1–7 + Orchestra 1–3 confirmed? Any others (jazz, choir, etc.)?
 4. **Absent-on-submit = instant report?** Confirm absences should file reports immediately on submit (vs a grace window before a no-show becomes an incident).
+
+---
+
+## Parking lot — to discuss with David (raised, not yet scoped)
+
+- **Current class / next class** (2026-06-27) — David wants to discuss surfacing a student's **current class** (where they should be *right now*) and their **next class** (where they'll resurface / where to look next). Directly relevant to the schedule auto-populate (Phase 3 B5) and the report detail (Phase 4 C1) — likely a "now: BAND 4 (Period 3, RM 110) · next: Lunch (Period 4)" line on the report card. **REMIND DAVID to talk through this** before building Phase 3/4 schedule UI. Data exists (session_students → sessions → periods + current camp-tz time).
