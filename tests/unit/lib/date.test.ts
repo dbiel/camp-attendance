@@ -6,6 +6,9 @@ import {
   dateToDayKey,
   isDateInCamp,
   formatDayLabel,
+  periodInstant,
+  hourBucket,
+  formatClock,
 } from '@/lib/date';
 
 // deriveDayDates has a dedicated spec in ./derive-day-dates.test.ts
@@ -84,6 +87,41 @@ describe('formatDayLabel', () => {
   });
   it('falls back to input for unknown key', () => {
     expect(formatDayLabel('X')).toBe('X');
+  });
+});
+
+const DAY_DATES = { M: '2026-06-08', T: '2026-06-09' }; // summer → CDT (UTC-5)
+
+describe('periodInstant', () => {
+  it('combines a camp day + period start into a UTC instant (CDT, UTC-5)', () => {
+    expect(periodInstant('M', '08:00', DAY_DATES)).toBe('2026-06-08T13:00:00.000Z');
+    expect(periodInstant('M', '10:00', DAY_DATES)).toBe('2026-06-08T15:00:00.000Z');
+    expect(periodInstant('T', '13:30', DAY_DATES)).toBe('2026-06-09T18:30:00.000Z');
+  });
+
+  it('is DST-aware — a winter date resolves at CST (UTC-6)', () => {
+    expect(periodInstant('W', '08:00', { W: '2026-01-15' })).toBe('2026-01-15T14:00:00.000Z');
+  });
+
+  it('returns null for an unmapped day key or malformed time', () => {
+    expect(periodInstant('Z', '08:00', DAY_DATES)).toBeNull();
+    expect(periodInstant('M', 'noon', DAY_DATES)).toBeNull();
+    expect(periodInstant('M', '25:00', DAY_DATES)).toBeNull();
+  });
+});
+
+describe('hourBucket', () => {
+  it('buckets by camp-tz calendar hour, not UTC', () => {
+    expect(hourBucket('2026-06-08T13:00:00.000Z')).toBe('2026-06-08 08');
+    // 04:30 UTC is 23:30 the previous local day.
+    expect(hourBucket('2026-06-09T04:30:00.000Z')).toBe('2026-06-08 23');
+  });
+});
+
+describe('formatClock', () => {
+  it('renders a normalized camp-tz clock label', () => {
+    expect(formatClock('2026-06-08T13:00:00.000Z')).toBe('8:00 AM');
+    expect(formatClock('2026-06-08T18:30:00.000Z')).toBe('1:30 PM');
   });
 });
 

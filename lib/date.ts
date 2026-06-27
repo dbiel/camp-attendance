@@ -141,3 +141,94 @@ export function deriveDayDates(startDate: string, endDate: string): DayDates {
   }
   return out;
 }
+
+const HHMM_RE = /^(\d{1,2}):(\d{2})$/;
+
+/**
+ * Offset (ms) of `tz` at a given UTC instant, i.e. (wall-clock-read-as-UTC)
+ * minus the real UTC. CDT → +(-5h); CST → +(-6h). Used to convert a camp
+ * wall-clock time to a true UTC instant DST-safely without a tz library.
+ */
+function tzOffsetMs(tz: string, utcMs: number): number {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const m: Record<string, string> = {};
+  for (const p of dtf.formatToParts(new Date(utcMs))) {
+    if (p.type !== 'literal') m[p.type] = p.value;
+  }
+  let hour = Number(m.hour);
+  if (hour === 24) hour = 0; // some ICU builds render midnight as 24
+  const asUTC = Date.UTC(
+    Number(m.year),
+    Number(m.month) - 1,
+    Number(m.day),
+    hour,
+    Number(m.minute),
+    Number(m.second)
+  );
+  return asUTC - utcMs;
+}
+
+/**
+ * Combine a camp day (looked up from `day_dates[dayKey]`) and a bare `HH:MM`
+ * period start time into a UTC ISO instant, resolved in camp tz (DST-safe).
+ * Returns null when the day key is unmapped or the time is malformed — callers
+ * fall back to `created_at`. NEVER build report timestamps with
+ * `new Date('10:00')`, which is host-tz / DST wrong.
+ */
+export function periodInstant(
+  dayKey: string,
+  startTime: string,
+  dayDates: DayDates,
+  tz: string = DEFAULT_CAMP_TZ
+): string | null {
+  const date = dayKeyToDate(dayKey, dayDates);
+  if (!date || !ISO_DATE_RE.test(date)) return null;
+  const m = HHMM_RE.exec(startTime ?? '');
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mi = Number(m[2]);
+  if (hh > 23 || mi > 59) return null;
+  const [y, mo, d] = date.split('-').map((n) => Number.parseInt(n, 10));
+  const guessUtc = Date.UTC(y!, (mo ?? 1) - 1, d, hh, mi);
+  const real = guessUtc - tzOffsetMs(tz, guessUtc);
+  return new Date(real).toISOString();
+}
+
+/**
+ * Bucket key `'YYYY-MM-DD HH'` for an ISO instant, computed in camp tz — the
+ * stable key for day→hour report grouping (E1/E2). Uses camp-tz calendar
+ * fields so a late-evening report doesn't slip into the next UTC day.
+ */
+export function hourBucket(iso: string, tz: string = DEFAULT_CAMP_TZ): string {
+  const d = new Date(iso);
+  const date = todayIsoInTimezone(tz, d);
+  let hh = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz,
+    hour: '2-digit',
+    hour12: false,
+  }).format(d);
+  if (hh === '24') hh = '00';
+  return `${date} ${hh}`;
+}
+
+/** Human camp-tz clock label, e.g. '8:00 AM'. Normalizes the ICU narrow
+ * no-break space (U+202F) some builds insert before AM/PM to a plain space. */
+export function formatClock(iso: string, tz: string = DEFAULT_CAMP_TZ): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+    .format(new Date(iso))
+    .replace(/[  ]/g, ' ');
+}
