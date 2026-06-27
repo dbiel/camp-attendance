@@ -236,3 +236,33 @@ Two refinements to **Phase 3 (New Report flow / B1–B2)**. The multi-person par
 - **Staff link:** an unmatched report can still be shared (name only); dorm/instrument simply absent until matched.
 
 Net: every name on a teacher's text produces a report — matched cleanly, matched-by-manual-search, or filed as "needs match" — so nothing gets lost to a spelling error.
+
+---
+
+## Phase 6 — Ensemble Manager Attendance (open link) → auto-incidents
+
+**Added 2026-06-27 by David. Build AFTER Phases 1–5.** This eliminates the text for the *brunt* of camp: ensembles are the largest classes, so instead of managers texting David about missing kids, each ensemble manager takes attendance on their own page and absences flow straight onto David's hub.
+
+**Big idea / synergy:** this revives the **dormant attendance data model** (`session_students` already holds each ensemble's denormalized roster; the `attendance` collection records present/absent) and connects it to the incident command center — an **absent mark becomes an incident report automatically**.
+
+**Ensembles:** Bands 1–7 and Orchestra 1–3 (~10 ensembles; ~7–8 managers — some may run more than one). Confirm exact list against the roster's `ensemble` values.
+
+**How it works:**
+- **One open, savable page per ensemble** (e.g. `/e/<ensemble-token>`) — unauthenticated for now (David's call), like the staff links. Each manager bookmarks their own URL. **Mobile-first** (primary device).
+- **Roster table** of that ensemble's students: columns **Name · Instrument · Grade**. Sort by **score order** (concert-score instrument order — David to supply the canonical ordering) **or** by **last name** (toggle; pick a default).
+- Each row has **Present (green) / Absent (red)** toggle. A **Submit** button commits the whole ensemble's attendance and **locks** the marks.
+- **On submit:** every student marked **Absent** auto-creates an incident **report** on David's hub (`case` with `source: 'ensemble_attendance'`, the ensemble + session/period stamped, reporter = the ensemble/manager label). Present students create nothing. → no text needed.
+- **Post-submit change:** if a manager flips a locked student **Absent → Present** (the kid showed up late), it **updates that student's existing report**: appends a timeline event "arrived in class — tardy," flags it **tardy/arrived**, and **surfaces the change on David's hub** (in-app — polling, NOT an external notification; consistent with the no-external-contact rule). David's list shows the auto-added/updated student without him doing anything.
+
+**Data / model notes:**
+- Reuse `session_students` for the roster (already per-ensemble, denormalized name/instrument). Reuse/extend `attendance` for present/absent + a `submitted`/`locked` flag per ensemble+session+day.
+- `cases` gains a `source` field (`'text' | 'ensemble_attendance' | …`) and a tardy/arrival state so attendance-origin reports are distinguishable and the arrival flow can update them.
+- **`grade` is NOT in the current student schema** — must be added to the 2026 roster import (and `session_students` denormalization) or the column is dropped. **Open question for David.**
+
+**Security (flag for the panel when built):** these open links allow **WRITES** (attendance submit → auto-creates reports), a larger surface than the read-only staff links. Recommend: per-ensemble unguessable token, rate-limiting, dedupe so a double-submit can't spam duplicate reports, and bounding what an anonymous submitter can create (only present/absent for that ensemble's known roster — never free-form). David accepts open links "for now"; revisit auth before real camp if abuse is a concern.
+
+**Open questions for David:**
+1. **Grade** — add a grade/year column to the 2026 roster so the table can show it?
+2. **Score order** — supply the canonical concert-score instrument ordering (David offered); default sort = score order or last name?
+3. **Exact ensemble list** — Bands 1–7 + Orchestra 1–3 confirmed? Any others (jazz, choir, etc.)?
+4. **Absent-on-submit = instant report?** Confirm absences should file reports immediately on submit (vs a grace window before a no-show becomes an incident).
