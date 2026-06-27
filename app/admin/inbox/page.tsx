@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/Toast';
@@ -96,16 +95,8 @@ export default function Inbox() {
 
   return (
     <main className="mx-auto max-w-2xl p-4">
-      <header className="mb-4 flex items-center justify-between">
+      <header className="mb-4">
         <h1 className="text-xl font-bold">Inbox</h1>
-        <nav className="flex gap-3 text-sm">
-          <Link href="/admin/dashboard" className="text-gray-500 underline">
-            Dashboard
-          </Link>
-          <Link href="/admin/cases" className="text-gray-500 underline">
-            Reports
-          </Link>
-        </nav>
       </header>
 
       {forbidden ? (

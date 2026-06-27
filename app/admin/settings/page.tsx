@@ -10,11 +10,12 @@ import { useToast } from '@/components/Toast';
 import { CampIdentitySection } from './CampIdentitySection';
 import { AdminUsersSection } from './AdminUsersSection';
 import { MessageTemplatesSection } from './MessageTemplatesSection';
+import { ClearAllDataSection } from './ClearAllDataSection';
 import type { CampConfig } from '@/lib/types';
 
 export default function AdminSettingsPage() {
   const router = useRouter();
-  const { user, loading: authLoading, getAuthHeaders } = useAuth();
+  const { user, loading: authLoading, getAuthHeaders, isSuperAdmin } = useAuth();
   const { refresh: refreshPublicConfig } = useCampConfig();
   const { push: toast } = useToast();
 
@@ -192,16 +193,8 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="bg-camp-green text-white p-4 sticky top-0 z-40 shadow-md">
-        <div className="max-w-4xl mx-auto">
-          <Link
-            href="/admin/dashboard"
-            className="text-sm opacity-75 hover:opacity-100 mb-2 block"
-          >
-            &larr; Dashboard
-          </Link>
-          <h1 className="text-2xl font-bold">Settings</h1>
-        </div>
+      <div className="max-w-4xl mx-auto px-4 pt-4">
+        <h1 className="text-2xl font-bold text-camp-green">Settings</h1>
       </div>
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -306,6 +299,9 @@ export default function AdminSettingsPage() {
                 </Link>
               </div>
             </section>
+
+            {/* Danger Zone — super admin only */}
+            {isSuperAdmin && <ClearAllDataSection />}
           </>
         )}
       </div>

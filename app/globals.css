@@ -43,6 +43,10 @@ body {
     @apply camp-btn border-2 border-camp-green text-camp-green hover:bg-camp-green hover:text-white;
   }
 
+  .camp-btn-danger {
+    @apply camp-btn bg-red-600 text-white hover:bg-red-700 active:scale-95 disabled:opacity-50;
+  }
+
   .camp-card {
     @apply bg-white rounded-lg shadow-sm border border-gray-200;
   }

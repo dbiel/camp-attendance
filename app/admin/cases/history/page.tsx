@@ -64,10 +64,7 @@ export default function CaseHistory() {
 
   return (
     <main className="mx-auto max-w-2xl p-4">
-      <Link href="/admin/cases" className="text-sm text-red-700 underline">
-        ← Active reports
-      </Link>
-      <h1 className="mt-2 text-xl font-bold">Report History</h1>
+      <h1 className="text-xl font-bold">Report History</h1>
       <label className="mt-2 block">
         <span className="sr-only">Filter by student name</span>
         <input

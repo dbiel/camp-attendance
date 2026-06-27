@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Student } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
@@ -172,20 +171,10 @@ export default function StudentsDataPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="bg-camp-green text-white p-4 sticky top-0 z-40 shadow-md">
-        <Link
-          href="/admin/dashboard"
-          className="text-sm opacity-75 hover:opacity-100 mb-2 block"
-        >
-          &larr; Dashboard
-        </Link>
+      <div className="max-w-6xl mx-auto px-4 pt-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Students</h1>
-          <button
-            type="button"
-            onClick={openAdd}
-            className="bg-white text-camp-green font-semibold px-3 py-1.5 rounded hover:bg-gray-100 text-sm"
-          >
+          <h1 className="text-2xl font-bold text-camp-green">Students</h1>
+          <button type="button" onClick={openAdd} className="camp-btn-primary px-3 py-1.5 text-sm">
             + Add Student
           </button>
         </div>

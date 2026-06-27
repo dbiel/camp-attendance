@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Session, Period } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
@@ -120,11 +119,8 @@ export default function SessionsDataPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="bg-camp-green text-white p-4 sticky top-0 z-40 shadow-md">
-        <Link href="/admin/dashboard" className="text-sm opacity-75 hover:opacity-100 mb-2 block">
-          &larr; Dashboard
-        </Link>
-        <h1 className="text-2xl font-bold">Sessions</h1>
+      <div className="max-w-6xl mx-auto px-4 pt-4">
+        <h1 className="text-2xl font-bold text-camp-green">Sessions</h1>
       </div>
 
       <div className="max-w-6xl mx-auto p-4">

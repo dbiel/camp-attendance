@@ -1,7 +1,6 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import type { Case } from '@/lib/cases';
@@ -23,7 +22,7 @@ function ActiveCases() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromText = searchParams.get('from_text');
-  const { user, loading: authLoading, signOut, getAuthHeaders } = useAuth();
+  const { user, loading: authLoading, getAuthHeaders } = useAuth();
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [seedText, setSeedText] = useState<string | undefined>(undefined);
@@ -86,14 +85,8 @@ function ActiveCases() {
 
   return (
     <main className="mx-auto max-w-2xl p-4">
-      <header className="mb-4 flex items-center justify-between">
+      <header className="mb-4">
         <h1 className="text-xl font-bold">Active Reports</h1>
-        <nav className="flex gap-3 text-sm">
-          <Link href="/admin/cases/history" className="text-red-700 underline">History</Link>
-          <Link href="/admin/coverage" className="text-gray-500 underline">Coverage</Link>
-          <Link href="/admin/settings" className="text-gray-500 underline">Settings</Link>
-          <button onClick={signOut} className="text-gray-500 underline">Sign out</button>
-        </nav>
       </header>
 
       {seedReady && (
