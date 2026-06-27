@@ -269,6 +269,14 @@ Net: every name on a teacher's text produces a report — matched cleanly, match
 
 ---
 
-## Parking lot — to discuss with David (raised, not yet scoped)
+## Students table — current/next session + expandable detail (build WITH Phase 3 schedule work)
 
-- **Current class / next class** (2026-06-27) — David wants to discuss surfacing a student's **current class** (where they should be *right now*) and their **next class** (where they'll resurface / where to look next). Directly relevant to the schedule auto-populate (Phase 3 B5) and the report detail (Phase 4 C1) — likely a "now: BAND 4 (Period 3, RM 110) · next: Lunch (Period 4)" line on the report card. **REMIND DAVID to talk through this** before building Phase 3/4 schedule UI. Data exists (session_students → sessions → periods + current camp-tz time).
+David (2026-06-27) concretized the "current/next class" idea. Build alongside the Phase 3 schedule derivation (reuses `getStudentScheduleSessions` + the new `lib/date.ts` helpers).
+
+- **Two new columns in the Data → Students table: `Current Session` and `Next Session`**, computed from the **current camp-tz timestamp**: find the period containing "now" (and the following period) via `periods` start/end times, then resolve each to *that student's* session for that period (their ensemble's session in that period). Show "—" / "No class" when "now" is outside any period (free/dorm hours) or off-camp.
+  - Needs a `currentAndNextPeriod(periods, nowHHMM)` helper (camp-tz `getCurrentTimeHHMM`), and a per-student period→session map from `getStudentScheduleSessions`. For testing off-camp, allow a `now` override (same pattern as other date helpers).
+  - The columns are **live-ish**: recompute on render / light poll so they advance as the day moves.
+- **Click a student row → expandable dropdown** showing the student's **full info** (contact, parent, dorm, medical, division, etc.) **including their full schedule** (all periods → session/room/faculty). Inline expand, not a route change.
+- Same now/next logic feeds the report card "now / next" line (Phase 4 C1) — build the helper once, reuse.
+
+**To discuss when we start it:** does "current session" use period start/end windows (gaps = "no class"), and should the next-session column show the *time* it starts too?
