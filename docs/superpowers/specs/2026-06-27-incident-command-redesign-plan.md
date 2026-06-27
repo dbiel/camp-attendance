@@ -219,3 +219,20 @@ Not built now. The seam exists: `parseReport` sits behind `app/api/cases/parse/r
 6. **Accepted residual risk (acknowledge):** the URL token IS the sole credential — anyone with the link gets in; `recipient_label` is tracking text, not auth. Controls: internal-only distribution + 2h TTL + manual revoke + auto-die-on-resolve + `view_count` access logging. The per-IP in-memory rate limiter is weak (resets on cold start) but acceptable — the 128-bit token makes enumeration infeasible.
 7. **Anthropic key rotation** — it's in chat history (STATUS.md); rotate before camp. Confirm you'll do it / want me to.
 8. **B5 "No class / dorm hours" label wording** — preferred phrasing for the night/free-time picker option?
+
+---
+
+## Addendum — 2026-06-27 (David, after Phase 1 deploy): multi-student paste + "No student found"
+
+Two refinements to **Phase 3 (New Report flow / B1–B2)**. The multi-person part is already in the plan; the unmatched-name handling is new and is a **safety requirement** (a misspelled kid must not silently fall through).
+
+**B1 (confirmed):** One text from a single teacher may list **7–10 students**. The confirm screen stacks **one card per student** (same single-report inputs we have today), and David scrolls top→bottom filling/confirming each, then one action files **N separate reports** (batch `POST /api/cases {people:[…]}` → `{ids:[…]}`, shared `batch_id`). Lands back on the Active Reports hub showing all N. Already specified.
+
+**B2 — "No student found" flag (NEW):**
+- Teachers misspell names, so a card's fuzzy match may have **no good candidate**. Each card must offer an explicit **"No student found / can't match"** state (alongside the existing manual roster-search fallback).
+- When flagged, the report is **still filed** — never dropped — as an **unmatched** case: `student_id = null`, `student_name =` the raw typed/parsed name, plus a `needs_match: true` flag. David reconciles it later (search + attach the real student).
+- **Server change:** `POST /api/cases` must accept a person with `student_id: null` when `needs_match` is set (today it 400s on "Unknown student"). Validate that either a real `student_id` OR (`needs_match === true` + a non-empty raw name) is present.
+- **Surfacing:** unmatched reports render on the hub/cards with a clear **"⚠ needs match"** badge and sort with normal urgency (they're still active, still a missing kid). A later "attach student" affordance on the detail page sets `student_id` + clears the flag (denormalizes dorm/instrument at that point).
+- **Staff link:** an unmatched report can still be shared (name only); dorm/instrument simply absent until matched.
+
+Net: every name on a teacher's text produces a report — matched cleanly, matched-by-manual-search, or filed as "needs match" — so nothing gets lost to a spelling error.
