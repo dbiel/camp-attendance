@@ -31,6 +31,10 @@ export function CaseCard({
     c.dorm_building || c.dorm_room
       ? `${c.dorm_building ?? ''}${c.dorm_room ? ` ${c.dorm_room}` : ''}`.trim()
       : null;
+  // Only assert "Commuter" when division is KNOWN to say so — never synthesize
+  // it from a missing dorm (a not-yet-denormalized legacy case would misdirect
+  // staff away from the dorm). Unknown → neutral "Dorm —".
+  const locator = dorm ?? (c.division && /commut/i.test(c.division) ? 'Commuter' : 'Dorm —');
 
   // E4: the checkbox is a SIBLING of the navigable Link (never inside it), so
   // selecting a report can never navigate to its detail page.
@@ -65,7 +69,7 @@ export function CaseCard({
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
           {/* Dorm is a LOCATOR (where to look) — not proof the kid is there. */}
           <span title="Dorm location — where to look, not a presence check">
-            🏠 {dorm ?? 'Commuter'}
+            🏠 {locator}
           </span>
           {c.session_label && <span>· {c.session_label}</span>}
           {c.reporter_name && <span>· by {c.reporter_name}</span>}

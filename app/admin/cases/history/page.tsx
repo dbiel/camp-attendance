@@ -32,10 +32,18 @@ export default function CaseHistory() {
   const [loading, setLoading] = useState(false);
   const [toggledDays, setToggledDays] = useState<Set<string>>(new Set());
   const [toggledHours, setToggledHours] = useState<Set<string>>(new Set());
+  // Re-render once a minute so the 'now' hour highlight + default-open advance
+  // across the :59→:00 rollover without needing user interaction.
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/admin');
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    const i = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(i);
+  }, []);
 
   const fetchCases = useCallback(async () => {
     setLoadError(null);
@@ -85,7 +93,8 @@ export default function CaseHistory() {
 
   // Today open by default (XOR a manual toggle); current hour force-open.
   const isDayOpen = (day: string) => (day === today) !== toggledDays.has(day);
-  const isHourOpen = (hourKey: string) => hourKey === nowHourKey || toggledHours.has(hourKey);
+  // Current hour defaults open but stays collapsible (XOR), mirroring days.
+  const isHourOpen = (hourKey: string) => (hourKey === nowHourKey) !== toggledHours.has(hourKey);
   const toggle = (set: Set<string>, setter: (s: Set<string>) => void, k: string) => {
     const n = new Set(set);
     n.has(k) ? n.delete(k) : n.add(k);

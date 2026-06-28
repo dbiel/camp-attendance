@@ -39,7 +39,13 @@ function ActiveCases() {
     try {
       const headers = await getAuthHeaders();
       const res = await fetch('/api/cases?status=active', { headers });
-      if (res.ok) setCases((await res.json()).cases as Case[]);
+      if (res.ok) {
+        const list = (await res.json()).cases as Case[];
+        setCases(list);
+        // Drop selections for reports that left the active list (e.g. resolved)
+        // so a stale id can't ride into a Phase-5 combined link.
+        setSelected((prev) => new Set([...prev].filter((id) => list.some((c) => c.id === id))));
+      }
     } catch {
       // Offline / transient network error — keep the last known list.
     } finally {
@@ -132,7 +138,13 @@ function ActiveCases() {
           key={fromText ?? 'new'}
           onCreated={() => {
             setShowNew(false);
+            // Strip ?from_text so a Back-nav can't re-seed and double-file.
+            if (fromText) router.replace('/admin/cases');
             refresh();
+          }}
+          onCancel={() => {
+            setShowNew(false);
+            if (fromText) router.replace('/admin/cases');
           }}
           seedText={seedText}
           sourceTextId={fromText ?? undefined}

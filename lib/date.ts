@@ -199,8 +199,12 @@ export function periodInstant(
   if (hh > 23 || mi > 59) return null;
   const [y, mo, d] = date.split('-').map((n) => Number.parseInt(n, 10));
   const guessUtc = Date.UTC(y!, (mo ?? 1) - 1, d, hh, mi);
-  const real = guessUtc - tzOffsetMs(tz, guessUtc);
-  return new Date(real).toISOString();
+  // Two-pass: sample the offset again at the resolved instant so a time that
+  // lands inside a DST transition hour is corrected (camp is summer mornings,
+  // so this never triggers in practice — but it makes the helper truly safe).
+  const real1 = guessUtc - tzOffsetMs(tz, guessUtc);
+  const real2 = guessUtc - tzOffsetMs(tz, real1);
+  return new Date(real2).toISOString();
 }
 
 /**

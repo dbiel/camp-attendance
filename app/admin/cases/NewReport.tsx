@@ -17,10 +17,13 @@ type Stage = 'paste' | 'confirm';
 
 export function NewReport({
   onCreated,
+  onCancel,
   seedText,
   sourceTextId,
 }: {
   onCreated: () => void;
+  /** Collapse the form without filing (returns to the plain hub). */
+  onCancel?: () => void;
   /** When escalating from the inbox, pre-fill + auto-parse from this text body. */
   seedText?: string;
   /** Originating text id — linked to the Report (escalated_case_id) on create. */
@@ -174,13 +177,20 @@ export function NewReport({
           placeholder="Paste the text message here…"
           className="h-28 w-full rounded border p-2 text-sm"
         />
-        <button
-          onClick={() => parse()}
-          disabled={busy || !rawText.trim()}
-          className="mt-2 rounded bg-red-700 px-4 py-2 text-white disabled:opacity-50"
-        >
-          {busy ? 'Parsing…' : 'Parse report'}
-        </button>
+        <div className="mt-2 flex gap-2">
+          <button
+            onClick={() => parse()}
+            disabled={busy || !rawText.trim()}
+            className="rounded bg-red-700 px-4 py-2 text-white disabled:opacity-50"
+          >
+            {busy ? 'Parsing…' : 'Parse report'}
+          </button>
+          {onCancel && (
+            <button onClick={onCancel} className="rounded border px-4 py-2" disabled={busy}>
+              Cancel
+            </button>
+          )}
+        </div>
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
       </div>
     );
@@ -215,6 +225,11 @@ export function NewReport({
           {busy ? 'Creating…' : 'Create report'}
         </button>
         <button onClick={() => setStage('paste')} className="rounded border px-4 py-2">Back</button>
+        {onCancel && (
+          <button onClick={onCancel} className="rounded border px-4 py-2" disabled={busy}>
+            Cancel
+          </button>
+        )}
       </div>
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>

@@ -107,6 +107,7 @@ describe('toStaffLinkProjection', () => {
     dorm_building: 'Wall',
     dorm_room: '214',
     instrument: 'Trumpet',
+    division: 'Overnight Camper',
     occurred_at: '2026-06-22T12:00:00.000Z',
     day_key: 'M',
     source: 'text',

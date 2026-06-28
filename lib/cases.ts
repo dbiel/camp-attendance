@@ -28,6 +28,7 @@ export interface Case {
   dorm_building: string | null;
   dorm_room: string | null;
   instrument: string | null;
+  division: string | null; // so the card can say "Commuter" only when KNOWN
   // ─── Time/grouping. occurred_at is ALWAYS set (defaults to created_at) so
   // client-side hour bucketing never drops a doc; the server orders by
   // created_at (existing index). Do NOT add a status+occurred_at index.
@@ -77,6 +78,7 @@ export interface CreateCaseInput {
   dorm_building?: string | null;
   dorm_room?: string | null;
   instrument?: string | null;
+  division?: string | null;
   occurred_at?: string | null;
   day_key?: string | null;
   source?: CaseSource;
@@ -100,6 +102,7 @@ export async function createCase(input: CreateCaseInput): Promise<string> {
     dorm_building: input.dorm_building ?? null,
     dorm_room: input.dorm_room ?? null,
     instrument: input.instrument ?? null,
+    division: input.division ?? null,
     occurred_at: input.occurred_at ?? now, // ALWAYS non-null
     day_key: input.day_key ?? null,
     source: input.source ?? 'text',

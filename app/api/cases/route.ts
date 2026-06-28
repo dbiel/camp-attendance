@@ -44,6 +44,7 @@ export const POST = withAuth(
       dorm_building: student.dorm_building ?? null,
       dorm_room: student.dorm_room ?? null,
       instrument: student.instrument ?? null,
+      division: student.division ?? null,
       source: 'text',
       created_by: caller?.email || 'unknown',
     });
