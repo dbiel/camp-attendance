@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Student } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { useToast } from '@/components/Toast';
+import type { StudentScheduleSlot } from '@/lib/firestore';
 import {
   DeleteStudentModal,
   EditMode,
@@ -16,6 +17,20 @@ import {
   serializeDraft,
   validateDraft,
 } from './EditStudentModal';
+
+/** Collapse duplicate sessions (e.g. last year's per-ensemble Assembly dup that
+ * enrolled every kid 13×) to one row per period+name for a clean schedule view. */
+function dedupeSlots(slots: StudentScheduleSlot[]): StudentScheduleSlot[] {
+  const seen = new Set<string>();
+  const out: StudentScheduleSlot[] = [];
+  for (const s of [...slots].sort((a, b) => a.period_number - b.period_number)) {
+    const k = `${s.period_number}|${s.name}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(s);
+  }
+  return out;
+}
 
 export default function StudentsDataPage() {
   const router = useRouter();
@@ -36,6 +51,52 @@ export default function StudentsDataPage() {
   // Delete confirm modal state
   const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Per-ensemble current/next (cheap, one call) + expandable per-student detail.
+  const [nowNext, setNowNext] = useState<Record<string, { current: string | null; next: string }>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [slotsByStudent, setSlotsByStudent] = useState<Record<string, StudentScheduleSlot[]>>({});
+
+  // Load ensemble now/next and refresh each minute so the columns advance.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    async function load() {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch('/api/schedule/ensemble-now-next', { headers });
+        if (res.ok && !cancelled) setNowNext((await res.json()).byEnsemble ?? {});
+      } catch {
+        /* now/next is a nicety — ignore */
+      }
+    }
+    load();
+    const i = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(i);
+    };
+  }, [user, getAuthHeaders]);
+
+  async function toggleExpand(student: Student) {
+    if (expandedId === student.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(student.id);
+    if (!slotsByStudent[student.id]) {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`/api/students/${student.id}/schedule?format=slots`, { headers });
+        if (res.ok) {
+          const slots = ((await res.json()).slots as StudentScheduleSlot[]) ?? [];
+          setSlotsByStudent((prev) => ({ ...prev, [student.id]: slots }));
+        }
+      } catch {
+        setSlotsByStudent((prev) => ({ ...prev, [student.id]: [] }));
+      }
+    }
+  }
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -202,42 +263,84 @@ export default function StudentsDataPage() {
                   <th className="px-4 py-2 text-left">Name</th>
                   <th className="px-4 py-2 text-left">Instrument</th>
                   <th className="px-4 py-2 text-left">Ensemble</th>
-                  <th className="px-4 py-2 text-left">Division</th>
+                  <th className="px-4 py-2 text-left">Current</th>
+                  <th className="px-4 py-2 text-left">Next</th>
                   <th className="px-4 py-2 text-left">Dorm</th>
                   <th className="px-4 py-2 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((student) => (
-                  <tr
-                    key={student.id}
-                    className="border-b border-gray-200 hover:bg-gray-50"
-                  >
-                    <td className="px-4 py-2 font-semibold">
-                      {student.first_name} {student.last_name}
-                    </td>
-                    <td className="px-4 py-2">{student.instrument}</td>
-                    <td className="px-4 py-2">{student.ensemble}</td>
-                    <td className="px-4 py-2">{student.division}</td>
-                    <td className="px-4 py-2 text-gray-600">
-                      {student.dorm_room || '-'}
-                    </td>
-                    <td className="px-4 py-2 space-x-2">
-                      <button
-                        onClick={() => openEdit(student)}
-                        className="text-camp-green hover:opacity-75 font-semibold text-sm"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(student)}
-                        className="text-red-600 hover:opacity-75 font-semibold text-sm"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((student) => {
+                  const nn = student.ensemble ? nowNext[student.ensemble] : undefined;
+                  const expanded = expandedId === student.id;
+                  const slots = slotsByStudent[student.id];
+                  return (
+                    <Fragment key={student.id}>
+                      <tr className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="px-4 py-2 font-semibold">
+                          <button onClick={() => toggleExpand(student)} className="text-left hover:text-camp-green">
+                            {expanded ? '▾' : '▸'} {student.first_name} {student.last_name}
+                          </button>
+                        </td>
+                        <td className="px-4 py-2">{student.instrument}</td>
+                        <td className="px-4 py-2">{student.ensemble}</td>
+                        <td className="px-4 py-2 text-gray-700">{nn ? (nn.current ?? 'No class') : '—'}</td>
+                        <td className="px-4 py-2 text-gray-500">{nn ? nn.next : '—'}</td>
+                        <td className="px-4 py-2 text-gray-600">{student.dorm_room || '-'}</td>
+                        <td className="px-4 py-2 space-x-2">
+                          <button
+                            onClick={() => openEdit(student)}
+                            className="text-camp-green hover:opacity-75 font-semibold text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(student)}
+                            className="text-red-600 hover:opacity-75 font-semibold text-sm"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr className="border-b border-gray-200 bg-gray-50">
+                          <td colSpan={7} className="px-4 py-3">
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="text-sm">
+                                <h3 className="mb-1 font-semibold text-camp-green">Details</h3>
+                                <dl className="grid grid-cols-[7rem_1fr] gap-x-2 gap-y-0.5 text-gray-700">
+                                  {student.preferred_name && (<><dt className="text-gray-500">Preferred</dt><dd>{student.preferred_name}</dd></>)}
+                                  <dt className="text-gray-500">Division</dt><dd>{student.division}</dd>
+                                  <dt className="text-gray-500">Grade</dt><dd>{(student as Student & { grade?: string }).grade ?? '—'}</dd>
+                                  <dt className="text-gray-500">Dorm</dt><dd>{student.dorm_building || '—'} {student.dorm_room || ''}</dd>
+                                  <dt className="text-gray-500">Cell</dt><dd>{student.cell_phone || '—'}</dd>
+                                  <dt className="text-gray-500">Parent</dt><dd>{[student.parent_first_name, student.parent_last_name].filter(Boolean).join(' ') || '—'}{student.parent_phone ? ` · ${student.parent_phone}` : ''}</dd>
+                                  <dt className="text-gray-500">Email</dt><dd className="break-all">{student.email || '—'}</dd>
+                                  {student.medical_notes && (<><dt className="text-gray-500">Medical</dt><dd className="text-red-700">{student.medical_notes}</dd></>)}
+                                </dl>
+                              </div>
+                              <div className="text-sm">
+                                <h3 className="mb-1 font-semibold text-camp-green">Schedule</h3>
+                                {!slots && <p className="text-gray-500">Loading…</p>}
+                                {slots && slots.length === 0 && <p className="text-gray-500">No schedule.</p>}
+                                {slots && slots.length > 0 && (
+                                  <ul className="space-y-0.5 text-gray-700">
+                                    {dedupeSlots(slots).map((s) => (
+                                      <li key={`${s.period_number}-${s.session_id}`}>
+                                        <span className="text-gray-500">P{s.period_number} {s.start_time}</span> · {s.name}
+                                        {s.faculty_name ? <span className="text-gray-500"> · {s.faculty_name}</span> : ''}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
