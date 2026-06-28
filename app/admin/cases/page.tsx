@@ -236,6 +236,10 @@ function ActiveCases() {
         caseIds={selectedCaseIds}
         getAuthHeaders={getAuthHeaders}
         onClear={() => setSelected(new Set())}
+        onResolved={() => {
+          setSelected(new Set());
+          refresh();
+        }}
       />
 
       {/* Report history (day → hour) lives at the bottom of the Incident page. */}
