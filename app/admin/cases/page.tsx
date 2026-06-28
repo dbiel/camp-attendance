@@ -36,10 +36,12 @@ function ActiveCases() {
   // Starts {} so the first (SSR-matching) render shows no badges; an effect loads
   // the real map after mount → no hydration mismatch.
   const [seen, setSeen] = useState<SeenMap>({});
-  // Alert when a poll surfaces reports that weren't here before (e.g. an ensemble
-  // manager just marked someone absent) — David shouldn't have to stare at the list.
-  const prevIds = useRef<Set<string> | null>(null);
+  // Alert when a poll surfaces NEW reports or fresh activity on existing ones
+  // (a staff-link reply, a tardy arrival → maybe closeable). Track each report's
+  // last-activity stamp so we can tell "new" from "updated".
+  const prevActivity = useRef<Map<string, string> | null>(null);
   const [newArrivals, setNewArrivals] = useState(0);
+  const [updatedCount, setUpdatedCount] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/admin');
@@ -51,13 +53,21 @@ function ActiveCases() {
       const res = await fetch('/api/cases?status=active', { headers });
       if (res.ok) {
         const list = (await res.json()).cases as Case[];
-        // Count reports that weren't in the previous active set (skip the very
-        // first load) → drive the "new reports arrived" alert.
-        if (prevIds.current) {
-          const added = list.filter((c) => !prevIds.current!.has(c.id)).length;
+        // Compare against the previous poll (skip the very first load): a report
+        // not seen before = "new"; one whose last-activity stamp changed = "updated".
+        const activityOf = (c: Case) => c.last_activity_at || c.created_at;
+        if (prevActivity.current) {
+          let added = 0;
+          let updated = 0;
+          for (const c of list) {
+            const prev = prevActivity.current.get(c.id);
+            if (prev === undefined) added++;
+            else if (prev !== activityOf(c)) updated++;
+          }
           if (added > 0) setNewArrivals((n) => n + added);
+          if (updated > 0) setUpdatedCount((n) => n + updated);
         }
-        prevIds.current = new Set(list.map((c) => c.id));
+        prevActivity.current = new Map(list.map((c) => [c.id, activityOf(c)]));
         setCases(list);
         // Drop selections for reports that left the active list (e.g. resolved)
         // so a stale id can't ride into a Phase-5 combined link.
@@ -150,13 +160,23 @@ function ActiveCases() {
 
   return (
     <main className="mx-auto max-w-2xl p-4">
-      {newArrivals > 0 && (
+      {newArrivals + updatedCount > 0 && (
         <button
           type="button"
-          onClick={() => setNewArrivals(0)}
+          onClick={() => {
+            setNewArrivals(0);
+            setUpdatedCount(0);
+          }}
           className="mb-3 flex w-full animate-pulse items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white shadow"
         >
-          🔔 {newArrivals} new report{newArrivals > 1 ? 's' : ''} just arrived — tap to dismiss
+          🔔{' '}
+          {[
+            newArrivals > 0 ? `${newArrivals} new` : null,
+            updatedCount > 0 ? `${updatedCount} updated` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}{' '}
+          — tap to dismiss
         </button>
       )}
       <header className="mb-4 flex items-center justify-between">
@@ -201,7 +221,13 @@ function ActiveCases() {
             selected={selected.has(c.id)}
             onToggleSelect={toggleSelect}
             nowOverride={nowOverride}
-            unseen={isUnseen(c, seen, { treatUnknownAsNew: true })}
+            updateFlag={
+              isUnseen(c, seen, { treatUnknownAsNew: true })
+                ? seen[c.id] !== undefined
+                  ? 'updated'
+                  : 'new'
+                : null
+            }
           />
         ))}
       </section>

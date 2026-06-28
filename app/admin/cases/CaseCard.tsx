@@ -25,15 +25,17 @@ export function CaseCard({
   selected,
   onToggleSelect,
   nowOverride,
-  unseen,
+  updateFlag,
 }: {
   c: Case;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
   /** Testing: pretend it's this camp-tz 'HH:MM' for now/next (from ?now=). */
   nowOverride?: string;
-  /** New report or a new update arrived since David last opened this one. */
-  unseen?: boolean;
+  /** Activity since David last opened this report: a brand-'new' report, or an
+   * 'updated' existing one (e.g. a staff-link reply / tardy arrival → maybe
+   * closeable). null when he's already seen the latest. */
+  updateFlag?: 'new' | 'updated' | null;
 }) {
   const { getAuthHeaders } = useAuth();
   const [slots, setSlots] = useState<ScheduleSlot[] | null>(null);
@@ -73,11 +75,18 @@ export function CaseCard({
 
   // E4: the checkbox is a SIBLING of the navigable Link (never inside it), so
   // selecting a report can never navigate to its detail page.
+  // An unseen UPDATE to an existing report is the strongest "look at me" signal —
+  // it may now be closeable. Highlight the whole card (blue ring) when updated.
+  const ringClass = selected
+    ? 'ring-2 ring-camp-green'
+    : updateFlag === 'updated'
+      ? 'ring-2 ring-blue-500'
+      : '';
   return (
     <div
       className={`flex items-stretch gap-2 rounded-lg border shadow-sm ${
         urgent ? 'border-red-400 bg-red-50' : 'border-amber-300 bg-amber-50'
-      } ${selected ? 'ring-2 ring-camp-green' : ''}`}
+      } ${ringClass}`}
     >
       {onToggleSelect && (
         <label className="flex cursor-pointer items-center pl-3" title="Select for a combined staff link">
@@ -93,9 +102,22 @@ export function CaseCard({
       <Link href={`/admin/cases/${c.id}`} className="block flex-1 p-4 hover:bg-black/5">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-lg font-semibold">
-            {unseen && (
-              <span className="badge-new mr-2 align-middle" title="New activity since you last opened this report">
+            {updateFlag === 'updated' && (
+              <span
+                className="mr-2 inline-block animate-pulse rounded bg-blue-600 px-1.5 align-middle text-xs font-bold uppercase text-white"
+                title="Updated since you last opened it — may be ready to close"
+              >
+                ⬆ updated
+              </span>
+            )}
+            {updateFlag === 'new' && (
+              <span className="badge-new mr-2 align-middle" title="New report since you last looked">
                 new
+              </span>
+            )}
+            {c.tardy_arrived && (
+              <span className="mr-2 inline-block rounded bg-amber-200 px-1.5 align-middle text-xs font-semibold text-amber-900" title="Marked absent then arrived late in class">
+                🏃 tardy arrived
               </span>
             )}
             {c.student_name}
