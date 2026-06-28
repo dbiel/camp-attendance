@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Session, Period } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
+import { MasterSchedule } from './MasterSchedule';
 
 export default function SessionsDataPage() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function SessionsDataPage() {
   const [editData, setEditData] = useState<Partial<Session>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [view, setView] = useState<'master' | 'records'>('master');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -121,8 +123,29 @@ export default function SessionsDataPage() {
     <div className="min-h-screen bg-[var(--surface)] pb-20">
       <div className="max-w-6xl mx-auto px-4 pt-4">
         <h1 className="text-2xl font-bold text-camp-green">Classes</h1>
+        <div className="mt-2 flex w-max overflow-hidden rounded-[var(--radius-pill)] border border-[var(--glass-border)] text-sm">
+          <button
+            onClick={() => setView('master')}
+            className={`px-3 py-1 ${view === 'master' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-2)]'}`}
+          >
+            Master schedule
+          </button>
+          <button
+            onClick={() => setView('records')}
+            className={`px-3 py-1 ${view === 'records' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-2)]'}`}
+          >
+            Class records
+          </button>
+        </div>
       </div>
 
+      {view === 'master' && (
+        <div className="max-w-6xl mx-auto p-4">
+          <MasterSchedule />
+        </div>
+      )}
+
+      {view === 'records' && (
       <div className="max-w-6xl mx-auto p-4">
         <div className="mb-4">
           <input
@@ -178,6 +201,7 @@ export default function SessionsDataPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Edit Modal */}
       {editingId !== null && (
