@@ -37,11 +37,17 @@ export const GET = async (
     caseIds = combined.caseIds;
   }
 
+  const cases = await Promise.all(caseIds.map((id) => getCase(id)));
   const reports = [];
-  for (let i = 0; i < caseIds.length; i++) {
-    const c = await getCase(caseIds[i]!);
+  for (let i = 0; i < cases.length; i++) {
+    const c = cases[i];
     if (!c) continue;
-    const [student, events] = await Promise.all([getStudent(c.student_id), listCaseEvents(c.id)]);
+    // Unmatched reports have student_id '' — never call getStudent('') (the
+    // Admin SDK throws on an empty doc path, which would 500 the whole bundle).
+    const [student, events] = await Promise.all([
+      c.student_id ? getStudent(c.student_id) : Promise.resolve(null),
+      listCaseEvents(c.id),
+    ]);
     // ref = the index into the link's case set (opaque; never the case id).
     reports.push({ ref: i, ...toStaffLinkProjection(c, student ?? null, events) });
   }

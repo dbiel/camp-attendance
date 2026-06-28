@@ -66,8 +66,11 @@ export function toStaffLinkProjection(
     dorm_room: student?.dorm_room ?? '',
     report_summary: c.summary,
     status: c.status,
+    // Public viewer shows a NEUTRAL author — never reflect back the internal
+    // recipient label David typed (it could name another link's recipient).
+    // David still sees the real actor in the admin timeline (raw events).
     updates: events
       .filter((e) => e.type === 'staff_update')
-      .map((e) => ({ body: e.body, actor: e.actor, created_at: e.created_at })),
+      .map((e) => ({ body: e.body, actor: 'Camp staff', created_at: e.created_at })),
   };
 }

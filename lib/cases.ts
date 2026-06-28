@@ -270,6 +270,12 @@ export async function issueCombinedShareLink(
   return { token, url: `/r/${token}`, expires_at: expiresAt };
 }
 
+/** Manually kill a combined link immediately (a leaked multi-kid URL must be
+ * revocable before its TTL). update() no-ops safely if the doc is already gone. */
+export async function revokeCombinedShareLink(token: string): Promise<void> {
+  await adminDb.collection(STAFF_LINKS).doc(token).set({ revoked: true }, { merge: true });
+}
+
 /** Resolve a combined token to its case ids, enforcing validity (uniform-null
  * for unknown/revoked/expired — no enumeration signal). */
 export async function validateCombinedToken(

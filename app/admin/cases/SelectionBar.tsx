@@ -18,8 +18,10 @@ export function SelectionBar({
 }) {
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [revoked, setRevoked] = useState(false);
 
   if (caseIds.length === 0) return null;
 
@@ -40,6 +42,29 @@ export function SelectionBar({
         return;
       }
       setUrl(`${window.location.origin}${body.url}`);
+      setToken(body.token ?? null);
+      setRevoked(false);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revoke() {
+    if (!token) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`/api/cases/share-combined/${token}`, { method: 'DELETE', headers });
+      if (!res.ok) {
+        setError(`Could not revoke (${res.status})`);
+        return;
+      }
+      setRevoked(true);
+      setUrl(null);
+      setToken(null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -83,8 +108,12 @@ export function SelectionBar({
           <button type="button" onClick={copy} className="camp-btn-accent px-3 py-1 text-sm">
             {copied ? 'Copied!' : 'Copy'}
           </button>
+          <button type="button" onClick={revoke} disabled={busy} className="camp-btn-danger px-3 py-1 text-sm">
+            Revoke
+          </button>
         </div>
       )}
+      {revoked && <p className="mt-2 text-sm text-gray-600">Link revoked — it no longer works.</p>}
     </div>
   );
 }

@@ -36,6 +36,7 @@ export default function StaffLinkViewer() {
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/r/${token}`);
+      if (res.status === 429) return; // transient throttle — keep state, retry on next poll
       if (!res.ok) {
         setState({ kind: 'invalid' });
         return;

@@ -177,6 +177,22 @@ describe('POST /api/r/[token]/update', () => {
     expect(m.addCaseEvent).not.toHaveBeenCalled();
   });
 
+  it('rejects an update to an already-resolved report (410)', async () => {
+    m.validateShareToken.mockResolvedValue({ caseId: 'case1' });
+    m.getCase.mockResolvedValue({ ...validCase, status: 'resolved' });
+    const res = await POST(req('POST', { body: 'late update' }), { params: { token: 'tok' } });
+    expect(res.status).toBe(410);
+    expect(m.addCaseEvent).not.toHaveBeenCalled();
+  });
+
+  it('rejects an over-long update body (400)', async () => {
+    m.validateShareToken.mockResolvedValue({ caseId: 'case1' });
+    m.getCase.mockResolvedValue(validCase);
+    const res = await POST(req('POST', { body: 'x'.repeat(2001) }), { params: { token: 'tok' } });
+    expect(res.status).toBe(400);
+    expect(m.addCaseEvent).not.toHaveBeenCalled();
+  });
+
   it('returns 429 when rate-limited', async () => {
     m.checkRateLimit.mockReturnValue(false);
     const res = await POST(req('POST', { body: 'x' }), { params: { token: 'tok' } });

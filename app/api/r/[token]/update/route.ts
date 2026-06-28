@@ -39,6 +39,9 @@ export const POST = async (
   if (typeof text !== 'string' || !text.trim()) {
     return NextResponse.json({ error: 'Update text required' }, { status: 400 });
   }
+  if (text.trim().length > 2000) {
+    return NextResponse.json({ error: 'Update is too long.' }, { status: 400 });
+  }
   // `ref` is an opaque INDEX into this link's case set (default 0 for a single
   // link). A caller can only ever update a report inside their own link.
   const ref = (json as { ref?: unknown })?.ref;
@@ -50,6 +53,11 @@ export const POST = async (
 
   const c = await getCase(targetId);
   if (!c) return NextResponse.json({ error: 'This link has expired.' }, { status: 410 });
+  // Don't accept staff updates on an already-resolved report (matches the
+  // viewer, which hides the box once resolved).
+  if (c.status === 'resolved') {
+    return NextResponse.json({ error: 'This report has been resolved.' }, { status: 410 });
+  }
 
   const actor = (single ? c.share_recipient_label : recipientLabel) || 'staff link';
   const id = await addCaseEvent(targetId, 'staff_update', text.trim(), actor);

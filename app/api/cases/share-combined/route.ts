@@ -36,8 +36,25 @@ export const POST = withAuth(
     if (cases.some((c) => !c)) {
       return NextResponse.json({ error: 'A selected report no longer exists' }, { status: 400 });
     }
-    // Building-bound: all must share one dorm building (commuters group together).
-    const buildings = new Set(cases.map((c) => c!.dorm_building ?? '(commuter)'));
+    // Can't share an unmatched ("No student found") report — there's no student
+    // to locate, and it would crash the viewer's student lookup.
+    if (cases.some((c) => c!.needs_match || !c!.student_id)) {
+      return NextResponse.json(
+        { error: 'A selected report has no matched student — match it first.' },
+        { status: 400 }
+      );
+    }
+    // Building-bound: all must share one dorm building. A case with no building
+    // is only groupable if its division marks it a commuter — otherwise it's
+    // ambiguous and we refuse rather than risk mixing buildings.
+    const ambiguous = cases.find((c) => !c!.dorm_building && !/commut/i.test(c!.division ?? ''));
+    if (ambiguous) {
+      return NextResponse.json(
+        { error: 'A selected report has no dorm building on file — can’t group it safely.' },
+        { status: 400 }
+      );
+    }
+    const buildings = new Set(cases.map((c) => c!.dorm_building ?? 'commuter'));
     if (buildings.size > 1) {
       return NextResponse.json(
         { error: 'Selected reports span multiple dorm buildings — send a separate link per building.' },
