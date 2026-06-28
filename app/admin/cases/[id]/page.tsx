@@ -8,6 +8,20 @@ import type { Case, CaseEvent } from '@/lib/cases';
 import type { Student } from '@/lib/types';
 import type { Contact } from '@/lib/contacts';
 import { renderTemplate, smsHref, DEFAULT_TEMPLATES, type MessageTemplates } from '@/lib/messages-shared';
+import { currentAndNextSession, formatNextLabel, type ScheduleSlot } from '@/lib/schedule';
+import { getCurrentTimeHHMM } from '@/lib/date';
+
+/** Live timeline refresh cadence while a report is active (paused when the tab
+ * is backgrounded, stopped once resolved). */
+const POLL_MS = 15_000;
+
+/** Read the ?now=HH:MM clock override (testing) straight from the URL — keeps
+ * parity with the hub + Students table without a Suspense boundary. */
+function nowOverrideFromUrl(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const v = new URLSearchParams(window.location.search).get('now');
+  return v && /^\d{1,2}:\d{2}$/.test(v) ? v : undefined;
+}
 
 type PriorCase = Case & { events: CaseEvent[] };
 
@@ -25,11 +39,15 @@ export default function CaseDetail() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [templates, setTemplates] = useState<MessageTemplates>(DEFAULT_TEMPLATES);
   const [dormStaff, setDormStaff] = useState<Contact[]>([]);
+  const [slots, setSlots] = useState<ScheduleSlot[] | null>(null);
   const [resolveNote, setResolveNote] = useState('');
   const [showResolve, setShowResolve] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Ticks every 30s so the now/next line advances with the wall clock even
+  // without a fresh fetch.
+  const [, setClock] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/admin');
@@ -55,6 +73,53 @@ export default function CaseDetail() {
   }, [user, params.id]);
 
   useEffect(() => { if (user) refresh(); }, [user, refresh]);
+
+  // Lightweight poll: re-fetch ONLY the case (timeline + status), not the static
+  // templates/contacts. Lets staff-link updates and an office-side resolve appear
+  // without a manual reload. Pauses when backgrounded; stops once resolved.
+  const refreshDetail = useCallback(async () => {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`/api/cases/${params.id}`, { headers });
+      if (res.ok) setDetail(await res.json());
+    } catch {
+      // transient — the next tick will retry
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id]);
+
+  useEffect(() => {
+    if (!user || detail?.case.status === 'resolved') return;
+    const i = setInterval(() => {
+      if (!document.hidden) refreshDetail();
+    }, POLL_MS);
+    return () => clearInterval(i);
+  }, [user, detail?.case.status, refreshDetail]);
+
+  // Fetch the student's schedule slots (ensemble base + electives) so we can show
+  // where they should be now / next — the most actionable info for locating a kid.
+  // Skipped for unmatched ("No student found") reports.
+  useEffect(() => {
+    const sid = detail?.case.student_id;
+    if (!sid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`/api/students/${sid}/schedule?format=slots`, { headers });
+        if (res.ok && !cancelled) setSlots(((await res.json()).slots as ScheduleSlot[]) ?? []);
+      } catch {
+        // schedule is a nicety — ignore transient failures
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [detail?.case.student_id, getAuthHeaders]);
+
+  // Advance the now/next line with the clock.
+  useEffect(() => {
+    const t = setInterval(() => setClock((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
 
   async function logEvent(type: 'parent_texted' | 'dorm_staff_texted' | 'note', body: string) {
     try {
@@ -101,6 +166,12 @@ export default function CaseDetail() {
   if (!detail || !user) return <main className="p-4 text-sm text-gray-500">Loading…</main>;
   const { case: c, student, events, prior_cases } = detail;
 
+  const nowHHMM = nowOverrideFromUrl() || getCurrentTimeHHMM();
+  const sortedSlots = slots
+    ? [...slots].sort((a, b) => a.start_time.localeCompare(b.start_time))
+    : null;
+  const nowNext = sortedSlots ? currentAndNextSession(sortedSlots, nowHHMM) : null;
+
   const vars = {
     kid_first: student?.preferred_name || student?.first_name || '',
     kid_name: c.student_name,
@@ -130,6 +201,53 @@ export default function CaseDetail() {
           {student.medical_notes && <p className="text-red-700"><span className="font-medium">Medical:</span> {student.medical_notes}</p>}
           {prior_cases.length > 0 && (
             <p className="mt-1 text-amber-700">⚠ {prior_cases.length} prior report{prior_cases.length > 1 ? 's' : ''}</p>
+          )}
+        </section>
+      )}
+
+      {student && nowNext && (
+        <section className="mt-4 rounded border bg-white p-3 text-sm">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-semibold">Where they should be</h2>
+            {nowOverrideFromUrl() && (
+              <span className="text-xs text-gray-400">test clock {nowHHMM}</span>
+            )}
+          </div>
+          <p className="mt-1">
+            <span className="font-medium">Now:</span>{' '}
+            {nowNext.current ? (
+              <span className="text-green-800">
+                {nowNext.current.name}
+                {nowNext.current.location ? ` · ${nowNext.current.location}` : ''}{' '}
+                <span className="text-gray-500">
+                  ({nowNext.current.start_time}–{nowNext.current.end_time})
+                </span>
+              </span>
+            ) : (
+              <span className="text-gray-500">No class</span>
+            )}
+          </p>
+          <p className="mt-0.5">
+            <span className="font-medium">Next:</span> {formatNextLabel(nowNext.next)}
+          </p>
+          {sortedSlots && sortedSlots.length > 0 && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs text-gray-600">Full day schedule</summary>
+              <ol className="mt-1 flex flex-col gap-0.5 text-xs">
+                {sortedSlots.map((s) => {
+                  const isNow = nowNext.current?.session_id === s.session_id;
+                  return (
+                    <li
+                      key={`${s.session_id}-${s.start_time}`}
+                      className={isNow ? 'rounded bg-green-50 px-1 font-medium text-green-800' : 'px-1 text-gray-700'}
+                    >
+                      <span className="text-gray-500">{s.start_time}–{s.end_time}</span> {s.name}
+                      {s.location ? ` · ${s.location}` : ''}
+                    </li>
+                  );
+                })}
+              </ol>
+            </details>
           )}
         </section>
       )}
