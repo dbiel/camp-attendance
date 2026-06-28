@@ -12,6 +12,8 @@ export type CaseEventType =
   | 'reopened'
   | 'staff_update';
 
+export type CaseSource = 'text' | 'ensemble_attendance' | 'manual';
+
 export interface Case {
   id: string;
   status: CaseStatus;
@@ -22,6 +24,22 @@ export interface Case {
   summary: string;
   raw_text: string; // original pasted report, always preserved
   session_label: string | null; // free text: where/when they were missed
+  // ─── Denormalized student fields for at-a-glance hub cards (avoids N reads).
+  dorm_building: string | null;
+  dorm_room: string | null;
+  instrument: string | null;
+  // ─── Time/grouping. occurred_at is ALWAYS set (defaults to created_at) so
+  // client-side hour bucketing never drops a doc; the server orders by
+  // created_at (existing index). Do NOT add a status+occurred_at index.
+  occurred_at: string;
+  day_key: string | null;
+  // ─── Origin + which session/period (picker in Phase 3, attendance in Phase 6).
+  // batch_id groups reports filed together from one multi-person paste.
+  source: CaseSource;
+  batch_id: string | null;
+  session_id: string | null;
+  period_id: string | null;
+  period_number: number | null;
   share_token: string;
   // ─── Two-way staff link (Plan C) — all nullable; Firestore rejects undefined.
   share_issued_at: string | null; // ISO; when the current token was issued
@@ -55,6 +73,17 @@ export interface CreateCaseInput {
   raw_text: string;
   session_label?: string | null;
   created_by: string;
+  // Optional enrichment — all default safely (occurred_at → created_at).
+  dorm_building?: string | null;
+  dorm_room?: string | null;
+  instrument?: string | null;
+  occurred_at?: string | null;
+  day_key?: string | null;
+  source?: CaseSource;
+  batch_id?: string | null;
+  session_id?: string | null;
+  period_id?: string | null;
+  period_number?: number | null;
 }
 
 export async function createCase(input: CreateCaseInput): Promise<string> {
@@ -68,6 +97,16 @@ export async function createCase(input: CreateCaseInput): Promise<string> {
     summary: input.summary,
     raw_text: input.raw_text,
     session_label: input.session_label ?? null,
+    dorm_building: input.dorm_building ?? null,
+    dorm_room: input.dorm_room ?? null,
+    instrument: input.instrument ?? null,
+    occurred_at: input.occurred_at ?? now, // ALWAYS non-null
+    day_key: input.day_key ?? null,
+    source: input.source ?? 'text',
+    batch_id: input.batch_id ?? null,
+    session_id: input.session_id ?? null,
+    period_id: input.period_id ?? null,
+    period_number: input.period_number ?? null,
     share_token: randomBytes(16).toString('hex'),
     share_issued_at: null,
     share_expires_at: null,

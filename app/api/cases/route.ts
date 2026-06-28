@@ -40,6 +40,11 @@ export const POST = withAuth(
       reporter_contact_id: typeof reporter_contact_id === 'string' ? reporter_contact_id : null,
       reporter_name: typeof reporter_name === 'string' ? reporter_name : null,
       session_label: typeof session_label === 'string' ? session_label : null,
+      // Denormalize at-a-glance fields from the student we already fetched.
+      dorm_building: student.dorm_building ?? null,
+      dorm_room: student.dorm_room ?? null,
+      instrument: student.instrument ?? null,
+      source: 'text',
       created_by: caller?.email || 'unknown',
     });
     return NextResponse.json({ id });
