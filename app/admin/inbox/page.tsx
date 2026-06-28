@@ -120,9 +120,9 @@ export default function Inbox() {
           </div>
 
           <section className="flex flex-col gap-2">
-            {loading && <p className="text-sm text-gray-500">Loading…</p>}
+            {loading && <p className="text-sm text-[var(--text-3)]">Loading…</p>}
             {!loading && texts.length === 0 && (
-              <p className="rounded border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+              <p className="rounded border border-[var(--glass-border)] bg-[var(--surface)] p-4 text-sm text-[var(--text-2)]">
                 No {filter === 'all' ? '' : filter} messages.
               </p>
             )}

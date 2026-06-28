@@ -54,7 +54,7 @@ export function ClearAllDataSection() {
   return (
     <section className="camp-card p-6 border-2 border-red-200">
       <h2 className="camp-subheading text-red-700">Danger Zone — Clear All Data</h2>
-      <p className="text-sm text-gray-600 mb-4">
+      <p className="text-sm text-[var(--text-2)] mb-4">
         Permanently deletes <strong>students, faculty, sessions, periods, enrollments,
         and all reports</strong>. Use this once before loading a new year&apos;s roster.
         It does <strong>not</strong> touch your camp code, admin logins, or texts.
@@ -65,9 +65,9 @@ export function ClearAllDataSection() {
       </button>
 
       <Modal open={open} onClose={close} title="Clear ALL camp data?" size="md">
-        <p className="text-sm text-gray-700 mb-3">
+        <p className="text-sm text-[var(--text-2)] mb-3">
           This deletes the entire roster, schedule, and every report. There is no undo.
-          Type <code className="font-mono bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">RESET</code>{' '}
+          Type <code className="font-mono bg-[var(--surface)] border border-[var(--glass-border)] rounded px-1.5 py-0.5">RESET</code>{' '}
           to confirm.
         </p>
         <input

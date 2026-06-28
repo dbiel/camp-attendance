@@ -41,7 +41,7 @@ export function PreviewStep({
         action cannot be undone.
       </p>
 
-      <ul className="space-y-2 text-sm text-gray-800 mb-6">
+      <ul className="space-y-2 text-sm text-[var(--text)] mb-6">
         <li>
           <span className="font-semibold">
             Archiving year {previewResult.old_id}:
@@ -67,7 +67,7 @@ export function PreviewStep({
         </li>
       </ul>
 
-      <div className="bg-white border border-amber-300 rounded p-4 mb-4">
+      <div className="bg-[var(--surface)] border border-amber-300 rounded p-4 mb-4">
         <label htmlFor="confirm-text" className="camp-label">
           Type <span className="font-mono font-semibold">{expected}</span> to
           confirm
@@ -83,7 +83,7 @@ export function PreviewStep({
           aria-describedby="confirm-hint"
           placeholder={expected}
         />
-        <p id="confirm-hint" className="text-xs text-gray-500 mt-1">
+        <p id="confirm-hint" className="text-xs text-[var(--text-3)] mt-1">
           Type &ldquo;{expected}&rdquo; to confirm. Case-sensitive.
         </p>
       </div>

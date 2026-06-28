@@ -185,14 +185,14 @@ export function AdminUsersSection() {
   return (
     <section className="camp-card p-6">
       <h2 className="camp-subheading">Admin Users</h2>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-[var(--text-3)] mb-4">
         Super admins see everything and manage admins. Lookup admins can look up
         and edit camper data and view reports, but can&apos;t see texts, escalate,
         or change settings. People with a Google email just need their address
         added; people without one get a password account.
       </p>
 
-      {loading && <div className="text-gray-600">Loading admins...</div>}
+      {loading && <div className="text-[var(--text-2)]">Loading admins...</div>}
       {loadError && (
         <div className="text-red-700 bg-red-50 border border-red-200 rounded p-3 mb-4">
           {loadError}
@@ -200,11 +200,11 @@ export function AdminUsersSection() {
       )}
 
       {admins && admins.length === 0 && (
-        <div className="text-gray-600 mb-4">No admins yet.</div>
+        <div className="text-[var(--text-2)] mb-4">No admins yet.</div>
       )}
 
       {admins && admins.length > 0 && (
-        <ul className="divide-y divide-gray-200 border border-gray-200 rounded mb-4">
+        <ul className="divide-y divide-[var(--glass-border)] border border-[var(--glass-border)] rounded mb-4">
           {admins.map((a) => {
             const isSelf = !!callerEmail && a.email.toLowerCase() === callerEmail;
             return (
@@ -215,11 +215,11 @@ export function AdminUsersSection() {
                     {isSelf && (
                       <span className="text-xs bg-camp-green text-white px-2 py-0.5 rounded">you</span>
                     )}
-                    <span className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded">
+                    <span className="text-xs bg-[var(--surface)] text-[var(--text-2)] px-2 py-0.5 rounded">
                       {a.auth_type === 'password' ? 'password' : 'Google'}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-[var(--text-3)] mt-1">
                     Added by {a.added_by} on {formatAddedAt(a.added_at)}
                   </div>
                 </div>
@@ -263,7 +263,7 @@ export function AdminUsersSection() {
         </ul>
       )}
 
-      <form onSubmit={handleAdd} className="space-y-3 border-t border-gray-200 pt-4">
+      <form onSubmit={handleAdd} className="space-y-3 border-t border-[var(--glass-border)] pt-4">
         <div className="flex flex-wrap items-center gap-3">
           <label htmlFor="account-type" className="text-sm font-medium">
             Account type
@@ -369,7 +369,7 @@ export function AdminUsersSection() {
         title="Remove admin?"
         size="md"
       >
-        <p className="text-sm text-gray-700 mb-6">
+        <p className="text-sm text-[var(--text-2)] mb-6">
           Remove <strong>{removeTarget?.email}</strong> from the admin list? They&apos;ll lose
           access the next time their session refreshes.
         </p>
@@ -397,7 +397,7 @@ export function AdminUsersSection() {
 
       {/* Setup link result */}
       <Modal open={!!setupLink} onClose={() => setSetupLink(null)} title="Setup link" size="md">
-        <p className="text-sm text-gray-700 mb-3">
+        <p className="text-sm text-[var(--text-2)] mb-3">
           Send this link to the person. It lets them set their own password. Anyone with the link
           can set the password, so share it directly.
         </p>
@@ -472,7 +472,7 @@ function ResetPasswordModal({
 
   return (
     <Modal open={!!target} onClose={() => (busy ? undefined : onClose())} title="Reset password" size="md">
-      <p className="text-sm text-gray-700 mb-3">
+      <p className="text-sm text-[var(--text-2)] mb-3">
         Reset the password for <strong>{target?.email}</strong>.
       </p>
       <select

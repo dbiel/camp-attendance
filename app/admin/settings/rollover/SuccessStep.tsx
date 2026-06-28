@@ -22,7 +22,7 @@ export function SuccessStep({ result }: { result: RolloverResult }) {
         Rollover complete. Welcome to {result.new_id}.
       </h2>
 
-      <dl className="space-y-3 text-sm text-gray-800 mb-6">
+      <dl className="space-y-3 text-sm text-[var(--text)] mb-6">
         <div>
           <dt className="font-semibold">Archived</dt>
           <dd>
@@ -41,7 +41,7 @@ export function SuccessStep({ result }: { result: RolloverResult }) {
         <div>
           <dt className="font-semibold mb-1">New camp code</dt>
           <dd className="flex flex-wrap items-center gap-3">
-            <code className="text-2xl font-mono bg-gray-100 p-3 rounded tracking-wider">
+            <code className="text-2xl font-mono bg-[var(--surface)] p-3 rounded tracking-wider">
               {result.new_camp_code}
             </code>
             <button
@@ -57,7 +57,7 @@ export function SuccessStep({ result }: { result: RolloverResult }) {
 
       <div
         role="note"
-        className="mb-6 rounded border border-green-300 bg-white p-3 text-sm text-gray-700"
+        className="mb-6 rounded border border-green-300 bg-[var(--surface)] p-3 text-sm text-[var(--text-2)]"
       >
         Distribute this code to faculty. Teacher devices will need to re-enter
         it to reconnect.

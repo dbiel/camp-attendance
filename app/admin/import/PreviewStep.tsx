@@ -76,14 +76,14 @@ export function PreviewStep({
         <span className="text-red-700 font-semibold">
           ✗ {normalized.errorCount} with errors
         </span>
-        <span className="text-gray-600">
+        <span className="text-[var(--text-2)]">
           {normalized.rows.length} total rows
         </span>
       </div>
 
       <div className="camp-card overflow-x-auto mb-4">
         <table className="w-full text-sm">
-          <thead className="bg-gray-100 border-b border-gray-200">
+          <thead className="bg-[var(--surface)] border-b border-[var(--glass-border)]">
             <tr>
               <th scope="col" className="px-3 py-2 text-left">
                 Row
@@ -101,7 +101,7 @@ export function PreviewStep({
               <tr>
                 <td
                   colSpan={schema.fields.length + 1}
-                  className="px-3 py-4 text-gray-500 text-center"
+                  className="px-3 py-4 text-[var(--text-3)] text-center"
                 >
                   No rows to preview
                 </td>
@@ -110,8 +110,8 @@ export function PreviewStep({
             {previewRows.map((row, idx) => {
               const erroredFields = new Set(row.errors.map((e) => e.field));
               return (
-                <tr key={idx} className="border-b border-gray-100">
-                  <td className="px-3 py-2 text-gray-500">{idx + 1}</td>
+                <tr key={idx} className="border-b border-[var(--glass-border)]">
+                  <td className="px-3 py-2 text-[var(--text-3)]">{idx + 1}</td>
                   {schema.fields.map((f) => {
                     const hasErr = erroredFields.has(f.key);
                     const val = row.data[f.key];
@@ -121,7 +121,7 @@ export function PreviewStep({
                       <td
                         key={f.key}
                         className={`px-3 py-2 ${
-                          hasErr ? 'bg-red-50 text-red-700' : 'text-gray-700'
+                          hasErr ? 'bg-red-50 text-red-700' : 'text-[var(--text-2)]'
                         }`}
                         title={
                           hasErr
@@ -133,7 +133,7 @@ export function PreviewStep({
                         }
                       >
                         {display || (
-                          <span className="italic text-gray-400">—</span>
+                          <span className="italic text-[var(--text-3)]">—</span>
                         )}
                       </td>
                     );
@@ -156,7 +156,7 @@ export function PreviewStep({
             {showErrors ? '▾' : '▸'} Show errors ({allErrors.length})
           </button>
           {showErrors && (
-            <ul className="px-3 py-2 text-xs text-red-700 max-h-64 overflow-y-auto space-y-1 border-t border-gray-200">
+            <ul className="px-3 py-2 text-xs text-red-700 max-h-64 overflow-y-auto space-y-1 border-t border-[var(--glass-border)]">
               {allErrors.slice(0, MAX_ERRORS_SHOWN).map((e, i) => (
                 <li key={i}>
                   <span className="font-mono">Row {e.row}:</span> {e.field} —{' '}
@@ -202,7 +202,7 @@ export function PreviewStep({
         onClose={() => setConfirmOpen(false)}
         size="md"
       >
-        <p className="mb-4 text-gray-700">
+        <p className="mb-4 text-[var(--text-2)]">
           Import {normalized.validCount} {entity} into the database?
         </p>
         <div className="flex justify-end gap-3">

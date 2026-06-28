@@ -185,21 +185,21 @@ export default function AdminSettingsPage() {
 
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-[var(--surface)] flex items-center justify-center">
+        <div className="text-[var(--text-2)]">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-[var(--surface)] pb-20">
       <div className="max-w-4xl mx-auto px-4 pt-4">
         <h1 className="text-2xl font-bold text-camp-green">Settings</h1>
       </div>
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
         {loadingConfig && (
-          <div className="camp-card p-6 text-gray-600">Loading camp config...</div>
+          <div className="camp-card p-6 text-[var(--text-2)]">Loading camp config...</div>
         )}
 
         {configError && (
@@ -219,12 +219,12 @@ export default function AdminSettingsPage() {
             {/* Teacher Camp Code */}
             <section className="camp-card p-6">
               <h2 className="camp-subheading">Teacher Camp Code</h2>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-sm text-[var(--text-3)] mb-4">
                 Faculty devices enter this code once to unlock the teacher
                 portal. Rotate after camp ends or if the code leaks.
               </p>
               <div className="flex flex-wrap items-center gap-3">
-                <code className="font-mono text-xl bg-gray-100 border border-gray-200 rounded px-4 py-2 tracking-wider">
+                <code className="font-mono text-xl bg-[var(--surface)] border border-[var(--glass-border)] rounded px-4 py-2 tracking-wider">
                   {config.camp_code}
                 </code>
                 <button type="button" className="camp-btn-outline px-4" onClick={copyCode}>
@@ -239,14 +239,14 @@ export default function AdminSettingsPage() {
                 </button>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="mt-4 pt-4 border-t border-[var(--glass-border)]">
                 <label
                   htmlFor="manual-camp-code"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-[var(--text-2)] mb-1"
                 >
                   Or set a specific code
                 </label>
-                <p className="text-xs text-gray-500 mb-2">
+                <p className="text-xs text-[var(--text-3)] mb-2">
                   4–32 letters/digits (e.g. <code>ttuboc2026</code>). Case is preserved.
                 </p>
                 <form
@@ -286,7 +286,7 @@ export default function AdminSettingsPage() {
             {/* Yearly Rollover */}
             <section className="camp-card p-6">
               <h2 className="camp-subheading">Yearly Rollover</h2>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-[var(--text-2)] mb-4">
                 Archive this year&apos;s data and start a new camp year. Run
                 this once after camp ends.
               </p>
@@ -312,7 +312,7 @@ export default function AdminSettingsPage() {
         title="Rotate teacher camp code?"
         size="md"
       >
-        <p className="text-sm text-gray-700 mb-6">
+        <p className="text-sm text-[var(--text-2)] mb-6">
           Rotating the code will log out every teacher. They&apos;ll need to
           re-enter the new code on their devices. Continue?
         </p>
@@ -346,9 +346,9 @@ export default function AdminSettingsPage() {
         title="Set teacher camp code?"
         size="md"
       >
-        <p className="text-sm text-gray-700 mb-4">
+        <p className="text-sm text-[var(--text-2)] mb-4">
           Setting the code to{' '}
-          <code className="font-mono bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">
+          <code className="font-mono bg-[var(--surface)] border border-[var(--glass-border)] rounded px-1.5 py-0.5">
             {pendingManualCode}
           </code>{' '}
           will log out every teacher. They&apos;ll need to re-enter the new
