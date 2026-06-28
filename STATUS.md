@@ -6,6 +6,26 @@
 
 ---
 
+## As of 2026-06-28 (overnight) — Phases 4–6 + reskin LIVE (branch `feat/incident-command-redesign`)
+
+**🟢 LIVE & verified on https://ttuboc-attendance.web.app.** Everything below deployed and smoke-checked (uniform 404s on bad tokens, 401 on admin routes, 200 on pages). 495 unit tests green. Branch pushed; **not yet merged to main** (prod runs from branch deploys). Rollback anchor tag: `deploy-2026-06-27-pre-reskin` (commit `0378c44`).
+
+- **Phase 4 — report detail (live).** `app/admin/cases/[id]/page.tsx`: timeline auto-polls every 15s (pauses when tab hidden, stops once resolved); new **"Where they should be"** panel = now/next class (strict period windows) + collapsible full-day schedule (ensemble base + electives); `?now=HH:MM` test override.
+- **Live-feed notification badges (live).** New `lib/seen.ts` (localStorage seen-map, pure `isUnseen`/`activityOf`, unit-tested; first-run seeds so no badge flood). Backbone: `cases.last_activity_at` bumped on every event via `addCaseEvent`. Hub `CaseCard` shows a **`.badge-new`** "new" pill; `ReportHistory` shows yellow dots on day/hour buckets + rows with unseen activity; opening a report's detail (`markSeen`) clears it; mobile `/r` viewer flashes "Updated from the camp office" on new activity.
+- **Phase 5 — staff-link polish (live; adversarial security review: no HIGH/MED).** Scoped `/r` viewer now shows **D1 dorm building+room (prominent locator)** + **D2 full name** (`preferred_name||first_name` + full `last_name`); **D3 auto-resolve** (a resolved kid stays visible, but the link 404s once ALL its kids are resolved); **share TTL 4h→2h**. Projection still allowlists name/instrument/dorm only — never medical/parent/cell/raw/reporter/student-id/schedule/history. ⚠️ **For David to confirm:** exposing campers' **full last name + dorm** on the unauthenticated (forwardable) `/r` link — it's the reviewed plan (D2 was approved; paired with 2h TTL + revoke + auto-die + anti-leak headers + 128-bit token) and matches your Phase-6 "first/last name on open links is fine" call. One commit reverts to last-initial if you'd rather.
+- **Phase 6 — ensemble open attendance → auto-incidents (live; adversarial review: 1 HIGH + 3 MED, ALL fixed).** Tokenized **open `/e/<token>`** page (no login), mobile-first; roster = name·instrument·grade, sortable **score order** (standard concert-band instrumentation, `lib/score-order.ts`) or last name. Present/Absent → Submit. Each **Absent auto-files a report** on the hub (`source: 'ensemble_attendance'`); a later **Absent→Present** flips it to a **tardy-arrival** update (`tardy_arrived` + timeline note) — surfaces via the badge poll, **no external notification**. **super_admin link management** in Settings → *Ensemble Attendance Links* (generate/copy/revoke per ensemble). New collections `ensemble_links` + `ensemble_attendance` are **server-only in rules** and **in the wipe list**. Review HIGH fixed: the submit read-modify-write + case creation runs in a **Firestore transaction** (concurrent/retried submits can't orphan or duplicate reports; `createCase` refactored to `buildCaseDoc`/`buildEventDoc`). Accepted residual (documented): token-validation timing delta — moot vs a 128-bit token.
+- **Liquid-glass reskin MERGED (live).** Merged `feat/liquid-glass-reskin` (presentational-only). Resolved 3 conflicts keeping this branch's logic + the reskin tokens; restyled the new surfaces (badges, `/e` page, ensemble-links section, schedule panel) with the design system's semantic classes (`.badge-new`, `.btn-present/.btn-absent`, glass tokens) per `docs/RESKIN-NOTES.md`.
+
+**Waiting on David (morning):**
+1. **2026 elective rosters** (+ optional `grade` column) → seed via `scripts/seed-camp.mjs` (schedule already unions base+electives; grade column shows "—" until data has it).
+2. **Confirm the staff-link full-name/dorm exposure** (above) — keep or revert to last-initial.
+3. Optional: your **exact score-order** instrument list (I used the standard one; `lib/score-order.ts` is toggle-ready to swap).
+4. **Test the new flows** when convenient: Settings → generate an ensemble link → open `/e/<token>` → mark someone absent → Submit → it appears on the Incident hub; flip them Present → "tardy arrived" update.
+
+**Standing:** ultracode ON (workflow per phase + adversarial review before deploy). Autonomy: proceed through phases + auto-deploy; **never send texts/emails / contact anyone outside the org** (CI egress guard green).
+
+---
+
 ## As of 2026-06-27 — Redesign in progress (branch `feat/incident-command-redesign`)
 
 - **🟢 LIVE:** Phases **1 + 2** of the incident-command-center redesign are deployed to https://ttuboc-attendance.web.app and verified. Full plan: `docs/superpowers/specs/2026-06-27-incident-command-redesign-plan.md` (expert-panel + CEO planned; 5 phases + Phase 6 + parking lot). Branch **not yet merged to main**; prod runs from branch deploys.
