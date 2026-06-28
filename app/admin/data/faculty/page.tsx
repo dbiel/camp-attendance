@@ -1,9 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Faculty } from '@/lib/types';
+import { Faculty, FacultySessionRow } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
+
+interface NowNext {
+  current: string | null;
+  room: string | null;
+  next: string;
+}
 
 export default function FacultyDataPage() {
   const router = useRouter();
@@ -13,13 +19,20 @@ export default function FacultyDataPage() {
   const [editData, setEditData] = useState<Partial<Faculty>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  // Current/Next columns (one batch call) + lazily-loaded per-faculty schedule.
+  const [nowNext, setNowNext] = useState<Record<string, NowNext>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [sessionsByFaculty, setSessionsByFaculty] = useState<Record<string, FacultySessionRow[]>>({});
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/admin');
       return;
     }
-    if (user) fetchFaculty();
+    if (user) {
+      fetchFaculty();
+      fetchNowNext();
+    }
   }, [user, authLoading]);
 
   async function fetchFaculty() {
@@ -38,6 +51,39 @@ export default function FacultyDataPage() {
       setFaculty([]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchNowNext() {
+    try {
+      const headers = await getAuthHeaders();
+      // ?now=HH:MM (testing) overrides the clock for the Current/Next columns.
+      const now = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('now') : null;
+      const qs = now ? `?now=${encodeURIComponent(now)}` : '';
+      const res = await fetch(`/api/faculty/now-next${qs}`, { headers });
+      if (res.ok) setNowNext((await res.json()).byFaculty ?? {});
+    } catch {
+      // columns are a nicety — ignore transient failures
+    }
+  }
+
+  async function toggleExpand(member: Faculty) {
+    if (expandedId === member.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(member.id);
+    if (!sessionsByFaculty[member.id]) {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`/api/faculty/${member.id}/sessions`, { headers });
+        if (res.ok) {
+          const rows = (await res.json()) as FacultySessionRow[];
+          setSessionsByFaculty((prev) => ({ ...prev, [member.id]: Array.isArray(rows) ? rows : [] }));
+        }
+      } catch {
+        setSessionsByFaculty((prev) => ({ ...prev, [member.id]: [] }));
+      }
     }
   }
 
@@ -117,32 +163,85 @@ export default function FacultyDataPage() {
                 <tr>
                   <th className="px-4 py-2 text-left">Name</th>
                   <th className="px-4 py-2 text-left">Role</th>
-                  <th className="px-4 py-2 text-left">Email</th>
+                  <th className="px-4 py-2 text-left">Now (room)</th>
+                  <th className="px-4 py-2 text-left">Next</th>
                   <th className="px-4 py-2 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((member) => (
-                  <tr key={member.id} className="border-b border-[var(--glass-border)] hover:bg-[var(--surface)]">
-                    <td className="px-4 py-2 font-semibold">{member.first_name} {member.last_name}</td>
-                    <td className="px-4 py-2">{member.role}</td>
-                    <td className="px-4 py-2 text-[var(--text-2)]">{member.email || '-'}</td>
-                    <td className="px-4 py-2 space-x-2">
-                      <button
-                        onClick={() => startEdit(member)}
-                        className="text-camp-green hover:opacity-75 font-semibold text-sm"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteFacultyMember(member.id)}
-                        className="text-red-600 hover:opacity-75 font-semibold text-sm"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((member) => {
+                  const nn = nowNext[member.id];
+                  const expanded = expandedId === member.id;
+                  const rows = sessionsByFaculty[member.id];
+                  const nowLabel = nn
+                    ? nn.current
+                      ? `${nn.current}${nn.room ? ` · 📍${nn.room}` : ''}`
+                      : 'No class'
+                    : '—';
+                  return (
+                    <Fragment key={member.id}>
+                      <tr className="border-b border-[var(--glass-border)] hover:bg-[var(--surface)]">
+                        <td className="px-4 py-2 font-semibold">
+                          <button onClick={() => toggleExpand(member)} className="text-left hover:text-camp-green">
+                            {expanded ? '▾' : '▸'} {member.first_name} {member.last_name}
+                          </button>
+                        </td>
+                        <td className="px-4 py-2">{member.role}</td>
+                        <td className="px-4 py-2 text-[var(--text-2)]">{nowLabel}</td>
+                        <td className="px-4 py-2 text-[var(--text-3)]">{nn ? nn.next : '—'}</td>
+                        <td className="px-4 py-2 space-x-2">
+                          <button
+                            onClick={() => startEdit(member)}
+                            className="text-camp-green hover:opacity-75 font-semibold text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteFacultyMember(member.id)}
+                            className="text-red-600 hover:opacity-75 font-semibold text-sm"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr className="border-b border-[var(--glass-border)] bg-[var(--surface)]">
+                          <td colSpan={5} className="px-4 py-3">
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="text-sm">
+                                <h3 className="mb-1 font-semibold text-camp-green">Details</h3>
+                                <dl className="grid grid-cols-[5rem_1fr] gap-x-2 gap-y-0.5 text-[var(--text-2)]">
+                                  <dt className="text-[var(--text-3)]">Role</dt><dd>{member.role || '—'}</dd>
+                                  <dt className="text-[var(--text-3)]">Email</dt><dd className="break-all">{member.email || '—'}</dd>
+                                </dl>
+                              </div>
+                              <div className="text-sm">
+                                <h3 className="mb-1 font-semibold text-camp-green">Schedule &amp; rooms</h3>
+                                {!rows && <p className="text-[var(--text-3)]">Loading…</p>}
+                                {rows && rows.length === 0 && <p className="text-[var(--text-3)]">No assigned sessions.</p>}
+                                {rows && rows.length > 0 && (
+                                  <ul className="space-y-0.5 text-[var(--text-2)]">
+                                    {rows.map((s) => (
+                                      <li key={s.id}>
+                                        <span className="text-[var(--text-3)]">
+                                          P{s.period_number} {s.start_time}
+                                          {s.end_time ? `–${s.end_time}` : ''}
+                                        </span>{' '}
+                                        · {s.name}
+                                        <span className="text-[var(--text-3)]"> · 📍{s.location || 'no room'}</span>
+                                        {s.ensemble ? <span className="text-[var(--text-3)]"> · {s.ensemble}</span> : ''}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>

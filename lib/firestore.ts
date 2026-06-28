@@ -11,6 +11,7 @@ import {
 } from './types';
 import { getTodayDate, getCurrentTimeHHMM, deriveDayDates } from './date';
 import { invalidateCampConfigCache, loadActiveCampServer } from './camp-config';
+import { currentAndNextSession, formatNextLabel, type ScheduleSlot } from './schedule';
 
 // Re-export for back-compat — existing callers import getTodayDate from '@/lib/firestore'.
 export { getTodayDate } from './date';
@@ -589,6 +590,53 @@ export async function getFacultySessions(facultyId: string, date?: string): Prom
 
   results.sort((a, b) => a.period_number - b.period_number);
   return results;
+}
+
+export interface FacultyNowNext {
+  current: string | null; // session name now, or null (free period)
+  room: string | null; // where they are now
+  next: string; // "Lunch · 12:00 · Room" or "Done for the day"
+}
+
+/**
+ * Current + next session for EVERY faculty member in one pass (all sessions +
+ * periods loaded once, grouped by faculty_id) — drives the Faculty table's
+ * Current/Next columns without an N+1 of per-faculty calls. `nowHHMM` overrides
+ * the camp-tz clock for testing.
+ */
+export async function getAllFacultyNowNext(nowHHMM?: string): Promise<Record<string, FacultyNowNext>> {
+  const hhmm = nowHHMM || getCurrentTimeHHMM();
+  const [sessSnap, periods] = await Promise.all([sessionsCol().get(), getPeriods()]);
+  const periodMap = new Map(periods.map((p) => [p.id, p]));
+  const byFaculty = new Map<string, ScheduleSlot[]>();
+  for (const d of sessSnap.docs) {
+    const s = { id: d.id, ...d.data() } as Session;
+    if (!s.faculty_id) continue;
+    const p = periodMap.get(s.period_id);
+    if (!p) continue;
+    const slot: ScheduleSlot = {
+      session_id: s.id,
+      name: s.name,
+      type: s.type,
+      location: s.location ?? null,
+      period_number: p.number,
+      start_time: p.start_time,
+      end_time: p.end_time,
+    };
+    const arr = byFaculty.get(s.faculty_id);
+    if (arr) arr.push(slot);
+    else byFaculty.set(s.faculty_id, [slot]);
+  }
+  const out: Record<string, FacultyNowNext> = {};
+  for (const [fid, slots] of byFaculty) {
+    const { current, next } = currentAndNextSession(slots, hhmm);
+    out[fid] = {
+      current: current ? current.name : null,
+      room: current ? current.location || null : null,
+      next: formatNextLabel(next),
+    };
+  }
+  return out;
 }
 
 // ─── Day Coverage (admin coverage dashboard) ────────────────────────────
