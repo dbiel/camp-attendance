@@ -7,9 +7,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        'camp-green': '#2d5016',
-        'camp-light': '#6ba84d',
-        'camp-accent': '#f4a460',
+        'camp-green': '#cc0000',   // primary -> TTU red
+        'camp-light': '#e03b3b',   // lighter red (hover/secondary)
+        'camp-accent': '#d4880a',  // warm amber accent
       },
     },
   },

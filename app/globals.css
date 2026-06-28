@@ -2,6 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #d6c5c5;
+  --surface: rgba(255,255,255,0.5);
+  --surface-solid: #f8f0f0;
+  --card: rgba(255,255,255,0.55);
+  --card-hover: rgba(255,255,255,0.75);
+  --glass-border: rgba(255,255,255,0.45);
+  --glass-shadow: 0 4px 24px rgba(100,20,20,0.07);
+  --border: rgba(0,0,0,0.05);
+  --text: #1a1010;
+  --text-2: #6b4a4a;
+  --text-3: #a08080;
+  --accent: #cc0000;
+  --accent-soft: rgba(204,0,0,0.08);
+  --accent-glow: rgba(204,0,0,0.12);
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-pill: 100px;
+  --blur: 16px;
+
+  --reh: #cc0000; --reh-bg: rgba(204,0,0,0.08);
+  --sec: #d4880a; --sec-bg: rgba(212,136,10,0.08);
+  --master: #9c4cc8; --master-bg: rgba(156,76,200,0.08);
+  --elec: #1a8a4a; --elec-bg: rgba(26,138,74,0.08);
+  --chamber: #c86020; --chamber-bg: rgba(200,96,32,0.08);
+  --other: #7a6860; --other-bg: rgba(122,104,96,0.08);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -13,13 +41,14 @@ html {
 }
 
 body {
-  background-color: #f9fafb;
-  color: #1f2937;
+  background: linear-gradient(135deg, #e8d0d0 0%, #f0dede 25%, #ffffff 50%, #f2d8d8 75%, #e0c4c4 100%);
+  background-attachment: fixed;
+  color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
 }
 
 @layer components {
