@@ -25,17 +25,20 @@ describe('parseReport', () => {
   it('returns the parsed structure from the model JSON', async () => {
     createMock.mockResolvedValue({
       content: [{ type: 'text', text: JSON.stringify({
-        student_ids: ['s1'],
-        student_query: 'johnny smith',
+        people: [{
+          student_ids: ['s1'],
+          student_query: 'johnny smith',
+          summary: 'Missing from trumpet sectional',
+          session_label: 'Trumpet sectional, period 3',
+        }],
         reporter_contact_id: 'c1',
         reporter_name: null,
         reporter_phone: null,
-        summary: 'Missing from trumpet sectional',
-        session_label: 'Trumpet sectional, period 3',
       }) }],
     });
     const result = await parseReport('johnny smtih not in trumpet sectional - jones', students, contacts);
-    expect(result?.student_ids).toEqual(['s1']);
+    expect(result?.people[0].student_ids).toEqual(['s1']);
+    expect(result?.people).toHaveLength(1);
     expect(result?.reporter_contact_id).toBe('c1');
   });
 
