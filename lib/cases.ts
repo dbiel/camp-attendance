@@ -41,6 +41,10 @@ export interface Case {
   session_id: string | null;
   period_id: string | null;
   period_number: number | null;
+  // "No student found" — filed against a raw name with no roster match (e.g.
+  // a misspelling). student_id is '' until David reconciles. Optional so
+  // pre-existing docs (always matched) read fine.
+  needs_match?: boolean;
   share_token: string;
   // ─── Two-way staff link (Plan C) — all nullable; Firestore rejects undefined.
   share_issued_at: string | null; // ISO; when the current token was issued
@@ -86,6 +90,7 @@ export interface CreateCaseInput {
   session_id?: string | null;
   period_id?: string | null;
   period_number?: number | null;
+  needs_match?: boolean;
 }
 
 export async function createCase(input: CreateCaseInput): Promise<string> {
@@ -110,6 +115,7 @@ export async function createCase(input: CreateCaseInput): Promise<string> {
     session_id: input.session_id ?? null,
     period_id: input.period_id ?? null,
     period_number: input.period_number ?? null,
+    needs_match: input.needs_match ?? false,
     share_token: randomBytes(16).toString('hex'),
     share_issued_at: null,
     share_expires_at: null,

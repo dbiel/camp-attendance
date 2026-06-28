@@ -99,6 +99,55 @@ describe('POST /api/cases', () => {
     expect(res.status).toBe(403);
     expect(m.createCase).not.toHaveBeenCalled();
   });
+
+  it('batch: one paste with N people → N reports, shared batch_id, returns ids', async () => {
+    m.getStudent.mockImplementation(async (id: string) =>
+      id === 's1' ? { id: 's1', first_name: 'Anna', last_name: 'Arnold' } : { id: 's2', first_name: 'Brody', last_name: 'Arnold' }
+    );
+    m.createCase.mockResolvedValueOnce('c1').mockResolvedValueOnce('c2');
+    const res = await POST(
+      req('POST', {
+        raw_text: 'anna and brody missing',
+        reporter_name: 'Mr. Jones',
+        people: [
+          { student_id: 's1', summary: 'absent' },
+          { student_id: 's2', summary: 'absent' },
+        ],
+      }),
+      { params: {} }
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ids).toEqual(['c1', 'c2']);
+    const calls = m.createCase.mock.calls.map((c) => c[0]);
+    expect(calls[0].batch_id).toBeTruthy();
+    expect(calls[0].batch_id).toBe(calls[1].batch_id); // shared
+    expect(calls[0].reporter_name).toBe('Mr. Jones');
+  });
+
+  it('batch: "No student found" files an unmatched report (student_id "", needs_match)', async () => {
+    m.createCase.mockResolvedValue('cX');
+    const res = await POST(
+      req('POST', {
+        raw_text: 'jonny smyth missing',
+        people: [{ needs_match: true, student_name: 'Jonny Smyth', summary: 'absent' }],
+      }),
+      { params: {} }
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ids).toEqual(['cX']);
+    expect(m.getStudent).not.toHaveBeenCalled();
+    expect(m.createCase).toHaveBeenCalledWith(
+      expect.objectContaining({ student_id: '', student_name: 'Jonny Smyth', needs_match: true })
+    );
+  });
+
+  it('batch: 400 when raw_text missing', async () => {
+    const res = await POST(req('POST', { people: [{ student_id: 's1' }] }), { params: {} });
+    expect(res.status).toBe(400);
+    expect(m.createCase).not.toHaveBeenCalled();
+  });
 });
 
 describe('GET /api/cases/[id]', () => {

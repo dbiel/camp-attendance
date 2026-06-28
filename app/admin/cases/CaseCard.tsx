@@ -88,6 +88,11 @@ export function CaseCard({
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-lg font-semibold">
             {c.student_name}
+            {c.needs_match && (
+              <span className="ml-2 rounded bg-yellow-200 px-1.5 text-xs font-semibold text-yellow-900" title="No roster match — reconcile this student">
+                ⚠ needs match
+              </span>
+            )}
             {c.instrument && <span className="ml-2 text-sm font-normal text-gray-500">{c.instrument}</span>}
           </span>
           <span className={`shrink-0 text-sm ${urgent ? 'font-bold text-red-700' : 'text-gray-600'}`}>
