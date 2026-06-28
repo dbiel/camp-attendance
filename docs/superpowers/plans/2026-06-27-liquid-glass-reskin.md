@@ -539,6 +539,34 @@ git commit -m "fix(reskin): final contrast & leftover-surface cleanup"
 
 ---
 
+### Task 11: Centralize semantic status/badge/button classes (coordination addition)
+
+Added per coordination with the `feat/incident-command-redesign` session so their
+status UI, notification badges, and brand-new Phase 6 attendance pages can reuse this
+reskin's design language without guessing. Purely additive to `app/globals.css`.
+
+**Files:** Modify `app/globals.css` (append to end of `@layer components`).
+
+- [ ] Add `.status-pill` + `.status-urgent` (red `--accent`), `.status-active` (amber `--sec`), `.status-resolved` (green `--elec`) status pills.
+- [ ] Add `.badge-new` — yellow "new/unseen" notification badge (`#eab308` dot, `rgba(234,179,8,0.16)` fill).
+- [ ] Add `.btn-present` (green `#22c55e`) / `.btn-absent` (red `#ef4444`) semantic attendance buttons.
+- [ ] Verify `npm run typecheck && npm test && npm run build` (465 tests stay green). Commit `feat(reskin): centralized semantic status/badge/button classes`.
+
+Constraint: additive only — no existing class altered, no component touched. (Existing
+`CaseCard` inline status colors are left as-is to avoid conflicting with the other
+session's `CaseCard` edits; the new classes mirror those colors for new surfaces.)
+
+### Task 12: docs/RESKIN-NOTES.md (coordination addition)
+
+A 1-page guide so the other session can restyle pages that don't exist in this branch.
+
+**Files:** Create `docs/RESKIN-NOTES.md`.
+
+- [ ] Document: palette + `:root` tokens; key component classes (`glass`, `glass-card`, `camp-card`, `camp-btn-*`, `camp-input`, `sticky-header`, `pending-badge`); semantic classes from Task 11 (`status-*`, `badge-new`, `btn-present/absent`); and a "to style a new surface, use X" recipe.
+- [ ] Commit `docs(reskin): add RESKIN-NOTES design-system guide`.
+
+---
+
 ## Self-Review
 
 - **Spec coverage:** Foundation (tokens/theme) → Tasks 1–2. Reskin sweep all areas → Tasks 4–8 (covers every file in the enumerated raw-`bg` list). Shared chrome/nav → Task 3. Sessions→Classes label-only → Task 9. Verification (build/tests/typecheck/visual + legibility + status colors) → per-task verify steps + Task 10. No spec section is unmapped.
