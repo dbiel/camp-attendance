@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 /**
  * Issue (POST) or revoke (DELETE) the two-way staff share link for a Report.
  * super_admin only (only David sends links). POST rotates the token and starts
- * a fresh 4h window; the returned `url` is the `/r/<token>` viewer path.
+ * a fresh 2h window; the returned `url` is the `/r/<token>` viewer path.
  */
 export const POST = withAuth<{ id: string }>(
   'super_admin',

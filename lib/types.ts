@@ -13,6 +13,7 @@ export interface Student {
   division: string;
   instrument: string;
   ensemble: string;
+  grade?: string; // school grade/year — added with the 2026 roster; "—" until then
   chair_number?: number;
   dorm_building?: string;
   dorm_room?: string;

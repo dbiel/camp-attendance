@@ -36,7 +36,7 @@ vi.mock('@/lib/firebase-admin', () => {
 
 import { issueShareLink, revokeShareLink, validateShareToken } from '@/lib/cases';
 
-const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -44,20 +44,20 @@ beforeEach(() => {
 });
 
 describe('issueShareLink', () => {
-  it('rotates the token and sets a 4h expiry, fresh issued_at, not revoked, recipient label', async () => {
+  it('rotates the token and sets a 2h expiry, fresh issued_at, not revoked, recipient label', async () => {
     const now = new Date('2026-06-22T12:00:00.000Z');
     const result = await issueShareLink('case1', 'Counselor Jane', now);
 
     // token is fresh random hex
     expect(result.token).toMatch(/^[0-9a-f]{32}$/);
     expect(result.url).toBe(`/r/${result.token}`);
-    expect(result.expires_at).toBe(new Date(now.getTime() + FOUR_HOURS_MS).toISOString());
+    expect(result.expires_at).toBe(new Date(now.getTime() + TWO_HOURS_MS).toISOString());
 
     expect(state.lastDocId).toBe('case1');
     const update = state.docUpdateMock.mock.calls[0][0];
     expect(update.share_token).toBe(result.token);
     expect(update.share_issued_at).toBe(now.toISOString());
-    expect(update.share_expires_at).toBe(new Date(now.getTime() + FOUR_HOURS_MS).toISOString());
+    expect(update.share_expires_at).toBe(new Date(now.getTime() + TWO_HOURS_MS).toISOString());
     expect(update.share_revoked).toBe(false);
     expect(update.share_recipient_label).toBe('Counselor Jane');
   });
@@ -82,7 +82,7 @@ describe('revokeShareLink', () => {
 
 describe('validateShareToken', () => {
   const issued = '2026-06-22T12:00:00.000Z';
-  const expires = new Date(new Date(issued).getTime() + FOUR_HOURS_MS).toISOString();
+  const expires = new Date(new Date(issued).getTime() + TWO_HOURS_MS).toISOString();
 
   function mockCaseDoc(overrides: Record<string, unknown>) {
     state.queryGetMock.mockResolvedValue({
@@ -109,13 +109,13 @@ describe('validateShareToken', () => {
     expect(state.whereMock).toHaveBeenCalledWith('share_token', '==', 'tok');
   });
 
-  it('returns null when expired (now == issue + 4h)', async () => {
+  it('returns null when expired (now == issue + 2h)', async () => {
     mockCaseDoc({});
     const res = await validateShareToken('tok', new Date(expires));
     expect(res).toBeNull();
   });
 
-  it('returns null when expired (now > issue + 4h + 1s)', async () => {
+  it('returns null when expired (now > issue + 2h + 1s)', async () => {
     mockCaseDoc({});
     const res = await validateShareToken(
       'tok',

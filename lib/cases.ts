@@ -48,7 +48,7 @@ export interface Case {
   share_token: string;
   // ─── Two-way staff link (Plan C) — all nullable; Firestore rejects undefined.
   share_issued_at: string | null; // ISO; when the current token was issued
-  share_expires_at: string | null; // ISO; issued + 4h
+  share_expires_at: string | null; // ISO; issued + 2h
   share_revoked: boolean; // manual revoke kills the link immediately
   share_recipient_label: string | null; // who David sent it to (his tracking)
   resolution_note: string | null;
@@ -59,6 +59,10 @@ export interface Case {
   // badge reports with activity "new since I last looked". Optional so pre-existing
   // docs (no field) read fine — clients fall back to created_at.
   last_activity_at?: string;
+  // Phase 6: an ensemble-attendance report whose student later showed up late.
+  // Set when a manager flips Absent→Present after submitting; the kid is found
+  // but was tardy. Optional (only ensemble-origin reports ever set it).
+  tardy_arrived?: boolean;
 }
 
 export interface CaseEvent {
@@ -97,9 +101,10 @@ export interface CreateCaseInput {
   needs_match?: boolean;
 }
 
-export async function createCase(input: CreateCaseInput): Promise<string> {
-  const now = new Date().toISOString();
-  const doc: Omit<Case, 'id'> = {
+/** Pure builder for a case doc (no I/O) so both the normal create path AND the
+ * transactional ensemble-attendance path write the exact same shape. */
+export function buildCaseDoc(input: CreateCaseInput, now: string): Omit<Case, 'id'> {
+  return {
     status: 'active',
     student_id: input.student_id,
     student_name: input.student_name,
@@ -131,7 +136,27 @@ export async function createCase(input: CreateCaseInput): Promise<string> {
     resolved_at: null,
     last_activity_at: now,
   };
-  const ref = await adminDb.collection(CASES).add(doc);
+}
+
+/** Pure builder for an event doc (no I/O) — used by the transactional path. */
+export function buildEventDoc(
+  caseId: string,
+  type: CaseEventType,
+  body: string,
+  actor: string,
+  now: string
+): Omit<CaseEvent, 'id'> {
+  return { case_id: caseId, type, body, actor, created_at: now };
+}
+
+/** Collection names, exported so the transactional ensemble path writes to the
+ * same collections without re-declaring the literals. */
+export const CASES_COLLECTION = CASES;
+export const EVENTS_COLLECTION = EVENTS;
+
+export async function createCase(input: CreateCaseInput): Promise<string> {
+  const now = new Date().toISOString();
+  const ref = await adminDb.collection(CASES).add(buildCaseDoc(input, now));
   await addCaseEvent(ref.id, 'report_received', input.summary, input.created_by);
   return ref.id;
 }
@@ -194,12 +219,12 @@ export async function addCaseEvent(
 }
 
 // ─── Two-way staff share links (Plan C) ────────────────────────────────────
-// Links are per-Report, time-boxed (4h), and revocable. Re-issuing rotates the
+// Links are per-Report, time-boxed (2h), and revocable. Re-issuing rotates the
 // token so the previous link dies immediately. The public viewer never touches
 // Firestore directly — only the token-validating /api/r/* routes do, via these
 // helpers and the Admin SDK.
 
-const SHARE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+const SHARE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours (D-row: paired with full-name/dorm exposure)
 
 export interface IssuedShareLink {
   token: string;
@@ -210,7 +235,7 @@ export interface IssuedShareLink {
 /**
  * Issues (or re-issues) a share link for a case. Rotates `share_token` to a new
  * random hex so any previously-issued link validates as invalid, and sets a
- * fresh 4h window. `recipientLabel` is free text for David's own tracking.
+ * fresh 2h window. `recipientLabel` is free text for David's own tracking.
  */
 export async function issueShareLink(
   caseId: string,

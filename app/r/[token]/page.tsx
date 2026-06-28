@@ -12,8 +12,9 @@ interface StaffUpdate {
 interface Report {
   ref: number; // opaque index into the link's case set, echoed back on update
   first_name: string;
-  last_initial: string;
+  last_name: string;
   instrument: string;
+  dorm_building: string;
   dorm_room: string;
   report_summary: string;
   status: 'active' | 'resolved';
@@ -128,7 +129,8 @@ export default function StaffLinkViewer() {
       )}
       <div className="flex flex-col gap-4">
         {reports.map((d) => {
-          const fullName = `${d.first_name} ${d.last_initial}`.trim();
+          const fullName = `${d.first_name} ${d.last_name}`.trim();
+          const dorm = `${d.dorm_building || ''}${d.dorm_room ? ` ${d.dorm_room}` : ''}`.trim();
           return (
             <section key={d.ref} className="rounded-lg border bg-white p-4 shadow-sm">
               <div className="flex items-baseline justify-between">
@@ -143,16 +145,14 @@ export default function StaffLinkViewer() {
                   {d.status === 'resolved' ? 'Resolved' : 'Active'}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-gray-800">{d.report_summary}</p>
-              <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <dt className="text-gray-500">Instrument</dt>
-                  <dd>{d.instrument || '—'}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500">Dorm room</dt>
-                  <dd>{d.dorm_room || '—'}</dd>
-                </div>
+              {/* Dorm is the LOCATOR — the most prominent element (D1). */}
+              <p className="mt-2 rounded bg-gray-100 p-2 text-center text-lg font-semibold">
+                📍 {dorm || 'Dorm —'}
+              </p>
+              <p className="mt-2 text-sm text-gray-800">{d.report_summary}</p>
+              <dl className="mt-3 text-sm">
+                <dt className="text-gray-500">Instrument</dt>
+                <dd>{d.instrument || '—'}</dd>
               </dl>
 
               {d.status === 'resolved' && (

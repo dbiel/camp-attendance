@@ -77,6 +77,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Phase 6 ensemble attendance: tokens + submissions are server-only; the
+    // public /e/<token> page reads/writes ONLY through the token-validating
+    // /api/e/* routes (Admin SDK), never the client SDK.
+    match /ensemble_links/{token} {
+      allow read, write: if false;
+    }
+    match /ensemble_attendance/{docId} {
+      allow read, write: if false;
+    }
+
     // Catch-all default deny. Any new collection added via the Admin SDK
     // is read/write-denied to clients until an explicit `match` block is
     // added above this line. Prevents "forgot to write a rule" footguns.

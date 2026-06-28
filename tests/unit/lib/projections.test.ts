@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { facultyForTeacher, sessionStudentsForTeacher, toStaffLinkProjection } from '@/lib/projections';
+import {
+  facultyForTeacher,
+  sessionStudentsForTeacher,
+  toStaffLinkProjection,
+  toEnsembleRosterProjection,
+} from '@/lib/projections';
 import type { Faculty, SessionStudentDenormalized, Student } from '@/lib/types';
 import type { Case, CaseEvent } from '@/lib/cases';
 
@@ -140,13 +145,37 @@ describe('toStaffLinkProjection', () => {
   it('includes ONLY the scoped keys', () => {
     const out = toStaffLinkProjection(theCase, student, staffUpdates);
     expect(Object.keys(out).sort()).toEqual(
-      ['dorm_room', 'first_name', 'instrument', 'last_initial', 'report_summary', 'status', 'updates'].sort()
+      [
+        'dorm_building',
+        'dorm_room',
+        'first_name',
+        'instrument',
+        'last_name',
+        'report_summary',
+        'status',
+        'updates',
+      ].sort()
     );
   });
 
-  it('derives last_initial as first char of last name + "."', () => {
+  it('D2: exposes the FULL last name so staff find the right kid', () => {
     const out = toStaffLinkProjection(theCase, student, staffUpdates);
-    expect(out.last_initial).toBe('A.');
+    expect(out.last_name).toBe('Appleseed');
+  });
+
+  it('D2: first_name prefers preferred_name over legal first name', () => {
+    const out = toStaffLinkProjection(theCase, { ...student, preferred_name: 'JJ' }, staffUpdates);
+    expect(out.first_name).toBe('JJ');
+  });
+
+  it('D1: includes dorm_building + room as the locator', () => {
+    const out = toStaffLinkProjection(
+      theCase,
+      { ...student, dorm_building: 'Wall', dorm_room: '214' },
+      staffUpdates
+    );
+    expect(out.dorm_building).toBe('Wall');
+    expect(out.dorm_room).toBe('214');
   });
 
   it('maps only staff_update events into updates (no internal notes)', () => {
@@ -161,11 +190,10 @@ describe('toStaffLinkProjection', () => {
     expect(JSON.stringify(out.updates)).not.toContain('INTERNAL David note');
   });
 
-  it('leaks NO PII or sibling data — assert absence of forbidden keys across the whole payload', () => {
+  it('leaks NO sensitive PII or sibling data — name + dorm are ALLOWED (D1/D2); medical/parent/raw/reporter/ids are NOT', () => {
     const out = toStaffLinkProjection(theCase, student, staffUpdates);
     const blob = JSON.stringify(out);
-    // Structural key checks
-    expect(out).not.toHaveProperty('last_name');
+    // Structural key checks — these must never appear regardless of D1/D2.
     expect(out).not.toHaveProperty('medical_notes');
     expect(out).not.toHaveProperty('parent_first_name');
     expect(out).not.toHaveProperty('parent_last_name');
@@ -178,8 +206,7 @@ describe('toStaffLinkProjection', () => {
     expect(out).not.toHaveProperty('share_token');
     expect(out).not.toHaveProperty('prior_cases');
     expect(out).not.toHaveProperty('cases');
-    // Value-level leak checks across the serialized payload
-    expect(blob).not.toContain('Appleseed'); // full last name
+    // Value-level leak checks across the serialized payload — the forbidden ones.
     expect(blob).not.toContain('Peanut'); // medical notes
     expect(blob).not.toContain('+18065559999'); // parent phone
     expect(blob).not.toContain('+18065551234'); // cell phone
@@ -190,6 +217,54 @@ describe('toStaffLinkProjection', () => {
 
   it('handles an empty last name without throwing', () => {
     const out = toStaffLinkProjection(theCase, { ...student, last_name: '' }, []);
-    expect(out.last_initial).toBe('');
+    expect(out.last_name).toBe('');
+  });
+});
+
+describe('toEnsembleRosterProjection', () => {
+  const roster: Student[] = [
+    {
+      id: 'st1',
+      first_name: 'Johnny',
+      preferred_name: 'JJ',
+      last_name: 'Appleseed',
+      last_initial: 'A',
+      division: 'HS',
+      instrument: 'Trumpet',
+      ensemble: 'Band 1',
+      grade: '11',
+      dorm_building: 'Wall',
+      dorm_room: '214',
+      cell_phone: '+18065551234',
+      parent_phone: '+18065559999',
+      medical_notes: 'Peanut allergy',
+      created_at: '2026-06-01',
+    },
+  ];
+
+  it('exposes ONLY attendance-scoped keys (ref/name/instrument/grade/score_rank)', () => {
+    const out = toEnsembleRosterProjection(roster);
+    expect(Object.keys(out[0]!).sort()).toEqual(
+      ['first_name', 'grade', 'instrument', 'last_name', 'ref', 'score_rank'].sort()
+    );
+  });
+
+  it('assigns ref by array index (stable for echo-back on submit)', () => {
+    const out = toEnsembleRosterProjection([roster[0]!, { ...roster[0]!, id: 'st2' }]);
+    expect(out.map((r) => r.ref)).toEqual([0, 1]);
+  });
+
+  it('prefers preferred_name and leaks NO PII (no dorm/medical/parent/cell/student_id)', () => {
+    const out = toEnsembleRosterProjection(roster);
+    expect(out[0]!.first_name).toBe('JJ');
+    const blob = JSON.stringify(out);
+    expect(blob).not.toContain('Peanut');
+    expect(blob).not.toContain('+18065559999');
+    expect(blob).not.toContain('+18065551234');
+    expect(blob).not.toContain('Wall'); // dorm building
+    expect(blob).not.toContain('214'); // dorm room
+    expect(blob).not.toContain('st1'); // student id
+    expect(out[0]!).not.toHaveProperty('dorm_building');
+    expect(out[0]!).not.toHaveProperty('student_id');
   });
 });

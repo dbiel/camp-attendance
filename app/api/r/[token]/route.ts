@@ -52,5 +52,11 @@ export const GET = async (
     reports.push({ ref: i, ...toStaffLinkProjection(c, student ?? null, events) });
   }
   if (reports.length === 0) return NextResponse.json(UNIFORM_FAILURE, { status: 404 });
+  // D3 auto-resolve: a resolved kid STAYS visible (resolved banner, draft
+  // preserved) so the counselor sees "found, thanks" — but once EVERY kid on the
+  // link is resolved the link has no purpose, so it dies with the uniform 404.
+  if (reports.every((r) => r.status === 'resolved')) {
+    return NextResponse.json(UNIFORM_FAILURE, { status: 404 });
+  }
   return NextResponse.json({ reports });
 };

@@ -19,6 +19,8 @@ export const WIPE_COLLECTIONS = [
   'cases',
   'case_events',
   'staff_links',
+  'ensemble_links',
+  'ensemble_attendance',
 ] as const;
 
 export interface WipeResult {

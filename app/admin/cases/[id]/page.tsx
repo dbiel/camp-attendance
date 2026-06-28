@@ -367,7 +367,7 @@ export default function CaseDetail() {
   );
 }
 
-/** Two-way staff link controls (super_admin). Issues a 4h tokenized link to a
+/** Two-way staff link controls (super_admin). Issues a 2h tokenized link to a
  * single staff recipient, shows the copyable /r/<token> URL with an expiry
  * countdown, and supports Revoke / Re-issue. */
 function ShareLinkControls({
@@ -459,7 +459,8 @@ function ShareLinkControls({
     <section className="mt-6 rounded border bg-white p-3 text-sm">
       <h2 className="font-semibold">Staff link</h2>
       <p className="mt-1 text-xs text-gray-500">
-        Send a single staff member a scoped, two-way link. It expires 4 hours after you send it.
+        Send a single staff member a scoped, two-way link. It expires 2 hours after you send it,
+        and dies automatically once the report is resolved.
       </p>
 
       <label className="mt-2 block">

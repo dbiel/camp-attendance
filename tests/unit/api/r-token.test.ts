@@ -76,11 +76,22 @@ describe('GET /api/r/[token]', () => {
     expect(Array.isArray(data.reports)).toBe(true);
     expect(data.reports).toHaveLength(1);
     expect(Object.keys(data.reports[0]).sort()).toEqual(
-      ['dorm_room', 'first_name', 'instrument', 'last_initial', 'ref', 'report_summary', 'status', 'updates'].sort()
+      [
+        'dorm_building',
+        'dorm_room',
+        'first_name',
+        'instrument',
+        'last_name',
+        'ref',
+        'report_summary',
+        'status',
+        'updates',
+      ].sort()
     );
     expect(data.reports[0].ref).toBe(0); // opaque index, not the case id
+    expect(data.reports[0].last_name).toBe('Appleseed'); // D2: full last name now exposed
     const blob = JSON.stringify(data);
-    expect(blob).not.toContain('Appleseed');
+    // Forbidden PII must still never appear.
     expect(blob).not.toContain('Peanut');
     expect(blob).not.toContain('+18065559999');
     expect(blob).not.toContain('SENSITIVE');
@@ -100,6 +111,42 @@ describe('GET /api/r/[token]', () => {
     expect(data.reports).toHaveLength(2);
     expect(data.reports.map((r: { ref: number }) => r.ref)).toEqual([0, 1]);
     expect(JSON.stringify(data)).not.toContain('case2'); // refs are indexes, not ids
+  });
+
+  it('D3: a single resolved report makes the link die (uniform 404)', async () => {
+    m.validateShareToken.mockResolvedValue({ caseId: 'case1' });
+    m.getCase.mockResolvedValue({ ...validCase, status: 'resolved' });
+    m.getStudent.mockResolvedValue(student);
+    m.listCaseEvents.mockResolvedValue([]);
+    const res = await GET(req('GET'), { params: { token: 'tok' } });
+    expect(res.status).toBe(404);
+  });
+
+  it('D3: combined link dies (404) only once EVERY kid is resolved', async () => {
+    m.validateShareToken.mockResolvedValue(null);
+    m.validateCombinedToken.mockResolvedValue({ caseIds: ['case1', 'case2'], recipientLabel: 'Dorm A' });
+    m.getCase.mockImplementation(async (id: string) => ({ ...validCase, id, status: 'resolved' }));
+    m.getStudent.mockResolvedValue(student);
+    m.listCaseEvents.mockResolvedValue([]);
+    const res = await GET(req('GET'), { params: { token: 'combined' } });
+    expect(res.status).toBe(404);
+  });
+
+  it('D3: a resolved kid STAYS visible while a sibling is still active', async () => {
+    m.validateShareToken.mockResolvedValue(null);
+    m.validateCombinedToken.mockResolvedValue({ caseIds: ['case1', 'case2'], recipientLabel: 'Dorm A' });
+    m.getCase.mockImplementation(async (id: string) => ({
+      ...validCase,
+      id,
+      status: id === 'case1' ? 'resolved' : 'active',
+    }));
+    m.getStudent.mockResolvedValue(student);
+    m.listCaseEvents.mockResolvedValue([]);
+    const res = await GET(req('GET'), { params: { token: 'combined' } });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.reports).toHaveLength(2);
+    expect(data.reports.map((r: { status: string }) => r.status).sort()).toEqual(['active', 'resolved']);
   });
 
   it('returns a uniform 404 for an unknown token (no enumeration)', async () => {

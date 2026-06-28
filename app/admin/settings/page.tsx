@@ -10,6 +10,7 @@ import { useToast } from '@/components/Toast';
 import { CampIdentitySection } from './CampIdentitySection';
 import { AdminUsersSection } from './AdminUsersSection';
 import { MessageTemplatesSection } from './MessageTemplatesSection';
+import { EnsembleLinksSection } from './EnsembleLinksSection';
 import { ClearAllDataSection } from './ClearAllDataSection';
 import type { CampConfig } from '@/lib/types';
 
@@ -299,6 +300,9 @@ export default function AdminSettingsPage() {
                 </Link>
               </div>
             </section>
+
+            {/* Ensemble attendance links — super admin only */}
+            {isSuperAdmin && <EnsembleLinksSection />}
 
             {/* Danger Zone — super admin only */}
             {isSuperAdmin && <ClearAllDataSection />}
