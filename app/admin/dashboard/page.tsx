@@ -315,7 +315,7 @@ export default function AdminDashboard() {
   }
 
   function exportCSV() {
-    const headers = ['Name', 'Status', 'Session', 'Period', 'Ensemble', 'Instrument', 'Dorm', 'Cell', 'Parent Phone', 'Teacher'];
+    const headers = ['Name', 'Status', 'Class', 'Period', 'Ensemble', 'Instrument', 'Dorm', 'Cell', 'Parent Phone', 'Teacher'];
     const rows = filtered.map((r) => [
       `${r.first_name} ${r.last_name}`,
       r.status,
@@ -627,7 +627,7 @@ export default function AdminDashboard() {
             Faculty
           </Link>
           <Link href="/admin/data/sessions" className="camp-btn-outline block text-center py-3 font-semibold">
-            Sessions
+            Classes
           </Link>
           <Link href="/admin/import" className="camp-btn-outline block text-center py-3 font-semibold">
             Import Data

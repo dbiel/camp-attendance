@@ -95,7 +95,7 @@ function SessionCell({ sessions }: SessionCellProps) {
   return (
     <div className="flex flex-col divide-y divide-[var(--glass-border)]">
       {sessions.map((s, idx) => {
-        const name = s.session_name || s.name || 'Session';
+        const name = s.session_name || s.name || 'Class';
         const location = s.location || '';
         const teacher = s.faculty_name || '';
         const ariaParts = [name];
@@ -232,7 +232,7 @@ export default function SchedulePage() {
         </Link>
         <h1 className="text-2xl font-bold">Schedule Grid</h1>
         <p className="text-sm opacity-80 mt-1">
-          Periods × ensembles. Click a session to view its roster.
+          Periods × ensembles. Click a class to view its roster.
         </p>
       </div>
 
@@ -241,7 +241,7 @@ export default function SchedulePage() {
           <div className="text-center text-[var(--text-2)] py-8">Loading...</div>
         ) : schedule.length === 0 ? (
           <div className="camp-card text-center text-[var(--text-2)] py-8">
-            No sessions scheduled yet.
+            No classes scheduled yet.
           </div>
         ) : (
           <div className="camp-card overflow-x-auto">

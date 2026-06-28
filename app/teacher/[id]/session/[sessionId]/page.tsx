@@ -194,7 +194,7 @@ export default function AttendancePage({
         const sessionData = await sessionDetailRes.json();
         setSession({
           id: sessionId,
-          name: sessionData.name || 'Session',
+          name: sessionData.name || 'Class',
           type: sessionData.type || 'rehearsal',
           location: sessionData.location,
           period_name: sessionData.period_name || 'Period',
@@ -205,7 +205,7 @@ export default function AttendancePage({
       } else {
         setSession({
           id: sessionId,
-          name: 'Session',
+          name: 'Class',
           type: 'rehearsal',
           period_name: 'Period',
           start_time: '',
@@ -410,7 +410,7 @@ export default function AttendancePage({
         {loading ? (
           <div className="text-center text-[var(--text-2)] py-8">Loading students...</div>
         ) : students.length === 0 ? (
-          <div className="text-center text-[var(--text-2)] py-8">No students in this session</div>
+          <div className="text-center text-[var(--text-2)] py-8">No students in this class</div>
         ) : (
           <div className="space-y-2">
             {sortedStudents.map((student) => {

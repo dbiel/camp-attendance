@@ -29,7 +29,7 @@ const SUB_TABS: { key: string; label: string; href: string }[] = [
   { key: 'reports', label: 'Reports', href: '/admin/cases/history' },
   { key: 'students', label: 'Students', href: '/admin/data/students' },
   { key: 'faculty', label: 'Faculty', href: '/admin/data/faculty' },
-  { key: 'sessions', label: 'Sessions', href: '/admin/data/sessions' },
+  { key: 'sessions', label: 'Classes', href: '/admin/data/sessions' },
 ];
 
 /** Explicit route → tab mapping (no loose startsWith that would misfire). */

@@ -178,9 +178,9 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
       {/* Sessions List */}
       <div className="max-w-2xl mx-auto p-4">
         {loading ? (
-          <div className="text-center text-[var(--text-2)] py-8">Loading sessions...</div>
+          <div className="text-center text-[var(--text-2)] py-8">Loading classes...</div>
         ) : sessions.length === 0 ? (
-          <div className="text-center text-[var(--text-2)] py-8">No sessions assigned</div>
+          <div className="text-center text-[var(--text-2)] py-8">No classes assigned</div>
         ) : (
           <div className="space-y-3">
             {sessions.map((session) => (

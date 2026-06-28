@@ -20,7 +20,7 @@ export function CoverageGrid({ rows, onSessionClick }: Props) {
   }, [rows]);
 
   if (grouped.length === 0) {
-    return <div className="text-center p-8 text-[var(--text-3)]">No sessions match your filters.</div>;
+    return <div className="text-center p-8 text-[var(--text-3)]">No classes match your filters.</div>;
   }
 
   return (

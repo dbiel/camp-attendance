@@ -102,7 +102,7 @@ export default function SessionsDataPage() {
   }
 
   async function deleteSessionItem(id: string) {
-    if (!confirm('Delete this session?')) return;
+    if (!confirm('Delete this class?')) return;
 
     try {
       const headers = await getAuthHeaders();
@@ -120,14 +120,14 @@ export default function SessionsDataPage() {
   return (
     <div className="min-h-screen bg-[var(--surface)] pb-20">
       <div className="max-w-6xl mx-auto px-4 pt-4">
-        <h1 className="text-2xl font-bold text-camp-green">Sessions</h1>
+        <h1 className="text-2xl font-bold text-camp-green">Classes</h1>
       </div>
 
       <div className="max-w-6xl mx-auto p-4">
         <div className="mb-4">
           <input
             type="text"
-            placeholder="Search sessions..."
+            placeholder="Search classes..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="camp-input"
@@ -183,7 +183,7 @@ export default function SessionsDataPage() {
       {editingId !== null && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="glass-card p-6 w-full max-w-md max-h-96 overflow-y-auto">
-            <h2 className="text-xl font-bold text-camp-green mb-4">Edit Session</h2>
+            <h2 className="text-xl font-bold text-camp-green mb-4">Edit Class</h2>
             <div className="space-y-4 mb-6">
               <div>
                 <label className="camp-label">Name</label>
