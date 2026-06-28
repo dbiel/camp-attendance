@@ -89,14 +89,14 @@ export default function StaffLinkViewer() {
   }
 
   if (state.kind === 'loading') {
-    return <main className="mx-auto max-w-md p-6 text-center text-sm text-gray-500">Loading…</main>;
+    return <main className="mx-auto max-w-md p-6 text-center text-sm text-[var(--text-3)]">Loading…</main>;
   }
 
   if (state.kind === 'invalid') {
     return (
       <main className="mx-auto flex max-w-md flex-col items-center gap-2 p-8 text-center">
-        <h1 className="text-lg font-semibold text-gray-800">This link is no longer active</h1>
-        <p className="text-sm text-gray-600">
+        <h1 className="text-lg font-semibold text-[var(--text)]">This link is no longer active</h1>
+        <p className="text-sm text-[var(--text-2)]">
           The report may have been resolved, or the link expired. Please ask the camp office for a new link if you still need it.
         </p>
       </main>
@@ -114,7 +114,7 @@ export default function StaffLinkViewer() {
         {reports.map((d) => {
           const fullName = `${d.first_name} ${d.last_initial}`.trim();
           return (
-            <section key={d.ref} className="rounded-lg border bg-white p-4 shadow-sm">
+            <section key={d.ref} className="camp-card p-4">
               <div className="flex items-baseline justify-between">
                 <h2 className="text-xl font-bold">{fullName}</h2>
                 <span
@@ -127,14 +127,14 @@ export default function StaffLinkViewer() {
                   {d.status === 'resolved' ? 'Resolved' : 'Active'}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-gray-800">{d.report_summary}</p>
+              <p className="mt-1 text-sm text-[var(--text)]">{d.report_summary}</p>
               <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
                 <div>
-                  <dt className="text-gray-500">Instrument</dt>
+                  <dt className="text-[var(--text-3)]">Instrument</dt>
                   <dd>{d.instrument || '—'}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-500">Dorm room</dt>
+                  <dt className="text-[var(--text-3)]">Dorm room</dt>
                   <dd>{d.dorm_room || '—'}</dd>
                 </div>
               </dl>
@@ -146,12 +146,12 @@ export default function StaffLinkViewer() {
               )}
 
               <div className="mt-3">
-                <h3 className="text-sm font-semibold text-gray-700">Updates</h3>
+                <h3 className="text-sm font-semibold text-[var(--text-2)]">Updates</h3>
                 <ol className="mt-2 flex flex-col gap-2">
-                  {d.updates.length === 0 && <li className="text-sm text-gray-500">No updates yet.</li>}
+                  {d.updates.length === 0 && <li className="text-sm text-[var(--text-3)]">No updates yet.</li>}
                   {d.updates.map((u, i) => (
                     <li key={i} className="rounded border-l-4 border-blue-400 bg-blue-50 p-2 text-sm">
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-[var(--text-3)]">
                         {new Date(u.created_at).toLocaleString()} · {u.actor}
                       </span>
                       <p className="whitespace-pre-wrap break-words">{u.body}</p>

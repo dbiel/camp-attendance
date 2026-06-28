@@ -337,7 +337,7 @@ export default function AttendancePage({
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
+    <div className="min-h-screen bg-[var(--surface)] pb-32">
       {/* Sticky Header */}
       <div className={`sticky-header ${headerCollapsed ? 'collapsed' : ''}`}>
         <Link href={`/teacher/${params.id}`} className="text-camp-green font-semibold hover:opacity-75 mb-2 block">
@@ -354,7 +354,7 @@ export default function AttendancePage({
 
         {/* Collapses on scroll: meta, day selector, count bar */}
         <div className="collapsible">
-          <p className="text-sm text-gray-600 mt-1 mb-3">
+          <p className="text-sm text-[var(--text-2)] mt-1 mb-3">
             {session?.period_name}{session?.start_time ? ` \u2022 ${session.start_time}\u2013${session.end_time}` : ''}
             {session?.location ? ` \u2022 ${session.location}` : ''}
           </p>
@@ -372,7 +372,7 @@ export default function AttendancePage({
                   className={`flex-1 py-2 rounded font-bold text-sm transition-all relative ${
                     isSelected
                       ? 'bg-camp-green text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      : 'bg-[var(--surface)] text-[var(--text-2)] hover:bg-[var(--accent-soft)]'
                   }`}
                 >
                   {dayKey}
@@ -408,9 +408,9 @@ export default function AttendancePage({
       {/* Students List */}
       <div className="max-w-2xl mx-auto p-4">
         {loading ? (
-          <div className="text-center text-gray-600 py-8">Loading students...</div>
+          <div className="text-center text-[var(--text-2)] py-8">Loading students...</div>
         ) : students.length === 0 ? (
-          <div className="text-center text-gray-600 py-8">No students in this session</div>
+          <div className="text-center text-[var(--text-2)] py-8">No students in this session</div>
         ) : (
           <div className="space-y-2">
             {sortedStudents.map((student) => {
@@ -469,7 +469,7 @@ export default function AttendancePage({
         title="Mark remaining absent?"
         size="md"
       >
-        <p className="mb-6 text-gray-700">
+        <p className="mb-6 text-[var(--text-2)]">
           Mark {unmarkedCount} student{unmarkedCount === 1 ? '' : 's'} remaining as absent?
         </p>
         <div className="flex gap-3 justify-end">

@@ -82,9 +82,9 @@ export default function TeacherLanding() {
   if (!hasCode) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-camp-green to-camp-light flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md text-center">
+        <div className="camp-card p-8 w-full max-w-md text-center">
           <h1 className="text-3xl font-bold text-camp-green mb-2">TTU Band & Orchestra Camp</h1>
-          <p className="text-gray-600 mb-6">Enter the camp code to continue</p>
+          <p className="text-[var(--text-2)] mb-6">Enter the camp code to continue</p>
 
           <form onSubmit={handleCodeSubmit} className="space-y-4">
             <input
@@ -101,7 +101,7 @@ export default function TeacherLanding() {
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="mt-6 pt-6 border-t border-[var(--glass-border)]">
             <Link href="/admin" className="text-camp-green hover:opacity-75 font-medium">
               Admin Portal &rarr;
             </Link>
@@ -141,12 +141,12 @@ export default function TeacherLanding() {
             <Link
               key={member.id}
               href={`/teacher/${member.id}`}
-              className="block w-full p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer"
+              className="block w-full p-4 camp-card hover:shadow-lg transition-all active:scale-95 cursor-pointer"
             >
               <div className="font-semibold text-camp-green text-lg">
                 {member.first_name} {member.last_name}
               </div>
-              <div className="text-sm text-gray-600">{member.role}</div>
+              <div className="text-sm text-[var(--text-2)]">{member.role}</div>
             </Link>
           ))
         )}
