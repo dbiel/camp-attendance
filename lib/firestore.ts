@@ -96,9 +96,25 @@ export async function deleteFaculty(id: string): Promise<void> {
 
 // ─── Period operations ──────────────────────────────────────────────────
 
+// Periods change only on seed/rollover — cache briefly so per-request schedule
+// derivation (which reads them N times) doesn't re-query 10 docs each call. TTL
+// keeps a long-lived SSR instance from serving a stale empty set after a seed.
+let _periodsCache: { at: number; periods: Period[] } | null = null;
+const PERIODS_TTL_MS = 60_000;
+
 export async function getPeriods(): Promise<Period[]> {
+  if (_periodsCache && Date.now() - _periodsCache.at < PERIODS_TTL_MS) {
+    return _periodsCache.periods;
+  }
   const snap = await periodsCol().orderBy('number').get();
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Period));
+  const periods = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Period));
+  _periodsCache = { at: Date.now(), periods };
+  return periods;
+}
+
+/** Test/seed hook to drop the periods cache. */
+export function _clearPeriodsCache(): void {
+  _periodsCache = null;
 }
 
 export async function getPeriod(id: string): Promise<Period | undefined> {
@@ -166,6 +182,71 @@ export async function addStudentToSession(sessionId: string, studentId: string):
 export async function removeStudentFromSession(sessionId: string, studentId: string): Promise<void> {
   const docId = `${sessionId}_${studentId}`;
   await sessionStudentsCol().doc(docId).delete();
+}
+
+export interface StudentScheduleSlot {
+  session_id: string;
+  name: string;
+  type: string;
+  location: string | null;
+  ensemble: string | null;
+  period_id: string;
+  period_number: number;
+  start_time: string;
+  end_time: string;
+  faculty_id: string | null;
+  faculty_name: string | null;
+}
+
+/**
+ * A student's full schedule (ensemble base + electives, via session_students),
+ * each slot carrying its period clock window + the assigned faculty.
+ *
+ * Efficient: ~3 round-trips total — one enrollment query, one batched getAll for
+ * the sessions, one batched getAll for the distinct faculty — plus the cached
+ * getPeriods(). Do NOT use the serial getStudentSchedule() for hot paths; it
+ * also joins the dormant attendance collection which the now/next UI ignores.
+ */
+export async function getStudentScheduleSessions(studentId: string): Promise<StudentScheduleSlot[]> {
+  const ssSnap = await sessionStudentsCol().where('student_id', '==', studentId).get();
+  if (ssSnap.empty) return [];
+
+  const sessionIds = [...new Set(ssSnap.docs.map((d) => d.data().session_id as string))];
+  const sessionDocs = await adminDb.getAll(...sessionIds.map((id) => sessionsCol().doc(id)));
+  const sessions = sessionDocs
+    .filter((d) => d.exists)
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<Session, 'id'>) }));
+
+  const periods = await getPeriods();
+  const periodMap = new Map(periods.map((p) => [p.id, p]));
+
+  const facultyIds = [...new Set(sessions.map((s) => s.faculty_id).filter((x): x is string => !!x))];
+  const facultyDocs = facultyIds.length
+    ? await adminDb.getAll(...facultyIds.map((id) => facultyCol().doc(id)))
+    : [];
+  const facultyMap = new Map(
+    facultyDocs.filter((d) => d.exists).map((d) => [d.id, d.data() as Omit<Faculty, 'id'>])
+  );
+
+  const slots: StudentScheduleSlot[] = sessions.map((s) => {
+    const p = periodMap.get(s.period_id);
+    const fac = s.faculty_id ? facultyMap.get(s.faculty_id) : undefined;
+    return {
+      session_id: s.id,
+      name: s.name,
+      type: s.type,
+      location: s.location ?? null,
+      ensemble: s.ensemble ?? null,
+      period_id: s.period_id,
+      period_number: p?.number ?? 0,
+      start_time: p?.start_time ?? '',
+      end_time: p?.end_time ?? '',
+      faculty_id: s.faculty_id ?? null,
+      faculty_name: fac ? `${fac.first_name} ${fac.last_name}` : null,
+    };
+  });
+  slots.sort((a, b) => a.period_number - b.period_number);
+  return slots;
 }
 
 // ─── Attendance operations ──────────────────────────────────────────────
