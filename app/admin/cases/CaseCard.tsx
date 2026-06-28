@@ -96,14 +96,14 @@ export function CaseCard({
                 ⚠ needs match
               </span>
             )}
-            {c.instrument && <span className="ml-2 text-sm font-normal text-gray-500">{c.instrument}</span>}
+            {c.instrument && <span className="ml-2 text-sm font-normal text-[var(--text-3)]">{c.instrument}</span>}
           </span>
-          <span className={`shrink-0 text-sm ${urgent ? 'font-bold text-red-700' : 'text-gray-600'}`}>
+          <span className={`shrink-0 text-sm ${urgent ? 'font-bold text-red-700' : 'text-[var(--text-2)]'}`}>
             {fmtElapsed(mins)} ago
           </span>
         </div>
-        <p className="mt-1 text-sm text-gray-800">{c.summary}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+        <p className="mt-1 text-sm text-[var(--text)]">{c.summary}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-3)]">
           {/* Dorm is a LOCATOR (where to look) — not proof the kid is there. */}
           <span title="Dorm location — where to look, not a presence check">
             🏠 {locator}
@@ -112,7 +112,7 @@ export function CaseCard({
           {c.reporter_name && <span>· by {c.reporter_name}</span>}
         </div>
         {nowNext && (
-          <p className="mt-1 text-xs text-gray-700">
+          <p className="mt-1 text-xs text-[var(--text-2)]">
             <span className="font-medium">now:</span> {nowNext.current ? nowNext.current.name : 'No class'}
             {'  '}
             <span className="font-medium">· next:</span> {formatNextLabel(nowNext.next)}

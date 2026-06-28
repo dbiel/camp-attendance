@@ -248,7 +248,7 @@ export function NewReport({
 
   if (stage === 'paste') {
     return (
-      <div className="rounded-lg border bg-white p-4 shadow-sm">
+      <div className="camp-card p-4">
         <h2 className="mb-2 font-semibold">New report</h2>
         <textarea
           value={rawText}
@@ -276,7 +276,7 @@ export function NewReport({
   }
 
   return (
-    <div className="rounded-lg border bg-white p-4 shadow-sm">
+    <div className="camp-card p-4">
       <h2 className="mb-2 font-semibold">
         Confirm {people.length > 1 ? `${people.length} reports` : 'report'}
       </h2>
@@ -318,7 +318,7 @@ export function NewReport({
               />
             )}
 
-            <label className="mt-2 flex items-center gap-2 text-xs text-gray-600">
+            <label className="mt-2 flex items-center gap-2 text-xs text-[var(--text-2)]">
               <input
                 type="checkbox"
                 checked={p.noStudent}
@@ -432,7 +432,7 @@ function StudentPicker({ candidates, value, selected, onChange, getAuthHeaders }
       {selected && value === selected.id && (
         <p className="mb-2 rounded border border-red-700 bg-red-50 p-2 text-sm">
           <span className="font-semibold">✓ Selected:</span> {selected.name}
-          <span className="ml-2 text-gray-500">{selected.instrument} · {selected.ensemble ?? '?'} · {selected.dorm_building || 'commuter'}</span>
+          <span className="ml-2 text-[var(--text-3)]">{selected.instrument} · {selected.ensemble ?? '?'} · {selected.dorm_building || 'commuter'}</span>
         </p>
       )}
       <label className="block text-sm font-medium">
@@ -452,11 +452,11 @@ function StudentPicker({ candidates, value, selected, onChange, getAuthHeaders }
             className={`rounded border p-2 text-left text-sm ${value === c.id ? 'border-red-700 bg-red-50' : ''}`}
           >
             <span className="font-medium">{c.name}</span>
-            <span className="ml-2 text-gray-500">{c.instrument} · {c.ensemble ?? '?'} · {c.dorm_building || 'commuter'}</span>
+            <span className="ml-2 text-[var(--text-3)]">{c.instrument} · {c.ensemble ?? '?'} · {c.dorm_building || 'commuter'}</span>
           </button>
         ))}
         {options.length === 0 && (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-[var(--text-3)]">
             {query.length >= 2 ? 'No match — try another spelling, or tick “No student found”.' : ''}
           </p>
         )}

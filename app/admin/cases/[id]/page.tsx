@@ -91,14 +91,14 @@ export default function CaseDetail() {
 
   if (loadError && !detail) {
     return (
-      <main className="p-4 text-sm text-gray-500">
+      <main className="p-4 text-sm text-[var(--text-3)]">
         <p>{loadError}</p>
         <button onClick={refresh} className="mt-2 rounded border px-3 py-1 text-sm">Retry</button>
       </main>
     );
   }
 
-  if (!detail || !user) return <main className="p-4 text-sm text-gray-500">Loading…</main>;
+  if (!detail || !user) return <main className="p-4 text-sm text-[var(--text-3)]">Loading…</main>;
   const { case: c, student, events, prior_cases } = detail;
 
   const vars = {
@@ -116,13 +116,13 @@ export default function CaseDetail() {
     <main className="mx-auto max-w-2xl p-4">
       <Link href="/admin/cases" className="text-sm text-red-700 underline">← Active reports</Link>
       <h1 className="mt-2 text-xl font-bold">{c.student_name}</h1>
-      <p className="text-sm text-gray-600">{c.summary}{c.session_label ? ` — ${c.session_label}` : ''}</p>
+      <p className="text-sm text-[var(--text-2)]">{c.summary}{c.session_label ? ` — ${c.session_label}` : ''}</p>
       {c.status === 'resolved' && (
         <p className="mt-2 rounded bg-green-50 p-2 text-sm text-green-800">Resolved: {c.resolution_note}</p>
       )}
 
       {student && (
-        <section className="mt-4 rounded border bg-white p-3 text-sm">
+        <section className="mt-4 glass-card p-3 text-sm">
           <p><span className="font-medium">Dorm:</span> {student.dorm_building || 'Commuter'} {student.dorm_room || ''}</p>
           <p><span className="font-medium">Parent:</span> {student.parent_first_name} {student.parent_last_name} {student.parent_phone}</p>
           <p><span className="font-medium">Kid cell:</span> {student.cell_phone || '—'}</p>
@@ -184,10 +184,10 @@ export default function CaseDetail() {
                 className={
                   isStaff
                     ? 'rounded border-l-4 border-blue-400 bg-blue-50 p-2'
-                    : 'rounded border-l-4 border-gray-300 bg-white p-2'
+                    : 'rounded border-l-4 border-[var(--glass-border)] bg-[var(--surface)] p-2'
                 }
               >
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-[var(--text-3)]">
                   {new Date(e.created_at).toLocaleTimeString()} · {e.actor}
                   {isStaff && <span className="ml-1 font-medium text-blue-700">· staff link</span>}
                 </span>
@@ -202,17 +202,17 @@ export default function CaseDetail() {
         <section className="mt-6">
           <h2 className="font-semibold">
             Prior reports for {student?.preferred_name || student?.first_name || c.student_name}{' '}
-            <span className="text-sm font-normal text-gray-500">({prior_cases.length})</span>
+            <span className="text-sm font-normal text-[var(--text-3)]">({prior_cases.length})</span>
           </h2>
           <div className="mt-2 flex flex-col gap-3">
             {prior_cases.map((p) => (
-              <div key={p.id} className="rounded border bg-white p-3 text-sm">
+              <div key={p.id} className="glass-card p-3 text-sm">
                 <div className="flex items-baseline justify-between">
                   <Link href={`/admin/cases/${p.id}`} className="font-medium text-red-700 underline">
                     {p.summary}
                     {p.session_label ? ` — ${p.session_label}` : ''}
                   </Link>
-                  <span className="text-xs text-gray-500">{new Date(p.created_at).toLocaleString()}</span>
+                  <span className="text-xs text-[var(--text-3)]">{new Date(p.created_at).toLocaleString()}</span>
                 </div>
                 <p className="mt-0.5 text-xs">
                   <span className={p.status === 'resolved' ? 'text-green-700' : 'text-red-700'}>
@@ -221,14 +221,14 @@ export default function CaseDetail() {
                   {p.resolution_note ? ` — found: ${p.resolution_note}` : ''}
                 </p>
                 {p.events.length > 0 && (
-                  <ol className="mt-2 flex flex-col gap-1 border-l-2 border-gray-200 pl-3">
+                  <ol className="mt-2 flex flex-col gap-1 border-l-2 border-[var(--glass-border)] pl-3">
                     {p.events.map((e) => (
                       <li key={e.id} className="text-xs">
-                        <span className="text-gray-500">
+                        <span className="text-[var(--text-3)]">
                           {new Date(e.created_at).toLocaleString()} · {e.actor}
                           {e.type === 'staff_update' && <span className="ml-1 font-medium text-blue-700">· staff link</span>}
                         </span>
-                        <p className="text-gray-800">{e.body}</p>
+                        <p className="text-[var(--text)]">{e.body}</p>
                       </li>
                     ))}
                   </ol>
@@ -331,14 +331,14 @@ function ShareLinkControls({
   }
 
   return (
-    <section className="mt-6 rounded border bg-white p-3 text-sm">
+    <section className="mt-6 glass-card p-3 text-sm">
       <h2 className="font-semibold">Staff link</h2>
-      <p className="mt-1 text-xs text-gray-500">
+      <p className="mt-1 text-xs text-[var(--text-3)]">
         Send a single staff member a scoped, two-way link. It expires 4 hours after you send it.
       </p>
 
       <label className="mt-2 block">
-        <span className="text-xs text-gray-600">Who are you sending this to?</span>
+        <span className="text-xs text-[var(--text-2)]">Who are you sending this to?</span>
         <input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
@@ -409,7 +409,7 @@ function SmsAction({ label, href, body, onSent }: { label: string; href: string;
 function DormStaffAction({ staff, body, onSent }: { staff: Contact[]; body: string; onSent: (name: string) => void }) {
   const [open, setOpen] = useState(false);
   if (staff.length === 0) {
-    return <p className="rounded border border-dashed p-2 text-sm text-gray-500">No dorm staff contacts yet — add them in Settings.</p>;
+    return <p className="rounded border border-dashed p-2 text-sm text-[var(--text-3)]">No dorm staff contacts yet — add them in Settings.</p>;
   }
   return (
     <div>
