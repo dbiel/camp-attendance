@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateShareToken, validateCombinedToken, getCase, addCaseEvent } from '@/lib/cases';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { checkRateLimit, checkRateLimitDurable, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +17,11 @@ export const POST = async (
 ): Promise<Response> => {
   const ip = getClientIp(request);
   if (!checkRateLimit(`r-update:${ip}`)) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
+  // Durable per-LINK cap (shared across instances; IP-spoof-proof). 20/min is
+  // plenty for a staffer posting updates; bounds spam on a leaked link.
+  if (!(await checkRateLimitDurable(`r-update:${params.token}`, { max: 20, windowMs: 60_000 }))) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
   const now = new Date();

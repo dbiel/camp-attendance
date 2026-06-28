@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { submitEnsembleAttendance } from '@/lib/ensemble-attendance';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { checkRateLimit, checkRateLimitDurable, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +20,11 @@ export const POST = async (
 ): Promise<Response> => {
   const ip = getClientIp(request);
   if (!checkRateLimit(`e:${ip}`)) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
+  // Durable per-LINK cap (shared across instances; IP-spoof-proof). 30/min is
+  // ample for a manager re-submitting; bounds spam/cost on a leaked link.
+  if (!(await checkRateLimitDurable(`e-submit:${params.token}`, { max: 30, windowMs: 60_000 }))) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 

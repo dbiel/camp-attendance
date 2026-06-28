@@ -9,6 +9,7 @@ const m = vi.hoisted(() => ({
   addCaseEvent: vi.fn(),
   getStudent: vi.fn(),
   checkRateLimit: vi.fn(),
+  checkRateLimitDurable: vi.fn(),
   getClientIp: vi.fn(),
 }));
 
@@ -22,6 +23,7 @@ vi.mock('@/lib/cases', () => ({
 vi.mock('@/lib/firestore', () => ({ getStudent: m.getStudent }));
 vi.mock('@/lib/rate-limit', () => ({
   checkRateLimit: m.checkRateLimit,
+  checkRateLimitDurable: m.checkRateLimitDurable,
   getClientIp: m.getClientIp,
 }));
 
@@ -57,6 +59,7 @@ const student = {
 beforeEach(() => {
   vi.clearAllMocks();
   m.checkRateLimit.mockReturnValue(true);
+  m.checkRateLimitDurable.mockResolvedValue(true);
   m.getClientIp.mockReturnValue('1.2.3.4');
   m.validateCombinedToken.mockResolvedValue(null); // most tests use a single token
 });
