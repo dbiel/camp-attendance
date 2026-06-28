@@ -301,3 +301,41 @@ Implications:
 ## Nav amendment (2026-06-27, David) — two sections only
 
 Reversing the earlier "keep Inbox" call: the top nav is now **two sections — Incident and Data**. Inbox is dropped from the nav (`/admin/inbox` + the iMessage watcher/code stay **dormant** in case it's wanted later). The "Active Reports" tab is renamed **Incident** (still the live active-reports hub at `/admin/cases`). Data sub-tabs unchanged (Reports/Students/Faculty/Sessions). Shipped in `app/admin/layout.tsx`.
+
+---
+
+## Backlog (2026-06-27, David) — live feed + "new since last looked" badges
+
+Goal: David (and counselors on phones) should never miss a new report/update.
+Two distinct needs — **auto-refresh** (the data updates on screen on its own) and
+**unseen badges** (a yellow notification marker when something arrived since the
+view was last looked at).
+
+Scope:
+1. **Reports/incident list** — auto-refresh the list (already polls on the hub),
+   plus a yellow "new/updated" badge on a row when a report was added or got a
+   new staff-link update since David last viewed it.
+2. **Live feed everywhere it matters** — the report detail already polls every 15s
+   (Phase 4). Extend the same pattern to any view that should feel live.
+3. **Counselor `/r/<token>` viewer (mobile)** — already polls every 30s, paused
+   when backgrounded. Confirm cadence is enough for phones; consider a subtle
+   "updated" flash when new office activity lands.
+4. **Day/Period history hamburger menu** — a notification icon when something was
+   loaded into a day/period bucket the user hasn't opened, so nothing slips by
+   unseen in the history view.
+
+**"Unseen" mechanism:** store a per-view `last_seen` timestamp client-side
+(localStorage) and compare against each item's latest `updated_at`/event time;
+show the badge when newer. Clears when the item/view is opened.
+
+**Perf answer (David's question — "without crazy gb load on the chrome tab?"):**
+Yes, easily. We poll our own small JSON API (server-only Firestore reads stay
+behind the locked rules — we do NOT open client-SDK realtime listeners). A list
+poll is a few KB per request; even at 15–30s over a full camp day that's a few
+**MB** total, not GB, and tab memory stays flat (we replace state, don't append).
+Polling > WebSockets/SSE here because it's robust on flaky dorm wifi/phones,
+survives sleep/background, and needs no rule changes. Cheap levers if needed:
+pause when tab hidden (already do), back off when idle, and add an
+`If-Modified-Since`/`?since=<ts>` param so unchanged polls return 304/empty.
+
+Status: **not started** — captured for a focused "live + notifications" pass.
