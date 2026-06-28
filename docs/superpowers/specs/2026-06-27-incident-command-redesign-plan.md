@@ -279,7 +279,11 @@ David (2026-06-27) concretized the "current/next class" idea. Build alongside th
 - **Click a student row → expandable dropdown** showing the student's **full info** (contact, parent, dorm, medical, division, etc.) **including their full schedule** (all periods → session/room/faculty). Inline expand, not a route change.
 - Same now/next logic feeds the report card "now / next" line (Phase 4 C1) — build the helper once, reuse.
 
-**To discuss when we start it:** does "current session" use period start/end windows (gaps = "no class"), and should the next-session column show the *time* it starts too?
+**LOCKED (2026-06-27, David):**
+- **Current Session** uses **strict period windows** — if "now" (camp tz) isn't inside a class period (passing/free/evening dorm time), show **"No class"**. No sticky/next-up fallback.
+- **Next Session** shows **name + start time + room** (e.g. "Lunch · 12:00 · SUB Ballroom"); render "(no room)" when `location` is blank (it's often sparse).
+- The **report cards on the hub also show a `now / next` line** for the missing student (directly actionable — where to look now + where they resurface), not just the Students table.
+- A period resolves to whichever session the student is actually in that period (their elective overrides the ensemble base for that period if they have one).
 
 ### Schedule derivation (2026-06-27, David) — base + electives
 
