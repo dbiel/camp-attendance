@@ -1,7 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import type { Case } from '@/lib/cases';
+import { useAuth } from '@/lib/auth-context';
+import { currentAndNextSession, formatNextLabel, type ScheduleSlot } from '@/lib/schedule';
+import { getCurrentTimeHHMM } from '@/lib/date';
 
 /** Minutes since the incident occurred (occurred_at is always set). */
 function elapsedMins(c: Case): number {
@@ -25,8 +29,33 @@ export function CaseCard({
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
 }) {
+  const { getAuthHeaders } = useAuth();
+  const [slots, setSlots] = useState<ScheduleSlot[] | null>(null);
+
+  // Fetch the student's schedule once to show where they should be now / next —
+  // the most actionable info for finding a missing kid. Skipped for unmatched
+  // reports (no student_id yet, Phase 3 "No student found").
+  useEffect(() => {
+    if (!c.student_id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`/api/students/${c.student_id}/schedule?format=slots`, { headers });
+        if (res.ok && !cancelled) setSlots(((await res.json()).slots as ScheduleSlot[]) ?? []);
+      } catch {
+        // schedule is a nicety on the card — ignore transient failures
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [c.student_id, getAuthHeaders]);
+
   const mins = elapsedMins(c);
   const urgent = mins >= URGENT_AFTER_MIN;
+  // Recomputed each render (the hub polls → re-renders → advances with the clock).
+  const nowNext = slots ? currentAndNextSession(slots, getCurrentTimeHHMM()) : null;
   const dorm =
     c.dorm_building || c.dorm_room
       ? `${c.dorm_building ?? ''}${c.dorm_room ? ` ${c.dorm_room}` : ''}`.trim()
@@ -74,6 +103,13 @@ export function CaseCard({
           {c.session_label && <span>· {c.session_label}</span>}
           {c.reporter_name && <span>· by {c.reporter_name}</span>}
         </div>
+        {nowNext && (
+          <p className="mt-1 text-xs text-gray-700">
+            <span className="font-medium">now:</span> {nowNext.current ? nowNext.current.name : 'No class'}
+            {'  '}
+            <span className="font-medium">· next:</span> {formatNextLabel(nowNext.next)}
+          </p>
+        )}
       </Link>
     </div>
   );
