@@ -31,12 +31,12 @@ export function InputStep({
       <section className="camp-card p-6">
         <div className="flex items-baseline justify-between gap-4 flex-wrap">
           <h2 className="camp-subheading mb-0">Start a new camp year</h2>
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-[var(--text-2)]">
             Current year:{' '}
             <span className="font-mono font-semibold">{config.camp_id}</span>
           </div>
         </div>
-        <p className="text-sm text-gray-600 mt-2">
+        <p className="text-sm text-[var(--text-2)] mt-2">
           Archive this year&apos;s attendance and session enrollments under{' '}
           <code>camps/{config.camp_id}/</code>, then advance the active camp to
           a new year with a fresh camp code. Students, faculty, periods, and
@@ -72,7 +72,7 @@ export function InputStep({
               <p
                 id="new-year-hint"
                 className={`text-xs mt-1 ${
-                  form.newYear && !yearValid ? 'text-red-700' : 'text-gray-500'
+                  form.newYear && !yearValid ? 'text-red-700' : 'text-[var(--text-3)]'
                 }`}
               >
                 Must be a 4-digit year greater than {config.camp_year}.
@@ -147,11 +147,11 @@ export function InputStep({
             )}
           </div>
 
-          <div className="border-t border-gray-200 pt-4">
+          <div className="border-t border-[var(--glass-border)] pt-4">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-camp-green focus:ring-camp-green"
+                className="mt-1 h-4 w-4 rounded border-[var(--glass-border)] text-camp-green focus:ring-camp-green"
                 checked={form.clearEnsembleAssignments}
                 onChange={(e) =>
                   setForm((p) => ({
@@ -161,10 +161,10 @@ export function InputStep({
                 }
               />
               <span>
-                <span className="text-sm font-medium text-gray-800">
+                <span className="text-sm font-medium text-[var(--text)]">
                   Clear ensemble + chair assignments
                 </span>
-                <span className="block text-xs text-gray-500">
+                <span className="block text-xs text-[var(--text-3)]">
                   Resets ensemble + chair so day-1 auditions start fresh.
                 </span>
               </span>
@@ -178,8 +178,8 @@ export function InputStep({
             )}
             {preview.dayDates && (
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm border border-gray-200 rounded">
-                  <thead className="bg-gray-100 text-gray-700">
+                <table className="min-w-full text-sm border border-[var(--glass-border)] rounded">
+                  <thead className="bg-[var(--surface)] text-[var(--text-2)]">
                     <tr>
                       <th className="text-left px-3 py-2 font-semibold">Key</th>
                       <th className="text-left px-3 py-2 font-semibold">
@@ -188,13 +188,13 @@ export function InputStep({
                       <th className="text-left px-3 py-2 font-semibold">Date</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-[var(--glass-border)]">
                     {Object.entries(preview.dayDates).map(([key, date]) => (
                       <tr key={key}>
                         <td className="px-3 py-2 font-mono font-semibold">
                           {key}
                         </td>
-                        <td className="px-3 py-2 text-gray-600">
+                        <td className="px-3 py-2 text-[var(--text-2)]">
                           {formatDayLabel(key)}
                         </td>
                         <td className="px-3 py-2 font-mono">{date}</td>

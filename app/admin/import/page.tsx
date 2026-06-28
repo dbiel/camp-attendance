@@ -144,14 +144,14 @@ export default function ImportPage() {
 
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading…</div>
+      <div className="min-h-screen bg-[var(--surface)] flex items-center justify-center">
+        <div className="text-[var(--text-2)]">Loading…</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-[var(--surface)] pb-20">
       <div className="bg-camp-green text-white p-4 sticky top-0 z-40 shadow-md">
         <Link
           href="/admin/dashboard"

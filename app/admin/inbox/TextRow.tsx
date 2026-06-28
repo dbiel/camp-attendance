@@ -17,7 +17,7 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
 
 const TAG_CHIP: Record<TextTag, string> = {
   camp: 'bg-amber-100 text-amber-800 border-amber-300',
-  personal: 'bg-gray-100 text-gray-600 border-gray-300',
+  personal: 'bg-[var(--surface)] text-[var(--text-2)] border-[var(--glass-border)]',
   unknown: 'bg-purple-100 text-purple-800 border-purple-300',
 };
 
@@ -38,25 +38,25 @@ export function TextRow({
       <div className="flex items-baseline justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="font-semibold truncate">{sender}</span>
-          <span className="text-[11px] uppercase tracking-wide text-gray-400">{t.service}</span>
+          <span className="text-[11px] uppercase tracking-wide text-[var(--text-3)]">{t.service}</span>
         </div>
-        <span className="text-xs text-gray-500 whitespace-nowrap">{relativeTime(t.sent_at)}</span>
+        <span className="text-xs text-[var(--text-3)] whitespace-nowrap">{relativeTime(t.sent_at)}</span>
       </div>
 
-      <p className="mt-1 text-sm text-gray-800 whitespace-pre-wrap break-words">
+      <p className="mt-1 text-sm text-[var(--text)] whitespace-pre-wrap break-words">
         {t.decode_failed ? (
-          <span className="italic text-gray-500">
+          <span className="italic text-[var(--text-3)]">
             [could not decode message — check your phone]
           </span>
         ) : (
-          t.body || <span className="italic text-gray-400">(no text)</span>
+          t.body || <span className="italic text-[var(--text-3)]">(no text)</span>
         )}
-        {t.has_attachments && <span className="ml-1 text-xs text-gray-400">📎</span>}
+        {t.has_attachments && <span className="ml-1 text-xs text-[var(--text-3)]">📎</span>}
       </p>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <span className={`rounded border px-2 py-0.5 text-xs ${TAG_CHIP[t.tag]}`}>{t.tag}</span>
-        {t.tag_reason && <span className="text-[11px] text-gray-400">{t.tag_reason}</span>}
+        {t.tag_reason && <span className="text-[11px] text-[var(--text-3)]">{t.tag_reason}</span>}
 
         <span className="flex-1" />
 

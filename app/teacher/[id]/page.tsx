@@ -123,7 +123,7 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-[var(--surface)] pb-20">
       {/* Header */}
       <div className="bg-camp-green text-white p-4 sticky top-0 z-40 shadow-md">
         <Link href="/" className="text-sm opacity-75 hover:opacity-100 mb-2 block">
@@ -178,9 +178,9 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
       {/* Sessions List */}
       <div className="max-w-2xl mx-auto p-4">
         {loading ? (
-          <div className="text-center text-gray-600 py-8">Loading sessions...</div>
+          <div className="text-center text-[var(--text-2)] py-8">Loading classes...</div>
         ) : sessions.length === 0 ? (
-          <div className="text-center text-gray-600 py-8">No sessions assigned</div>
+          <div className="text-center text-[var(--text-2)] py-8">No classes assigned</div>
         ) : (
           <div className="space-y-3">
             {sessions.map((session) => (
@@ -190,7 +190,7 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
                 className={`block p-4 rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95 ${
                   currentPeriod === session.period_number
                     ? 'bg-camp-accent text-white border-2 border-camp-accent'
-                    : 'bg-white border border-gray-200'
+                    : 'camp-card'
                 }`}
               >
                 <div className="flex justify-between items-start mb-2">
@@ -198,17 +198,17 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
                     <h3 className={`font-bold text-lg ${currentPeriod === session.period_number ? 'text-white' : 'text-camp-green'}`}>
                       {session.name}
                     </h3>
-                    <p className={`text-sm ${currentPeriod === session.period_number ? 'text-white text-opacity-90' : 'text-gray-600'}`}>
+                    <p className={`text-sm ${currentPeriod === session.period_number ? 'text-white text-opacity-90' : 'text-[var(--text-2)]'}`}>
                       {session.period_name} &bull; {session.start_time} - {session.end_time}
                     </p>
                   </div>
-                  <div className={`text-right ${currentPeriod === session.period_number ? 'text-white' : 'text-gray-700'}`}>
+                  <div className={`text-right ${currentPeriod === session.period_number ? 'text-white' : 'text-[var(--text-2)]'}`}>
                     <div className="text-2xl font-bold">{getAttendancePercent(session)}%</div>
                     <div className="text-xs">{session.present_count + session.absent_count}/{session.total_students}</div>
                   </div>
                 </div>
                 {session.location && (
-                  <p className={`text-sm ${currentPeriod === session.period_number ? 'text-white text-opacity-90' : 'text-gray-500'}`}>
+                  <p className={`text-sm ${currentPeriod === session.period_number ? 'text-white text-opacity-90' : 'text-[var(--text-3)]'}`}>
                     {session.location}
                   </p>
                 )}

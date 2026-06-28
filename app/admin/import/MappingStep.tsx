@@ -76,7 +76,7 @@ export function MappingStep({
       <h2 id="import-mapping-heading" className="camp-heading text-lg mb-2">
         Map columns to {schema.label.toLowerCase()} fields
       </h2>
-      <p className="text-sm text-gray-600 mb-3">
+      <p className="text-sm text-[var(--text-2)] mb-3">
         {parsed.filename} — {parsed.totalRows.toLocaleString()} row
         {parsed.totalRows === 1 ? '' : 's'}
         {parsed.truncated ? ' (truncated)' : ''}
@@ -84,7 +84,7 @@ export function MappingStep({
 
       <div className="camp-card overflow-x-auto mb-4">
         <table className="w-full text-sm">
-          <thead className="bg-gray-100 border-b border-gray-200">
+          <thead className="bg-[var(--surface)] border-b border-[var(--glass-border)]">
             <tr>
               <th scope="col" className="px-3 py-2 text-left">
                 Column
@@ -104,13 +104,13 @@ export function MappingStep({
               const isAutoDetected = auto === current && current != null;
               const isRemembered = rememberedKeys.has(header);
               return (
-                <tr key={header} className="border-b border-gray-100">
+                <tr key={header} className="border-b border-[var(--glass-border)]">
                   <th scope="row" className="px-3 py-2 font-semibold text-left">
                     {header}
                   </th>
-                  <td className="px-3 py-2 text-gray-500 max-w-xs truncate">
+                  <td className="px-3 py-2 text-[var(--text-3)] max-w-xs truncate">
                     {firstExample[header] || (
-                      <span className="italic text-gray-400">empty</span>
+                      <span className="italic text-[var(--text-3)]">empty</span>
                     )}
                   </td>
                   <td className="px-3 py-2">
@@ -151,7 +151,7 @@ export function MappingStep({
         </table>
       </div>
 
-      <div className="text-xs text-gray-500 mb-3 flex gap-4">
+      <div className="text-xs text-[var(--text-3)] mb-3 flex gap-4">
         <span className="inline-flex items-center gap-1">
           <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
           Auto-detected

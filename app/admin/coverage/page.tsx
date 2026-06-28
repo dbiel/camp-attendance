@@ -91,11 +91,11 @@ export default function AdminCoverage() {
   }, [rows, teacherFilter, ensembleFilter, stateFilter]);
 
   if (authLoading || !user) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-600">Loading...</div>;
+    return <div className="min-h-screen flex items-center justify-center text-[var(--text-2)]">Loading...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-[var(--surface)] pb-20">
       <div className="bg-camp-green text-white p-4 sticky top-0 z-40 shadow-md">
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-center mb-2">
@@ -121,7 +121,7 @@ export default function AdminCoverage() {
                 className={`flex-1 py-3 rounded-lg font-bold text-lg ${
                   isSelected
                     ? 'bg-camp-green text-white shadow-md'
-                    : 'bg-white text-camp-green border-2 border-camp-green'
+                    : 'bg-[var(--surface)] text-camp-green border-2 border-camp-green'
                 }`}
               >
                 {dayKey}
@@ -144,7 +144,7 @@ export default function AdminCoverage() {
         />
 
         {loading ? (
-          <div className="p-8 text-center text-gray-600">Loading...</div>
+          <div className="p-8 text-center text-[var(--text-2)]">Loading...</div>
         ) : (
           <CoverageGrid rows={filtered} onSessionClick={() => { /* session-detail modal wired in a follow-up PR */ }} />
         )}

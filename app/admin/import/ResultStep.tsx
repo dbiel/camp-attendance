@@ -96,7 +96,7 @@ export function ResultStep({
         <div>
           <span className="font-semibold">Failed:</span> {totalFailed}
           {clientFailedCount > 0 && (
-            <span className="text-gray-500">
+            <span className="text-[var(--text-3)]">
               {' '}
               ({clientFailedCount} validation, {result.failed} server)
             </span>
@@ -106,7 +106,7 @@ export function ResultStep({
 
       {totalFailed > 0 && (
         <div className="camp-card p-4 border-l-4 border-amber-500 bg-amber-50">
-          <p className="text-sm text-gray-700 mb-2">
+          <p className="text-sm text-[var(--text)] mb-2">
             Download the failed rows as CSV, fix the errors, and re-upload:
           </p>
           <button

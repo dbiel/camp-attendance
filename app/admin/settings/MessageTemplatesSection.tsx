@@ -60,9 +60,9 @@ export function MessageTemplatesSection() {
   }
 
   return (
-    <section className="rounded border bg-white p-4">
+    <section className="camp-card p-4">
       <h2 className="font-semibold">Message templates</h2>
-      <p className="mb-2 text-xs text-gray-500">
+      <p className="mb-2 text-xs text-[var(--text-3)]">
         Placeholders:{' '}
         {'{kid_first} {kid_name} {parent_first} {session} {dorm_building} {dorm_room}'}
       </p>

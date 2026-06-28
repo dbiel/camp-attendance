@@ -126,10 +126,10 @@ export function EnsembleLinksSection() {
         {ensembles.map((e) => {
           const active = activeByEnsemble(e.ensemble);
           return (
-            <div key={e.ensemble} className="rounded border p-3">
+            <div key={e.ensemble} className="rounded-[var(--radius-sm)] border border-[var(--glass-border)] p-3">
               <div className="flex items-center justify-between">
-                <span className="font-medium">
-                  {e.ensemble} <span className="text-xs text-gray-500">({e.count})</span>
+                <span className="font-medium text-[var(--text)]">
+                  {e.ensemble} <span className="text-xs text-[var(--text-3)]">({e.count})</span>
                 </span>
                 <button
                   type="button"
@@ -148,7 +148,7 @@ export function EnsembleLinksSection() {
                         readOnly
                         value={`${typeof window !== 'undefined' ? window.location.origin : ''}/e/${l.token}`}
                         onFocus={(ev) => ev.currentTarget.select()}
-                        className="flex-1 rounded border p-1 text-xs"
+                        className="flex-1 rounded border border-[var(--glass-border)] bg-[var(--surface)] p-1 text-xs"
                       />
                       <button onClick={() => copy(l.token)} className="camp-btn-accent px-2 py-1 text-xs">
                         {copied === l.token ? 'Copied!' : 'Copy'}

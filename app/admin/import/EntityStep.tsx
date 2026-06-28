@@ -35,10 +35,10 @@ export function EntityStep({ onSelect }: Props) {
               <div className="font-bold text-camp-green text-lg capitalize">
                 {schema.label}
               </div>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-[var(--text-2)] mt-1">
                 {DESCRIPTIONS[entity]}
               </p>
-              <div className="text-xs text-gray-500 mt-2">
+              <div className="text-xs text-[var(--text-3)] mt-2">
                 {requiredCount} required field{requiredCount === 1 ? '' : 's'} •{' '}
                 {schema.fields.length} total
               </div>

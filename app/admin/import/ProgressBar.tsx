@@ -29,7 +29,7 @@ export function ProgressBar({ current }: { current: 1 | 2 | 3 | 4 | 5 }) {
                   ? 'bg-camp-green text-white'
                   : isDone
                   ? 'bg-camp-green/20 text-camp-green'
-                  : 'bg-gray-200 text-gray-500'
+                  : 'bg-[var(--surface)] text-[var(--text-3)]'
               }`}
             >
               {s.num}
@@ -39,14 +39,14 @@ export function ProgressBar({ current }: { current: 1 | 2 | 3 | 4 | 5 }) {
                 isActive
                   ? 'text-camp-green font-semibold'
                   : isDone
-                  ? 'text-gray-700'
-                  : 'text-gray-400'
+                  ? 'text-[var(--text-2)]'
+                  : 'text-[var(--text-3)]'
               }`}
             >
               {s.label}
             </span>
             {i < STEPS.length - 1 && (
-              <span className="mx-1 text-gray-300">›</span>
+              <span className="mx-1 text-[var(--text-3)]">›</span>
             )}
           </li>
         );

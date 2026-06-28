@@ -116,13 +116,13 @@ export default function EnsembleAttendancePage() {
   }
 
   if (state.kind === 'loading') {
-    return <main className="mx-auto max-w-md p-6 text-center text-sm text-gray-500">Loading…</main>;
+    return <main className="mx-auto max-w-md p-6 text-center text-sm text-[var(--text-3)]">Loading…</main>;
   }
   if (state.kind === 'invalid') {
     return (
       <main className="mx-auto flex max-w-md flex-col items-center gap-2 p-8 text-center">
-        <h1 className="text-lg font-semibold text-gray-800">This link is no longer active</h1>
-        <p className="text-sm text-gray-600">Please ask the camp office for a new attendance link.</p>
+        <h1 className="text-lg font-semibold text-[var(--text)]">This link is no longer active</h1>
+        <p className="text-sm text-[var(--text-2)]">Please ask the camp office for a new attendance link.</p>
       </main>
     );
   }
@@ -132,43 +132,46 @@ export default function EnsembleAttendancePage() {
 
   return (
     <main className="mx-auto max-w-md p-4">
-      <h1 className="text-xl font-bold">{data.ensemble}</h1>
-      <p className="text-sm text-gray-600">Attendance{data.label ? ` · ${data.label}` : ''}</p>
+      <h1 className="text-xl font-bold text-[var(--text)]">{data.ensemble}</h1>
+      <p className="text-sm text-[var(--text-2)]">Attendance{data.label ? ` · ${data.label}` : ''}</p>
       {data.submission && (
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-[var(--text-3)]">
           Last submitted {new Date(data.submission.submitted_at).toLocaleString()} — you can update if a
           student arrives.
         </p>
       )}
 
       <div className="mt-3 flex items-center justify-between">
-        <div className="flex rounded border text-sm">
+        <div className="flex overflow-hidden rounded-[var(--radius-pill)] border border-[var(--glass-border)] text-sm">
           <button
             onClick={() => setSortMode('score')}
-            className={`px-3 py-1 ${sortMode === 'score' ? 'bg-gray-800 text-white' : 'text-gray-600'}`}
+            className={`px-3 py-1 ${sortMode === 'score' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-2)]'}`}
           >
             Score order
           </button>
           <button
             onClick={() => setSortMode('last')}
-            className={`px-3 py-1 ${sortMode === 'last' ? 'bg-gray-800 text-white' : 'text-gray-600'}`}
+            className={`px-3 py-1 ${sortMode === 'last' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-2)]'}`}
           >
             Last name
           </button>
         </div>
-        <span className="text-sm text-gray-600">{absentCount} absent</span>
+        <span className="text-sm font-semibold text-[var(--text-2)]">{absentCount} absent</span>
       </div>
 
       <ul className="mt-3 flex flex-col gap-1">
         {sortedRoster.map((r) => {
           const mark = marks[r.ref] ?? 'present';
           return (
-            <li key={r.ref} className="flex items-center justify-between gap-2 rounded border bg-white p-2">
+            <li
+              key={r.ref}
+              className="flex items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-[var(--glass-border)] bg-[var(--surface)] p-2"
+            >
               <div className="min-w-0">
-                <p className="truncate font-medium">
+                <p className="truncate font-medium text-[var(--text)]">
                   {r.first_name} {r.last_name}
                 </p>
-                <p className="truncate text-xs text-gray-500">
+                <p className="truncate text-xs text-[var(--text-3)]">
                   {r.instrument || '—'}
                   {r.grade ? ` · Grade ${r.grade}` : ''}
                 </p>
@@ -176,17 +179,21 @@ export default function EnsembleAttendancePage() {
               <div className="flex shrink-0 gap-1">
                 <button
                   onClick={() => setMarks((p) => ({ ...p, [r.ref]: 'present' }))}
-                  className={`rounded px-3 py-2 text-sm font-medium ${
-                    mark === 'present' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'
-                  }`}
+                  className={
+                    mark === 'present'
+                      ? 'btn-present text-sm'
+                      : 'rounded-lg bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--text-2)]'
+                  }
                 >
                   Present
                 </button>
                 <button
                   onClick={() => setMarks((p) => ({ ...p, [r.ref]: 'absent' }))}
-                  className={`rounded px-3 py-2 text-sm font-medium ${
-                    mark === 'absent' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'
-                  }`}
+                  className={
+                    mark === 'absent'
+                      ? 'btn-absent text-sm'
+                      : 'rounded-lg bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--text-2)]'
+                  }
                 >
                   Absent
                 </button>
@@ -202,7 +209,7 @@ export default function EnsembleAttendancePage() {
       <button
         onClick={submit}
         disabled={submitting}
-        className="sticky bottom-3 mt-4 w-full rounded-lg bg-gray-900 px-4 py-3 text-base font-semibold text-white shadow-lg disabled:opacity-50"
+        className="camp-btn-primary sticky bottom-3 mt-4 w-full px-4 py-3 text-base shadow-lg disabled:opacity-50"
       >
         {submitting ? 'Submitting…' : data.submission ? 'Update attendance' : 'Submit attendance'}
       </button>

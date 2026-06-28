@@ -174,14 +174,14 @@ function EditableField({ fieldKey, label, type, value, onSave, saving }: Editabl
 
   const display =
     value === undefined || value === null || value === '' ? (
-      <span className="text-gray-400 italic">—</span>
+      <span className="text-[var(--text-3)] italic">—</span>
     ) : (
       String(value)
     );
 
   return (
     <div className="flex flex-col">
-      <label className="text-xs font-semibold uppercase text-gray-500 mb-0.5">{label}</label>
+      <label className="text-xs font-semibold uppercase text-[var(--text-3)] mb-0.5">{label}</label>
       {editing ? (
         type === 'textarea' ? (
           <textarea
@@ -215,10 +215,10 @@ function EditableField({ fieldKey, label, type, value, onSave, saving }: Editabl
           type="button"
           data-testid={`field-${fieldKey}`}
           onClick={startEdit}
-          className="text-left text-sm px-2 py-1 rounded hover:bg-gray-100 border border-transparent hover:border-gray-200 min-h-[28px]"
+          className="text-left text-sm px-2 py-1 rounded hover:bg-[var(--accent-soft)] border border-transparent hover:border-[var(--glass-border)] min-h-[28px]"
         >
           {display}
-          {saving && <span className="ml-2 text-xs text-gray-400">Saving…</span>}
+          {saving && <span className="ml-2 text-xs text-[var(--text-3)]">Saving…</span>}
         </button>
       )}
     </div>
@@ -317,26 +317,26 @@ export function StudentDetailModal({ studentId, date, onClose, onUpdate }: Stude
   return (
     <Modal open={open} onClose={onClose} title={title} size="xl">
       {loading && !student ? (
-        <div className="p-8 text-center text-gray-500">Loading student…</div>
+        <div className="p-8 text-center text-[var(--text-3)]">Loading student…</div>
       ) : error && !student ? (
         <div className="p-6 text-center text-red-600">{error}</div>
       ) : student ? (
         <div>
           {/* Header strip */}
-          <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 pb-3 mb-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[var(--glass-border)] pb-3 mb-4">
             <div className="text-lg font-semibold text-camp-green">
               {student.first_name}
               {student.preferred_name ? ` (${student.preferred_name})` : ''}{' '}
               {student.last_name}
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-[var(--text-2)]">
               <span className="font-semibold">{student.ensemble || 'Unassigned'}</span>
               {typeof student.chair_number === 'number' && (
                 <span className="ml-2 px-2 py-0.5 bg-camp-green text-white rounded text-xs font-bold">
                   Chair {student.chair_number}
                 </span>
               )}
-              <span className="ml-2 text-gray-500">{student.instrument}</span>
+              <span className="ml-2 text-[var(--text-3)]">{student.instrument}</span>
             </div>
           </div>
 
@@ -360,7 +360,7 @@ export function StudentDetailModal({ studentId, date, onClose, onUpdate }: Stude
               if (sectionFields.length === 0) return null;
               return (
                 <div key={section}>
-                  <h3 className="text-xs font-bold uppercase text-gray-500 tracking-wide mb-2">
+                  <h3 className="text-xs font-bold uppercase text-[var(--text-3)] tracking-wide mb-2">
                     {section}
                   </h3>
                   <div
@@ -396,9 +396,9 @@ export function StudentDetailModal({ studentId, date, onClose, onUpdate }: Stude
               Schedule — {date}
             </h3>
             {!student.schedule_for_date || student.schedule_for_date.length === 0 ? (
-              <div className="text-sm text-gray-500 italic">No sessions scheduled.</div>
+              <div className="text-sm text-[var(--text-3)] italic">No sessions scheduled.</div>
             ) : (
-              <ul className="divide-y divide-gray-100 border border-gray-200 rounded">
+              <ul className="divide-y divide-[var(--glass-border)] border border-[var(--glass-border)] rounded">
                 {student.schedule_for_date.map((entry) => (
                   <li
                     key={`${entry.session_id}-${entry.period_name}`}
@@ -407,18 +407,18 @@ export function StudentDetailModal({ studentId, date, onClose, onUpdate }: Stude
                     <div>
                       <div className="text-sm font-semibold">
                         {entry.period_name}
-                        <span className="ml-2 text-gray-500 font-normal">
+                        <span className="ml-2 text-[var(--text-3)] font-normal">
                           {entry.start_time}–{entry.end_time}
                         </span>
                         {entry.location && (
-                          <span className="ml-2 text-gray-500 font-normal">
+                          <span className="ml-2 text-[var(--text-3)] font-normal">
                             · {entry.location}
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs text-[var(--text-2)]">
                         {entry.session_name}{' '}
-                        <span className="text-gray-400">({entry.session_id})</span>
+                        <span className="text-[var(--text-3)]">({entry.session_id})</span>
                       </div>
                     </div>
                     <span

@@ -119,13 +119,13 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
 
   if (loadError && cases.length === 0) {
     return (
-      <div className="text-sm text-gray-500">
+      <div className="text-sm text-[var(--text-3)]">
         <p>{loadError}</p>
         <button onClick={fetchCases} className="mt-2 rounded border px-3 py-1 text-sm">Retry</button>
       </div>
     );
   }
-  if (loading && cases.length === 0) return <p className="text-sm text-gray-500">Loading history…</p>;
+  if (loading && cases.length === 0) return <p className="text-sm text-[var(--text-3)]">Loading history…</p>;
 
   const dayKeys = [...days.keys()].sort().reverse();
 
@@ -137,7 +137,7 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1 capitalize ${statusFilter === s ? 'bg-camp-green text-white' : 'text-gray-600'}`}
+              className={`px-3 py-1 capitalize ${statusFilter === s ? 'bg-camp-green text-white' : 'text-[var(--text-2)]'}`}
             >
               {s}
             </button>
@@ -151,7 +151,7 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
         />
       </div>
 
-      {dayKeys.length === 0 && <p className="text-sm text-gray-500">No reports.</p>}
+      {dayKeys.length === 0 && <p className="text-sm text-[var(--text-3)]">No reports.</p>}
 
       <div className="flex flex-col gap-3">
         {dayKeys.map((day) => {
@@ -165,19 +165,19 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
           const dayNew = [...hours.values()].some((arr) => arr.some(unseen));
           const hourKeys = [...hours.keys()].sort().reverse();
           return (
-            <section key={day} className="rounded-lg border bg-white">
+            <section key={day} className="glass-card">
               <button
                 onClick={() => toggle(toggledDays, setToggledDays, day)}
                 className="flex w-full items-center justify-between p-3 text-left font-semibold"
               >
                 <span>{open ? '▾' : '▸'} {dayLabel(day, today)}{dayNew && <NewDot />}</span>
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-xs text-[var(--text-2)]">
                   {dayCount}
                   {dayActive > 0 && <span className="font-semibold text-red-700"> ({dayActive} still active)</span>}
                 </span>
               </button>
               {open && (
-                <div className="border-t">
+                <div className="border-t border-[var(--glass-border)]">
                   {hourKeys.map((hourKey) => {
                     const list = hours.get(hourKey)!;
                     const hourActive = list.filter((c) => c.status === 'active').length;
@@ -185,20 +185,20 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
                     const hh = Number(hourKey.slice(11, 13));
                     const hOpen = isHourOpen(hourKey);
                     return (
-                      <div key={hourKey} className="border-b last:border-b-0">
+                      <div key={hourKey} className="border-b border-[var(--glass-border)] last:border-b-0">
                         <button
                           onClick={() => toggle(toggledHours, setToggledHours, hourKey)}
                           className="flex w-full items-center justify-between px-3 py-2 text-left text-sm"
                         >
                           {/* Active reports turn the hour red — kids still missing in that period. */}
-                          <span className={hourActive > 0 ? 'font-semibold text-red-700' : 'text-gray-600'}>
+                          <span className={hourActive > 0 ? 'font-semibold text-red-700' : 'text-[var(--text-2)]'}>
                             {hOpen ? '▾' : '▸'} {hourLabel(hh)}
                             {hourNew && <NewDot />}
                             {hourKey === nowHourKey && (
                               <span className="ml-2 rounded bg-red-100 px-1.5 text-xs text-red-700">now</span>
                             )}
                           </span>
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-[var(--text-3)]">
                             {list.length}
                             {hourActive > 0 && <span className="font-semibold text-red-700"> ({hourActive} active)</span>}
                           </span>
@@ -209,16 +209,16 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
                               <li key={c.id}>
                                 <Link
                                   href={`/admin/cases/${c.id}`}
-                                  className="block rounded border bg-gray-50 p-2 text-sm hover:bg-gray-100"
+                                  className="block rounded border border-[var(--glass-border)] bg-[var(--surface)] p-2 text-sm hover:bg-[var(--accent-soft)]"
                                 >
                                   <div className="flex justify-between">
                                     <span className="font-medium">{c.student_name}{unseen(c) && <NewDot />}</span>
-                                    <span className="text-gray-500">
+                                    <span className="text-[var(--text-3)]">
                                       {formatClock(c.occurred_at || c.created_at)}
                                       {c.status === 'resolved' && ' · ✓'}
                                     </span>
                                   </div>
-                                  <p className="text-gray-700">{c.summary}</p>
+                                  <p className="text-[var(--text-2)]">{c.summary}</p>
                                   {c.resolution_note && <p className="text-green-700">→ {c.resolution_note}</p>}
                                 </Link>
                               </li>

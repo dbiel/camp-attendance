@@ -148,7 +148,7 @@ export function DeleteStudentModal({
       onClose={() => !deleting && onClose()}
       size="md"
     >
-      <p className="text-sm text-gray-700 mb-6">
+      <p className="text-sm text-[var(--text)] mb-6">
         This permanently removes the student from the roster. This action cannot be
         undone.
       </p>
@@ -410,7 +410,7 @@ function EditStudentForm({
 
       {/* Medical — full-width textarea with yellow highlight if non-empty */}
       <div className="mb-6">
-        <h3 className="text-xs font-bold uppercase text-gray-500 tracking-wide mb-2">
+        <h3 className="text-xs font-bold uppercase text-[var(--text-3)] tracking-wide mb-2">
           Medical
         </h3>
         <label htmlFor={fid('medical_notes')} className="camp-label">
@@ -453,7 +453,7 @@ function EditStudentForm({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-4">
-      <h3 className="text-xs font-bold uppercase text-gray-500 tracking-wide mb-2">
+      <h3 className="text-xs font-bold uppercase text-[var(--text-3)] tracking-wide mb-2">
         {title}
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

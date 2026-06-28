@@ -70,15 +70,15 @@ export default function AdminLogin() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-camp-green to-camp-light flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+      <div className="glass-card p-8 w-full max-w-md">
         <h1 className="text-3xl font-bold text-camp-green mb-2 text-center">Admin Portal</h1>
-        <p className="text-gray-600 text-center mb-6">TTU Band & Orchestra Camp</p>
+        <p className="text-[var(--text-2)] text-center mb-6">TTU Band & Orchestra Camp</p>
 
         <button
           type="button"
           onClick={handleGoogleSignIn}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-300 hover:border-camp-green text-gray-700 rounded-lg py-3 px-4 font-semibold transition-all disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-3 bg-white border-2 border-[var(--glass-border)] hover:border-camp-green text-[var(--text-2)] rounded-lg py-3 px-4 font-semibold transition-all disabled:opacity-50"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -92,7 +92,7 @@ export default function AdminLogin() {
         {error && <div className="text-red-600 text-sm font-semibold mt-4">{error}</div>}
 
         <details className="mt-6 text-sm">
-          <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+          <summary className="cursor-pointer text-[var(--text-3)] hover:text-[var(--text-2)]">
             Sign in with email/password instead
           </summary>
         <form onSubmit={handleLogin} className="space-y-4 mt-4">
@@ -130,7 +130,7 @@ export default function AdminLogin() {
         </form>
         </details>
 
-        <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className="mt-6 pt-6 border-t border-[var(--glass-border)]">
           <a href="/" className="text-camp-green hover:opacity-75 font-medium text-center block">
             &larr; Back to Main
           </a>

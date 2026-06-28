@@ -58,7 +58,7 @@ export function FacultyGrid({ rows, onlyBehind, onCellClick }: Props) {
   const visibleFaculty = onlyBehind ? byFaculty.filter((f) => isBehind(f.rows)) : byFaculty;
 
   if (visibleFaculty.length === 0) {
-    return <div className="text-center p-8 text-gray-500">All caught up.</div>;
+    return <div className="text-center p-8 text-[var(--text-3)]">All caught up.</div>;
   }
 
   return (
@@ -66,15 +66,15 @@ export function FacultyGrid({ rows, onlyBehind, onCellClick }: Props) {
       <table className="min-w-full text-sm">
         <thead>
           <tr>
-            <th className="px-2 py-2 text-left bg-gray-100">Faculty</th>
+            <th className="px-2 py-2 text-left bg-[var(--surface)]">Faculty</th>
             {periodNumbers.map((n) => (
-              <th key={n} className="px-2 py-2 text-center bg-gray-100">P{n}</th>
+              <th key={n} className="px-2 py-2 text-center bg-[var(--surface)]">P{n}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {visibleFaculty.map(({ id, name, rows: fRows }) => (
-            <tr key={id} className="border-b border-gray-100">
+            <tr key={id} className="border-b border-[var(--glass-border)]">
               <td className="px-2 py-2 font-semibold whitespace-nowrap">{name}</td>
               {periodNumbers.map((n) => {
                 const r = fRows.find((x) => x.period_number === n);

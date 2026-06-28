@@ -29,7 +29,7 @@ const SUB_TABS: { key: string; label: string; href: string }[] = [
   { key: 'reports', label: 'Reports', href: '/admin/cases/history' },
   { key: 'students', label: 'Students', href: '/admin/data/students' },
   { key: 'faculty', label: 'Faculty', href: '/admin/data/faculty' },
-  { key: 'sessions', label: 'Sessions', href: '/admin/data/sessions' },
+  { key: 'sessions', label: 'Classes', href: '/admin/data/sessions' },
 ];
 
 /** Explicit route → tab mapping (no loose startsWith that would misfire). */
@@ -60,43 +60,49 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const primaryClass = (active: boolean) =>
-    `px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap ${
-      active ? 'bg-white text-camp-green' : 'text-white/85 hover:bg-white/10'
+    `px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap ${
+      active
+        ? 'font-semibold text-[var(--text)] bg-white/60 shadow-sm'
+        : 'font-medium text-[var(--text-2)] hover:text-[var(--text)] hover:bg-white/30 transition-all'
     }`;
   const subClass = (active: boolean) =>
-    `px-3 py-1 rounded text-sm whitespace-nowrap ${
-      active ? 'bg-white/25 text-white font-semibold' : 'text-white/75 hover:bg-white/10'
+    `px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap ${
+      active
+        ? 'font-semibold text-[var(--text)] bg-white/60 shadow-sm'
+        : 'font-medium text-[var(--text-2)] hover:text-[var(--text)] hover:bg-white/30 transition-all'
     }`;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-camp-green text-white sticky top-0 z-40 shadow-md">
+    <div className="min-h-screen bg-[var(--surface)]">
+      <header className="glass sticky top-0 z-40 shadow-md">
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex items-center justify-between h-14 gap-2">
-            <nav className="flex items-center gap-1 overflow-x-auto">
+            <nav className="glass rounded-full p-1 flex items-center gap-1 overflow-x-auto">
               {visiblePrimaryLinks(visiblePrimary, primary, primaryClass)}
             </nav>
             <div className="flex items-center gap-2 shrink-0">
-              <Link href="/admin/settings" className="text-white/85 hover:text-white text-sm" aria-label="Settings">
+              <Link href="/admin/settings" className="text-[var(--text-2)] hover:text-[var(--text)] text-sm" aria-label="Settings">
                 Settings
               </Link>
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="text-white/85 hover:text-white text-sm"
+                className="text-[var(--text-2)] hover:text-[var(--text)] text-sm"
               >
                 Sign out
               </button>
             </div>
           </div>
           {showSubRow && (
-            <nav className="flex items-center gap-1 overflow-x-auto pb-2 -mt-1">
-              {SUB_TABS.map((t) => (
-                <Link key={t.key} href={t.href} className={subClass(sub === t.key)}>
-                  {t.label}
-                </Link>
-              ))}
-            </nav>
+            <div className="pb-2">
+              <nav className="glass rounded-full p-1 flex items-center gap-1 overflow-x-auto">
+                {SUB_TABS.map((t) => (
+                  <Link key={t.key} href={t.href} className={subClass(sub === t.key)}>
+                    {t.label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
           )}
         </div>
       </header>

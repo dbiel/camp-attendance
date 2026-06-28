@@ -77,7 +77,7 @@ export function UploadStep({ entity, onParsed, onBack, onError }: Props) {
       <h2 id="import-upload-heading" className="camp-heading text-lg mb-2">
         Upload {entity} file
       </h2>
-      <p className="text-sm text-gray-600 mb-3">
+      <p className="text-sm text-[var(--text-2)] mb-3">
         Accepts .csv or .xlsx. Max {MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB /{' '}
         {MAX_ROWS.toLocaleString()} rows.
       </p>
@@ -94,17 +94,17 @@ export function UploadStep({ entity, onParsed, onBack, onError }: Props) {
         className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-camp-green ${
           dragActive
             ? 'border-camp-green bg-camp-green/5'
-            : 'border-gray-300 hover:border-camp-green/60 bg-white'
+            : 'border-[var(--glass-border)] hover:border-camp-green/60 bg-[var(--surface)]'
         }`}
       >
         {busy ? (
-          <div className="text-gray-600">Parsing file…</div>
+          <div className="text-[var(--text-2)]">Parsing file…</div>
         ) : (
           <>
             <div className="text-camp-green font-semibold text-lg">
               Drop file here
             </div>
-            <div className="text-sm text-gray-600 mt-1">
+            <div className="text-sm text-[var(--text-2)] mt-1">
               or click to browse (.csv, .xlsx)
             </div>
           </>

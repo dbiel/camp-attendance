@@ -84,7 +84,7 @@ export function SelectionBar({
   }
 
   return (
-    <div className="sticky bottom-0 z-30 mt-3 rounded-lg border border-camp-green bg-white p-3 shadow-lg">
+    <div className="sticky bottom-0 z-30 mt-3 rounded-lg border border-camp-green bg-[var(--card)] backdrop-blur-[12px] p-3 shadow-lg">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium">{caseIds.length} selected</span>
         <div className="flex items-center gap-2">
@@ -113,7 +113,7 @@ export function SelectionBar({
           </button>
         </div>
       )}
-      {revoked && <p className="mt-2 text-sm text-gray-600">Link revoked — it no longer works.</p>}
+      {revoked && <p className="mt-2 text-sm text-[var(--text-2)]">Link revoked — it no longer works.</p>}
     </div>
   );
 }

@@ -80,7 +80,7 @@ export function CampIdentitySection({ config, onSave, onConfigUpdate }: Props) {
   return (
     <section className="camp-card p-6">
       <h2 className="camp-subheading">Camp Identity</h2>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-[var(--text-3)] mb-4">
         Dates, timezone, and auto-derived day keys for the active camp. The
         camp year is immutable — use the Yearly Rollover wizard to start a
         new year.
@@ -94,7 +94,7 @@ export function CampIdentitySection({ config, onSave, onConfigUpdate }: Props) {
             </label>
             <input
               id="camp-year"
-              className="camp-input bg-gray-100"
+              className="camp-input bg-[var(--surface)]"
               value={config.camp_year}
               readOnly
               aria-readonly="true"
@@ -106,7 +106,7 @@ export function CampIdentitySection({ config, onSave, onConfigUpdate }: Props) {
             </label>
             <input
               id="camp-id"
-              className="camp-input bg-gray-100"
+              className="camp-input bg-[var(--surface)]"
               value={config.camp_id}
               readOnly
               aria-readonly="true"
@@ -180,19 +180,19 @@ export function CampIdentitySection({ config, onSave, onConfigUpdate }: Props) {
           )}
           {preview.dayDates && (
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm border border-gray-200 rounded">
-                <thead className="bg-gray-100 text-gray-700">
+              <table className="min-w-full text-sm border border-[var(--glass-border)] rounded">
+                <thead className="bg-[var(--surface)] text-[var(--text-2)]">
                   <tr>
                     <th className="text-left px-3 py-2 font-semibold">Key</th>
                     <th className="text-left px-3 py-2 font-semibold">Weekday</th>
                     <th className="text-left px-3 py-2 font-semibold">Date</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-[var(--glass-border)]">
                   {Object.entries(preview.dayDates).map(([key, date]) => (
                     <tr key={key}>
                       <td className="px-3 py-2 font-mono font-semibold">{key}</td>
-                      <td className="px-3 py-2 text-gray-600">
+                      <td className="px-3 py-2 text-[var(--text-2)]">
                         {formatDayLabel(key)}
                       </td>
                       <td className="px-3 py-2 font-mono">{date}</td>
@@ -200,7 +200,7 @@ export function CampIdentitySection({ config, onSave, onConfigUpdate }: Props) {
                   ))}
                 </tbody>
               </table>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-[var(--text-3)] mt-2">
                 For camps longer than a week, later occurrences of a weekday
                 overwrite earlier ones (e.g. the 2nd Monday wins the{' '}
                 <code>M</code> slot).

@@ -57,7 +57,7 @@ export function CoverageFilters({
             className={`px-3 py-2 rounded-lg text-sm font-semibold ${
               selectedState === s
                 ? 'bg-camp-green text-white'
-                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                : 'bg-[var(--surface)] border border-[var(--glass-border)] text-[var(--text-2)] hover:bg-[var(--accent-soft)]'
             }`}
           >
             {STATE_LABEL[s]}

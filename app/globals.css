@@ -2,6 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #d6c5c5;
+  --surface: rgba(255,255,255,0.5);
+  --surface-solid: #f8f0f0;
+  --card: rgba(255,255,255,0.55);
+  --card-hover: rgba(255,255,255,0.75);
+  --glass-border: rgba(255,255,255,0.45);
+  --glass-shadow: 0 4px 24px rgba(100,20,20,0.07);
+  --border: rgba(0,0,0,0.05);
+  --text: #1a1010;
+  --text-2: #6b4a4a;
+  --text-3: #a08080;
+  --accent: #cc0000;
+  --accent-soft: rgba(204,0,0,0.08);
+  --accent-glow: rgba(204,0,0,0.12);
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-pill: 100px;
+  --blur: 16px;
+
+  --reh: #cc0000; --reh-bg: rgba(204,0,0,0.08);
+  --sec: #d4880a; --sec-bg: rgba(212,136,10,0.08);
+  --master: #9c4cc8; --master-bg: rgba(156,76,200,0.08);
+  --elec: #1a8a4a; --elec-bg: rgba(26,138,74,0.08);
+  --chamber: #c86020; --chamber-bg: rgba(200,96,32,0.08);
+  --other: #7a6860; --other-bg: rgba(122,104,96,0.08);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -13,16 +41,33 @@ html {
 }
 
 body {
-  background-color: #f9fafb;
-  color: #1f2937;
+  background: linear-gradient(135deg, #e8d0d0 0%, #f0dede 25%, #ffffff 50%, #f2d8d8 75%, #e0c4c4 100%);
+  background-attachment: fixed;
+  color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
 }
 
 @layer components {
+  .glass {
+    background: var(--surface);
+    -webkit-backdrop-filter: blur(var(--blur));
+    backdrop-filter: blur(var(--blur));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+  .glass-card {
+    background: var(--card);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 2px 12px rgba(120,30,30,0.05);
+    border-radius: var(--radius-sm);
+  }
+
   .camp-btn {
     @apply px-4 py-2 rounded-lg font-semibold transition-all duration-200 cursor-pointer;
   }
@@ -48,31 +93,39 @@ body {
   }
 
   .camp-card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200;
+    @apply rounded-lg;
+    background: var(--card);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 2px 12px rgba(120,30,30,0.05);
   }
 
   .camp-input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-camp-green focus:border-transparent;
+    @apply w-full px-3 py-2 rounded-lg focus:outline-none;
+    background: var(--card);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
   }
-
-  .camp-label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+  .camp-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
   }
-
-  .camp-heading {
-    @apply text-2xl font-bold text-camp-green mb-4;
-  }
-
-  .camp-subheading {
-    @apply text-lg font-semibold text-camp-green mb-3;
-  }
+  .camp-heading { @apply text-2xl font-bold mb-4; color: var(--accent); }
+  .camp-subheading { @apply text-lg font-semibold mb-3; color: var(--accent); }
+  .camp-label { @apply block text-sm font-medium mb-1; color: var(--text-2); }
 
   .gap-tap {
     @apply min-h-[48px] min-w-[48px];
   }
 
   .sticky-header {
-    @apply sticky top-0 bg-white border-b border-gray-200 z-50 px-4 py-3 shadow-sm transition-shadow duration-200;
+    @apply sticky top-0 z-50 px-4 py-3 transition-shadow duration-200;
+    background: var(--surface);
+    -webkit-backdrop-filter: blur(var(--blur));
+    backdrop-filter: blur(var(--blur));
+    border-bottom: 1px solid var(--glass-border);
   }
 
   .sticky-bottom-cta {
@@ -81,14 +134,53 @@ body {
   }
 
   .pending-badge {
-    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-semibold whitespace-nowrap self-start;
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap self-start;
+    background: var(--accent-soft);
+    color: var(--accent);
   }
-
   .pending-badge::before {
     content: '';
-    @apply w-1.5 h-1.5 rounded-full bg-amber-500;
+    @apply w-1.5 h-1.5 rounded-full;
+    background: var(--accent);
     animation: pulse 1.6s ease-in-out infinite;
   }
+
+  /* ═══ SEMANTIC STATUS PILLS (urgent / active / resolved) ═══ */
+  .status-pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap;
+  }
+  .status-pill::before {
+    content: '';
+    @apply w-1.5 h-1.5 rounded-full;
+    background: currentColor;
+  }
+  .status-urgent   { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(204,0,0,0.22); }
+  .status-active   { background: var(--sec-bg);      color: var(--sec);    border: 1px solid rgba(212,136,10,0.22); }
+  .status-resolved { background: var(--elec-bg);     color: var(--elec);   border: 1px solid rgba(26,138,74,0.22); }
+
+  /* ═══ NEW / UNSEEN NOTIFICATION BADGE (yellow) ═══ */
+  .badge-new {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide whitespace-nowrap;
+    background: rgba(234,179,8,0.16);
+    color: #8a6d0a;
+  }
+  .badge-new::before {
+    content: '';
+    @apply w-1.5 h-1.5 rounded-full;
+    background: #eab308;
+  }
+
+  /* ═══ SEMANTIC ATTENDANCE BUTTONS (present = green / absent = red) ═══ */
+  .btn-present {
+    @apply px-4 py-2 rounded-lg font-semibold transition-all duration-150 active:scale-95 text-white;
+    background: #22c55e;
+  }
+  .btn-present:hover { background: #16a34a; }
+  .btn-absent {
+    @apply px-4 py-2 rounded-lg font-semibold transition-all duration-150 active:scale-95 text-white;
+    background: #ef4444;
+  }
+  .btn-absent:hover { background: #dc2626; }
 }
 
 @keyframes pulse {
