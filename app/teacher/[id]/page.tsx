@@ -219,7 +219,7 @@ export default function TeacherDashboard({ params }: { params: { id: string } })
                   <span className={`px-2 py-1 rounded ${currentPeriod === session.period_number ? 'bg-white bg-opacity-20' : 'bg-red-100 text-red-800'}`}>
                     A {session.absent_count}
                   </span>
-                  <span className={`px-2 py-1 rounded ${currentPeriod === session.period_number ? 'bg-white bg-opacity-20' : 'bg-[var(--surface)] text-[var(--text)]'}`}>
+                  <span className={`px-2 py-1 rounded ${currentPeriod === session.period_number ? 'bg-white bg-opacity-20' : 'bg-gray-100 text-gray-800'}`}>
                     ? {session.total_students - (session.present_count + session.absent_count)}
                   </span>
                 </div>

@@ -408,7 +408,7 @@ export default function AdminDashboard() {
             className={`px-3 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all ${
               selectedPeriod === null
                 ? 'bg-camp-accent text-white shadow-sm'
-                : 'bg-white text-[var(--text-2)] border border-[var(--glass-border)] hover:bg-[var(--surface)]'
+                : 'bg-[var(--surface)] text-[var(--text-2)] border border-[var(--glass-border)] hover:bg-[var(--surface)]'
             }`}
           >
             All Periods
@@ -420,7 +420,7 @@ export default function AdminDashboard() {
               className={`px-3 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all ${
                 selectedPeriod === p.num
                   ? 'bg-camp-accent text-white shadow-sm'
-                  : 'bg-white text-[var(--text-2)] border border-[var(--glass-border)] hover:bg-[var(--surface)]'
+                  : 'bg-[var(--surface)] text-[var(--text-2)] border border-[var(--glass-border)] hover:bg-[var(--surface)]'
               }`}
             >
               {p.label}
