@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Session, Period } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { MasterSchedule } from './MasterSchedule';
+import { Modal } from '@/components/Modal';
 
 export default function SessionsDataPage() {
   const router = useRouter();
@@ -203,12 +204,17 @@ export default function SessionsDataPage() {
       </div>
       )}
 
-      {/* Edit Modal */}
-      {editingId !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="glass-card p-6 w-full max-w-md max-h-96 overflow-y-auto">
-            <h2 className="text-xl font-bold text-camp-green mb-4">Edit Class</h2>
-            <div className="space-y-4 mb-6">
+      {/* Edit Modal — shared Modal: scrolls, and full-screen on mobile. */}
+      <Modal
+        open={editingId !== null}
+        title="Edit Class"
+        size="md"
+        onClose={() => {
+          setEditingId(null);
+          setEditData({});
+        }}
+      >
+        <div className="space-y-4 mb-6">
               <div>
                 <label className="camp-label">Name</label>
                 <input
@@ -261,23 +267,21 @@ export default function SessionsDataPage() {
                 />
               </div>
             </div>
-            <div className="flex gap-3">
-              <button onClick={saveEdit} className="flex-1 camp-btn-primary py-2">
-                Save
-              </button>
-              <button
-                onClick={() => {
-                  setEditingId(null);
-                  setEditData({});
-                }}
-                className="flex-1 camp-btn-outline py-2"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
+        <div className="flex gap-3">
+          <button onClick={saveEdit} className="flex-1 camp-btn-primary py-2">
+            Save
+          </button>
+          <button
+            onClick={() => {
+              setEditingId(null);
+              setEditData({});
+            }}
+            className="flex-1 camp-btn-outline py-2"
+          >
+            Cancel
+          </button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
