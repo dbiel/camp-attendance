@@ -64,7 +64,10 @@ export default function StudentsDataPage() {
     async function load() {
       try {
         const headers = await getAuthHeaders();
-        const res = await fetch('/api/schedule/ensemble-now-next', { headers });
+        // ?now=HH:MM (testing) overrides the clock for the Current/Next columns.
+        const now = new URLSearchParams(window.location.search).get('now');
+        const qs = now ? `?now=${encodeURIComponent(now)}` : '';
+        const res = await fetch(`/api/schedule/ensemble-now-next${qs}`, { headers });
         if (res.ok && !cancelled) setNowNext((await res.json()).byEnsemble ?? {});
       } catch {
         /* now/next is a nicety — ignore */

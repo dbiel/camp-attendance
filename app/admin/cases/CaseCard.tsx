@@ -24,10 +24,13 @@ export function CaseCard({
   c,
   selected,
   onToggleSelect,
+  nowOverride,
 }: {
   c: Case;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
+  /** Testing: pretend it's this camp-tz 'HH:MM' for now/next (from ?now=). */
+  nowOverride?: string;
 }) {
   const { getAuthHeaders } = useAuth();
   const [slots, setSlots] = useState<ScheduleSlot[] | null>(null);
@@ -55,7 +58,7 @@ export function CaseCard({
   const mins = elapsedMins(c);
   const urgent = mins >= URGENT_AFTER_MIN;
   // Recomputed each render (the hub polls → re-renders → advances with the clock).
-  const nowNext = slots ? currentAndNextSession(slots, getCurrentTimeHHMM()) : null;
+  const nowNext = slots ? currentAndNextSession(slots, nowOverride || getCurrentTimeHHMM()) : null;
   const dorm =
     c.dorm_building || c.dorm_room
       ? `${c.dorm_building ?? ''}${c.dorm_room ? ` ${c.dorm_room}` : ''}`.trim()

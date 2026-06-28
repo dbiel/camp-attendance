@@ -8,6 +8,7 @@ import type { TextDoc } from '@/lib/types';
 import { CaseCard } from './CaseCard';
 import { NewReport } from './NewReport';
 import { SelectionBar } from './SelectionBar';
+import { ReportHistory } from './ReportHistory';
 
 // useSearchParams() requires a Suspense boundary in Next 14 App Router so the
 // page can statically render its shell; the inner component reads ?from_text.
@@ -23,6 +24,7 @@ function ActiveCases() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromText = searchParams.get('from_text');
+  const nowOverride = searchParams.get('now') ?? undefined; // ?now=HH:MM for testing periods
   const { user, loading: authLoading, getAuthHeaders } = useAuth();
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
@@ -160,11 +162,22 @@ function ActiveCases() {
           </p>
         )}
         {sorted.map((c) => (
-          <CaseCard key={c.id} c={c} selected={selected.has(c.id)} onToggleSelect={toggleSelect} />
+          <CaseCard
+            key={c.id}
+            c={c}
+            selected={selected.has(c.id)}
+            onToggleSelect={toggleSelect}
+            nowOverride={nowOverride}
+          />
         ))}
       </section>
 
       <SelectionBar count={selectedCount} onClear={() => setSelected(new Set())} />
+
+      {/* Report history (day → hour) lives at the bottom of the Incident page. */}
+      <div className="mt-8 border-t pt-4">
+        <ReportHistory defaultStatus="resolved" />
+      </div>
     </main>
   );
 }

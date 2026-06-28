@@ -13,9 +13,11 @@ export const dynamic = 'force-dynamic';
  * per-student lookup across 644 rows. This reflects the ensemble base schedule;
  * a student's specific elective is shown in their expandable per-student view.
  */
+const HHMM = /^\d{1,2}:\d{2}$/;
+
 export const GET = withAuth(
   'lookup_admin',
-  async () => {
+  async (request) => {
     const [sessions, periods] = await Promise.all([getSessions(), getPeriods()]);
     const periodMap = new Map(periods.map((p) => [p.id, p]));
 
@@ -34,7 +36,9 @@ export const GET = withAuth(
       });
     }
 
-    const now = getCurrentTimeHHMM();
+    // ?now=HH:MM overrides the clock for testing different periods (camp tz otherwise).
+    const nowParam = new URL(request.url).searchParams.get('now');
+    const now = nowParam && HHMM.test(nowParam) ? nowParam : getCurrentTimeHHMM();
     const byEnsemble: Record<string, { current: string | null; next: string }> = {};
     for (const [ensemble, slots] of Object.entries(byEnsembleSlots)) {
       const { current, next } = currentAndNextSession(slots, now);
