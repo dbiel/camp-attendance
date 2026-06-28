@@ -12,7 +12,7 @@ interface StaffUpdate {
 interface Report {
   ref: number; // opaque index into the link's case set, echoed back on update
   first_name: string;
-  last_name: string;
+  last_initial: string;
   instrument: string;
   dorm_building: string;
   dorm_room: string;
@@ -129,8 +129,9 @@ export default function StaffLinkViewer() {
       )}
       <div className="flex flex-col gap-4">
         {reports.map((d) => {
-          const fullName = `${d.first_name} ${d.last_name}`.trim();
+          const fullName = `${d.first_name} ${d.last_initial}`.trim();
           const dorm = `${d.dorm_building || ''}${d.dorm_room ? ` ${d.dorm_room}` : ''}`.trim();
+          const lastUpdate = d.updates.length ? d.updates[d.updates.length - 1] : null;
           return (
             <section key={d.ref} className="camp-card p-4">
               <div className="flex items-baseline justify-between">
@@ -145,6 +146,11 @@ export default function StaffLinkViewer() {
                   {d.status === 'resolved' ? 'Resolved' : 'Active'}
                 </span>
               </div>
+              {/* Current incident status line: latest activity time at a glance. */}
+              <p className="mt-0.5 text-xs text-[var(--text-3)]">
+                {d.status === 'resolved' ? 'Resolved' : 'Active'}
+                {lastUpdate ? ` · updated ${new Date(lastUpdate.created_at).toLocaleString()}` : ' · no updates yet'}
+              </p>
               {/* Dorm is the LOCATOR — the most prominent element (D1). */}
               <p className="mt-2 rounded bg-[var(--accent-soft)] p-2 text-center text-lg font-semibold">
                 📍 {dorm || 'Dorm —'}

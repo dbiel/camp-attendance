@@ -40,6 +40,8 @@ export default function EnsembleAttendancePage() {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [marks, setMarks] = useState<Record<number, Mark>>({});
   const [sortMode, setSortMode] = useState<SortMode>('score');
+  // Instrument sections collapsed in score-order view (by instrument name).
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +83,31 @@ export default function EnsembleAttendancePage() {
     });
     return rows;
   }, [state, sortMode]);
+
+  // Score-order view groups the roster by instrument into collapsible sections
+  // ("Flute — 7"), ordered by score rank; within a section, students are
+  // already last-name sorted (sortedRoster). Last-name view stays a flat list.
+  const instrumentGroups = useMemo(() => {
+    if (sortMode !== 'score') return null;
+    const map = new Map<string, { rows: RosterRow[]; rank: number }>();
+    for (const r of sortedRoster) {
+      const key = r.instrument || '—';
+      const g = map.get(key);
+      if (g) g.rows.push(r);
+      else map.set(key, { rows: [r], rank: r.score_rank });
+    }
+    return [...map.entries()]
+      .map(([instrument, g]) => ({ instrument, rows: g.rows, rank: g.rank }))
+      .sort((a, b) => a.rank - b.rank || a.instrument.localeCompare(b.instrument));
+  }, [sortedRoster, sortMode]);
+
+  function toggleGroup(instrument: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      next.has(instrument) ? next.delete(instrument) : next.add(instrument);
+      return next;
+    });
+  }
 
   async function submit() {
     if (state.kind !== 'ready') return;
@@ -130,6 +157,48 @@ export default function EnsembleAttendancePage() {
   const { data } = state;
   const absentCount = Object.values(marks).filter((m) => m === 'absent').length;
 
+  const renderRow = (r: RosterRow) => {
+    const mark = marks[r.ref] ?? 'present';
+    return (
+      <li
+        key={r.ref}
+        className="flex items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-[var(--glass-border)] bg-[var(--surface)] p-2"
+      >
+        <div className="min-w-0">
+          <p className="truncate font-medium text-[var(--text)]">
+            {r.first_name} {r.last_name}
+          </p>
+          <p className="truncate text-xs text-[var(--text-3)]">
+            {r.instrument || '—'}
+            {r.grade ? ` · Grade ${r.grade}` : ''}
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          <button
+            onClick={() => setMarks((p) => ({ ...p, [r.ref]: 'present' }))}
+            className={
+              mark === 'present'
+                ? 'btn-present text-sm'
+                : 'rounded-lg bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--text-2)]'
+            }
+          >
+            Present
+          </button>
+          <button
+            onClick={() => setMarks((p) => ({ ...p, [r.ref]: 'absent' }))}
+            className={
+              mark === 'absent'
+                ? 'btn-absent text-sm'
+                : 'rounded-lg bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--text-2)]'
+            }
+          >
+            Absent
+          </button>
+        </div>
+      </li>
+    );
+  };
+
   return (
     <main className="mx-auto max-w-md p-4">
       <h1 className="text-xl font-bold text-[var(--text)]">{data.ensemble}</h1>
@@ -159,49 +228,33 @@ export default function EnsembleAttendancePage() {
         <span className="text-sm font-semibold text-[var(--text-2)]">{absentCount} absent</span>
       </div>
 
-      <ul className="mt-3 flex flex-col gap-1">
-        {sortedRoster.map((r) => {
-          const mark = marks[r.ref] ?? 'present';
-          return (
-            <li
-              key={r.ref}
-              className="flex items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-[var(--glass-border)] bg-[var(--surface)] p-2"
-            >
-              <div className="min-w-0">
-                <p className="truncate font-medium text-[var(--text)]">
-                  {r.first_name} {r.last_name}
-                </p>
-                <p className="truncate text-xs text-[var(--text-3)]">
-                  {r.instrument || '—'}
-                  {r.grade ? ` · Grade ${r.grade}` : ''}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-1">
+      {instrumentGroups ? (
+        // Score-order: collapsible instrument sections — "Flute — 7".
+        <div className="mt-3 flex flex-col gap-2">
+          {instrumentGroups.map((g) => {
+            const open = !collapsed.has(g.instrument);
+            const absentInGroup = g.rows.filter((r) => (marks[r.ref] ?? 'present') === 'absent').length;
+            return (
+              <div key={g.instrument}>
                 <button
-                  onClick={() => setMarks((p) => ({ ...p, [r.ref]: 'present' }))}
-                  className={
-                    mark === 'present'
-                      ? 'btn-present text-sm'
-                      : 'rounded-lg bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--text-2)]'
-                  }
+                  onClick={() => toggleGroup(g.instrument)}
+                  className="flex w-full items-center justify-between rounded-[var(--radius-sm)] bg-[var(--accent-soft)] px-3 py-2 text-left font-bold text-[var(--text)]"
                 >
-                  Present
+                  <span>
+                    {open ? '▾' : '▸'} {g.instrument} — {g.rows.length}
+                  </span>
+                  {absentInGroup > 0 && (
+                    <span className="text-xs font-semibold text-red-700">{absentInGroup} absent</span>
+                  )}
                 </button>
-                <button
-                  onClick={() => setMarks((p) => ({ ...p, [r.ref]: 'absent' }))}
-                  className={
-                    mark === 'absent'
-                      ? 'btn-absent text-sm'
-                      : 'rounded-lg bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--text-2)]'
-                  }
-                >
-                  Absent
-                </button>
+                {open && <ul className="mt-1 flex flex-col gap-1">{g.rows.map(renderRow)}</ul>}
               </div>
-            </li>
-          );
-        })}
-      </ul>
+            );
+          })}
+        </div>
+      ) : (
+        <ul className="mt-3 flex flex-col gap-1">{sortedRoster.map(renderRow)}</ul>
+      )}
 
       {error && <p className="mt-3 text-center text-sm text-red-600">{error}</p>}
       {banner && <p className="mt-3 rounded bg-green-50 p-2 text-center text-sm text-green-800">{banner}</p>}

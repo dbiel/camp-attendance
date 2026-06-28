@@ -150,7 +150,7 @@ describe('toStaffLinkProjection', () => {
         'dorm_room',
         'first_name',
         'instrument',
-        'last_name',
+        'last_initial',
         'report_summary',
         'status',
         'updates',
@@ -158,12 +158,13 @@ describe('toStaffLinkProjection', () => {
     );
   });
 
-  it('D2: exposes the FULL last name so staff find the right kid', () => {
+  it('exposes the LAST INITIAL only — never the full surname', () => {
     const out = toStaffLinkProjection(theCase, student, staffUpdates);
-    expect(out.last_name).toBe('Appleseed');
+    expect(out.last_initial).toBe('A.');
+    expect(JSON.stringify(out)).not.toContain('Appleseed');
   });
 
-  it('D2: first_name prefers preferred_name over legal first name', () => {
+  it('first_name prefers preferred_name over legal first name', () => {
     const out = toStaffLinkProjection(theCase, { ...student, preferred_name: 'JJ' }, staffUpdates);
     expect(out.first_name).toBe('JJ');
   });
@@ -190,10 +191,11 @@ describe('toStaffLinkProjection', () => {
     expect(JSON.stringify(out.updates)).not.toContain('INTERNAL David note');
   });
 
-  it('leaks NO sensitive PII or sibling data — name + dorm are ALLOWED (D1/D2); medical/parent/raw/reporter/ids are NOT', () => {
+  it('leaks NO sensitive PII or sibling data — first name + last INITIAL + dorm are ALLOWED; full surname/medical/parent/raw/reporter/ids are NOT', () => {
     const out = toStaffLinkProjection(theCase, student, staffUpdates);
     const blob = JSON.stringify(out);
-    // Structural key checks — these must never appear regardless of D1/D2.
+    // Structural key checks — these must never appear.
+    expect(out).not.toHaveProperty('last_name');
     expect(out).not.toHaveProperty('medical_notes');
     expect(out).not.toHaveProperty('parent_first_name');
     expect(out).not.toHaveProperty('parent_last_name');
@@ -213,11 +215,12 @@ describe('toStaffLinkProjection', () => {
     expect(blob).not.toContain('SENSITIVE raw'); // raw_text
     expect(blob).not.toContain('Mr. Jones'); // reporter
     expect(blob).not.toContain('tok'); // share_token
+    expect(blob).not.toContain('Appleseed'); // full surname must NOT appear
   });
 
   it('handles an empty last name without throwing', () => {
     const out = toStaffLinkProjection(theCase, { ...student, last_name: '' }, []);
-    expect(out.last_name).toBe('');
+    expect(out.last_initial).toBe('');
   });
 });
 

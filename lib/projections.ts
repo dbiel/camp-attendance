@@ -30,16 +30,17 @@ export function sessionStudentsForTeacher(
 /**
  * Scoped projection for the public two-way staff link (`/r/<token>`).
  *
- * SECURITY: this is the ONLY shape a tokenized viewer ever receives. It must
- * expose nothing beyond what a counselor/dorm-staff member needs to identify
- * and LOCATE the student: name (D2 full name — staff must find the right kid),
- * instrument, and dorm building+room (D1 — the locator). It must NEVER carry
- * medical notes, parent contact, cell phone, raw report text, student id,
- * reporter, schedule, history, other students, or other Reports. Build it
- * field-by-field (allowlist), never spread the source docs. `updates` carries
- * ONLY `staff_update` events (the two-way thread); David's internal notes/texts
- * stay internal. Paired protections (live): 2h TTL, manual revoke,
- * auto-die-on-resolve, anti-leak headers, 128-bit token.
+ * SECURITY: this is the ONLY shape a tokenized viewer ever receives. It exposes
+ * only what a counselor/dorm-staff member needs to identify and LOCATE the kid:
+ * full FIRST name + LAST INITIAL only (David's call 2026-06-28 — minimize the
+ * surname on a forwardable public link), instrument, and dorm building+room
+ * (D1 — the locator). It must NEVER carry the full last name, medical notes,
+ * parent contact, cell phone, raw report text, student id, reporter, schedule,
+ * history, other students, or other Reports. Build it field-by-field
+ * (allowlist), never spread the source docs. `updates` carries ONLY
+ * `staff_update` events (the two-way thread); David's internal notes/texts stay
+ * internal. Paired protections (live): 2h TTL, manual revoke, auto-die-on-
+ * resolve, anti-leak headers, 128-bit token.
  */
 export interface StaffLinkUpdate {
   body: string;
@@ -48,8 +49,8 @@ export interface StaffLinkUpdate {
 }
 
 export interface StaffLinkProjection {
-  first_name: string; // preferred_name || first_name
-  last_name: string; // D2: full last name so staff find the RIGHT kid
+  first_name: string; // full first name (preferred_name || first_name)
+  last_initial: string; // last initial only (e.g. "A.") — NOT the full surname
   instrument: string;
   dorm_building: string; // D1: building code (e.g. "Wall") — the locator
   dorm_room: string;
@@ -94,9 +95,10 @@ export function toStaffLinkProjection(
   student: Student | null,
   events: CaseEvent[]
 ): StaffLinkProjection {
+  const lastName = student?.last_name ?? '';
   return {
     first_name: student?.preferred_name || student?.first_name || '',
-    last_name: student?.last_name ?? '',
+    last_initial: lastName ? `${lastName.charAt(0)}.` : '',
     instrument: student?.instrument ?? '',
     dorm_building: student?.dorm_building ?? '',
     dorm_room: student?.dorm_room ?? '',

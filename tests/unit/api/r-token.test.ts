@@ -81,7 +81,7 @@ describe('GET /api/r/[token]', () => {
         'dorm_room',
         'first_name',
         'instrument',
-        'last_name',
+        'last_initial',
         'ref',
         'report_summary',
         'status',
@@ -89,9 +89,10 @@ describe('GET /api/r/[token]', () => {
       ].sort()
     );
     expect(data.reports[0].ref).toBe(0); // opaque index, not the case id
-    expect(data.reports[0].last_name).toBe('Appleseed'); // D2: full last name now exposed
+    expect(data.reports[0].last_initial).toBe('A.'); // last initial only
     const blob = JSON.stringify(data);
-    // Forbidden PII must still never appear.
+    // Forbidden PII must still never appear (incl. the full surname).
+    expect(blob).not.toContain('Appleseed');
     expect(blob).not.toContain('Peanut');
     expect(blob).not.toContain('+18065559999');
     expect(blob).not.toContain('SENSITIVE');
