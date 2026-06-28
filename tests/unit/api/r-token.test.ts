@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 
 const m = vi.hoisted(() => ({
   validateShareToken: vi.fn(),
+  validateCombinedToken: vi.fn(),
   getCase: vi.fn(),
   listCaseEvents: vi.fn(),
   addCaseEvent: vi.fn(),
@@ -13,6 +14,7 @@ const m = vi.hoisted(() => ({
 
 vi.mock('@/lib/cases', () => ({
   validateShareToken: m.validateShareToken,
+  validateCombinedToken: m.validateCombinedToken,
   getCase: m.getCase,
   listCaseEvents: m.listCaseEvents,
   addCaseEvent: m.addCaseEvent,
@@ -56,6 +58,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   m.checkRateLimit.mockReturnValue(true);
   m.getClientIp.mockReturnValue('1.2.3.4');
+  m.validateCombinedToken.mockResolvedValue(null); // most tests use a single token
 });
 
 describe('GET /api/r/[token]', () => {
@@ -70,9 +73,12 @@ describe('GET /api/r/[token]', () => {
     const res = await GET(req('GET'), { params: { token: 'tok' } });
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(Object.keys(data).sort()).toEqual(
-      ['dorm_room', 'first_name', 'instrument', 'last_initial', 'report_summary', 'status', 'updates'].sort()
+    expect(Array.isArray(data.reports)).toBe(true);
+    expect(data.reports).toHaveLength(1);
+    expect(Object.keys(data.reports[0]).sort()).toEqual(
+      ['dorm_room', 'first_name', 'instrument', 'last_initial', 'ref', 'report_summary', 'status', 'updates'].sort()
     );
+    expect(data.reports[0].ref).toBe(0); // opaque index, not the case id
     const blob = JSON.stringify(data);
     expect(blob).not.toContain('Appleseed');
     expect(blob).not.toContain('Peanut');
@@ -80,6 +86,20 @@ describe('GET /api/r/[token]', () => {
     expect(blob).not.toContain('SENSITIVE');
     expect(blob).not.toContain('INTERNAL');
     expect(blob).not.toContain('case1'); // no internal id leak
+  });
+
+  it('combined token returns multiple scoped reports with opaque refs', async () => {
+    m.validateShareToken.mockResolvedValue(null);
+    m.validateCombinedToken.mockResolvedValue({ caseIds: ['case1', 'case2'], recipientLabel: 'Dorm A' });
+    m.getCase.mockImplementation(async (id: string) => ({ ...validCase, id, student_id: 'st1' }));
+    m.getStudent.mockResolvedValue(student);
+    m.listCaseEvents.mockResolvedValue([]);
+    const res = await GET(req('GET'), { params: { token: 'combined' } });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.reports).toHaveLength(2);
+    expect(data.reports.map((r: { ref: number }) => r.ref)).toEqual([0, 1]);
+    expect(JSON.stringify(data)).not.toContain('case2'); // refs are indexes, not ids
   });
 
   it('returns a uniform 404 for an unknown token (no enumeration)', async () => {
@@ -135,6 +155,24 @@ describe('POST /api/r/[token]/update', () => {
   it('returns 410 when the link has expired/revoked (validate → null)', async () => {
     m.validateShareToken.mockResolvedValue(null);
     const res = await POST(req('POST', { body: 'too late' }), { params: { token: 'tok' } });
+    expect(res.status).toBe(410);
+    expect(m.addCaseEvent).not.toHaveBeenCalled();
+  });
+
+  it('combined: ref selects the right case (member of the link)', async () => {
+    m.validateShareToken.mockResolvedValue(null);
+    m.validateCombinedToken.mockResolvedValue({ caseIds: ['case1', 'case2'], recipientLabel: 'Dorm A' });
+    m.getCase.mockResolvedValue(validCase);
+    m.addCaseEvent.mockResolvedValue('e9');
+    const res = await POST(req('POST', { body: 'found case2', ref: 1 }), { params: { token: 'combined' } });
+    expect(res.status).toBe(200);
+    expect(m.addCaseEvent).toHaveBeenCalledWith('case2', 'staff_update', 'found case2', 'Dorm A');
+  });
+
+  it('combined: an out-of-range ref cannot post outside the link (410)', async () => {
+    m.validateShareToken.mockResolvedValue(null);
+    m.validateCombinedToken.mockResolvedValue({ caseIds: ['case1', 'case2'], recipientLabel: 'Dorm A' });
+    const res = await POST(req('POST', { body: 'x', ref: 9 }), { params: { token: 'combined' } });
     expect(res.status).toBe(410);
     expect(m.addCaseEvent).not.toHaveBeenCalled();
   });

@@ -243,6 +243,56 @@ export async function validateShareToken(
   return { caseId: doc.id };
 }
 
+// ─── Combined staff links (D4): one token → several reports ─────────────────
+const STAFF_LINKS = 'staff_links';
+
+export interface CombinedLink {
+  token: string;
+  url: string;
+  expires_at: string;
+}
+
+/** Issue one link covering several reports (doc id = token, server-only). */
+export async function issueCombinedShareLink(
+  caseIds: string[],
+  recipientLabel: string | null,
+  now: Date = new Date()
+): Promise<CombinedLink> {
+  const token = randomBytes(16).toString('hex');
+  const expiresAt = new Date(now.getTime() + SHARE_TTL_MS).toISOString();
+  await adminDb.collection(STAFF_LINKS).doc(token).set({
+    case_ids: caseIds,
+    issued_at: now.toISOString(),
+    expires_at: expiresAt,
+    revoked: false,
+    recipient_label: recipientLabel,
+  });
+  return { token, url: `/r/${token}`, expires_at: expiresAt };
+}
+
+/** Resolve a combined token to its case ids, enforcing validity (uniform-null
+ * for unknown/revoked/expired — no enumeration signal). */
+export async function validateCombinedToken(
+  token: string,
+  now: Date = new Date()
+): Promise<{ caseIds: string[]; recipientLabel: string | null } | null> {
+  if (!token) return null;
+  const doc = await adminDb.collection(STAFF_LINKS).doc(token).get();
+  if (!doc.exists) return null;
+  const d = doc.data() as {
+    case_ids?: string[];
+    expires_at?: string;
+    revoked?: boolean;
+    recipient_label?: string | null;
+  };
+  if (d.revoked) return null;
+  if (!d.expires_at || now.getTime() >= new Date(d.expires_at).getTime()) return null;
+  return {
+    caseIds: Array.isArray(d.case_ids) ? d.case_ids : [],
+    recipientLabel: d.recipient_label ?? null,
+  };
+}
+
 export async function listCaseEvents(caseId: string): Promise<CaseEvent[]> {
   const snap = await adminDb
     .collection(EVENTS)

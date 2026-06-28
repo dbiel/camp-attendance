@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateShareToken, getCase, addCaseEvent } from '@/lib/cases';
+import { validateShareToken, validateCombinedToken, getCase, addCaseEvent } from '@/lib/cases';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * Public two-way staff-link update endpoint (no auth, token-gated). Appends a
- * `staff_update` event David sees in the Report timeline. Only works while the
- * link is valid — an expired/revoked/unknown token yields 410 (the link is
- * gone). Rate-limited per IP.
+ * `staff_update` event David sees in the Report timeline. Handles single and
+ * combined links; for a combined link the `ref` (case id) MUST belong to that
+ * link's case set — a caller can never post to a report outside their link.
+ * Expired/revoked/unknown → 410. Rate-limited per IP.
  */
 export const POST = async (
   request: NextRequest,
@@ -18,9 +19,19 @@ export const POST = async (
   if (!checkRateLimit(`r-update:${ip}`)) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
-  const valid = await validateShareToken(params.token, new Date());
-  if (!valid) {
-    return NextResponse.json({ error: 'This link has expired.' }, { status: 410 });
+  const now = new Date();
+  const single = await validateShareToken(params.token, now);
+  let allowedIds: string[];
+  let recipientLabel: string | null = null;
+  if (single) {
+    allowedIds = [single.caseId];
+  } else {
+    const combined = await validateCombinedToken(params.token, now);
+    if (!combined) {
+      return NextResponse.json({ error: 'This link has expired.' }, { status: 410 });
+    }
+    allowedIds = combined.caseIds;
+    recipientLabel = combined.recipientLabel;
   }
 
   const json = await request.json().catch(() => null);
@@ -28,11 +39,19 @@ export const POST = async (
   if (typeof text !== 'string' || !text.trim()) {
     return NextResponse.json({ error: 'Update text required' }, { status: 400 });
   }
+  // `ref` is an opaque INDEX into this link's case set (default 0 for a single
+  // link). A caller can only ever update a report inside their own link.
+  const ref = (json as { ref?: unknown })?.ref;
+  const idx = typeof ref === 'number' && Number.isInteger(ref) ? ref : 0;
+  if (idx < 0 || idx >= allowedIds.length) {
+    return NextResponse.json({ error: 'This link has expired.' }, { status: 410 });
+  }
+  const targetId = allowedIds[idx]!;
 
-  const c = await getCase(valid.caseId);
+  const c = await getCase(targetId);
   if (!c) return NextResponse.json({ error: 'This link has expired.' }, { status: 410 });
 
-  const actor = c.share_recipient_label || 'staff link';
-  const id = await addCaseEvent(valid.caseId, 'staff_update', text.trim(), actor);
+  const actor = (single ? c.share_recipient_label : recipientLabel) || 'staff link';
+  const id = await addCaseEvent(targetId, 'staff_update', text.trim(), actor);
   return NextResponse.json({ id });
 };

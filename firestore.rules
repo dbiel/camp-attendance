@@ -71,6 +71,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Combined staff links (D4): server-only; the public viewer reads them via
+    // the token-validating /api/r/* routes, never the client SDK.
+    match /staff_links/{token} {
+      allow read, write: if false;
+    }
+
     // Catch-all default deny. Any new collection added via the Admin SDK
     // is read/write-denied to clients until an explicit `match` block is
     // added above this line. Prevents "forgot to write a rule" footguns.

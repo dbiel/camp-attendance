@@ -112,7 +112,7 @@ function ActiveCases() {
       new Date(a.occurred_at || a.created_at).getTime() -
       new Date(b.occurred_at || b.created_at).getTime()
   );
-  const selectedCount = sorted.filter((c) => selected.has(c.id)).length;
+  const selectedCaseIds = sorted.filter((c) => selected.has(c.id)).map((c) => c.id);
   const newOpen = showNew || Boolean(fromText);
 
   function toggleSelect(id: string) {
@@ -172,7 +172,11 @@ function ActiveCases() {
         ))}
       </section>
 
-      <SelectionBar count={selectedCount} onClear={() => setSelected(new Set())} />
+      <SelectionBar
+        caseIds={selectedCaseIds}
+        getAuthHeaders={getAuthHeaders}
+        onClear={() => setSelected(new Set())}
+      />
 
       {/* Report history (day → hour) lives at the bottom of the Incident page. */}
       <div className="mt-8 border-t pt-4">
