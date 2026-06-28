@@ -131,6 +131,10 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
         {dayKeys.map((day) => {
           const hours = days.get(day)!;
           const dayCount = [...hours.values()].reduce((n, arr) => n + arr.length, 0);
+          const dayActive = [...hours.values()].reduce(
+            (n, arr) => n + arr.filter((c) => c.status === 'active').length,
+            0
+          );
           const open = isDayOpen(day);
           const hourKeys = [...hours.keys()].sort().reverse();
           return (
@@ -140,12 +144,16 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
                 className="flex w-full items-center justify-between p-3 text-left font-semibold"
               >
                 <span>{open ? '▾' : '▸'} {dayLabel(day, today)}</span>
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{dayCount}</span>
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                  {dayCount}
+                  {dayActive > 0 && <span className="font-semibold text-red-700"> ({dayActive} still active)</span>}
+                </span>
               </button>
               {open && (
                 <div className="border-t">
                   {hourKeys.map((hourKey) => {
                     const list = hours.get(hourKey)!;
+                    const hourActive = list.filter((c) => c.status === 'active').length;
                     const hh = Number(hourKey.slice(11, 13));
                     const hOpen = isHourOpen(hourKey);
                     return (
@@ -154,13 +162,17 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
                           onClick={() => toggle(toggledHours, setToggledHours, hourKey)}
                           className="flex w-full items-center justify-between px-3 py-2 text-left text-sm"
                         >
-                          <span className="text-gray-600">
+                          {/* Active reports turn the hour red — kids still missing in that period. */}
+                          <span className={hourActive > 0 ? 'font-semibold text-red-700' : 'text-gray-600'}>
                             {hOpen ? '▾' : '▸'} {hourLabel(hh)}
                             {hourKey === nowHourKey && (
                               <span className="ml-2 rounded bg-red-100 px-1.5 text-xs text-red-700">now</span>
                             )}
                           </span>
-                          <span className="text-xs text-gray-400">{list.length}</span>
+                          <span className="text-xs text-gray-400">
+                            {list.length}
+                            {hourActive > 0 && <span className="font-semibold text-red-700"> ({hourActive} active)</span>}
+                          </span>
                         </button>
                         {hOpen && (
                           <ul className="flex flex-col gap-1 px-3 pb-2">

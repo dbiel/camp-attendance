@@ -13,14 +13,21 @@ export const GET = withAuth<{ id: string }>(
     if (!c) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     const [events, student, priorCases] = await Promise.all([
       listCaseEvents(c.id),
-      getStudent(c.student_id),
-      listCasesForStudent(c.student_id),
+      // Unmatched reports have student_id '' — skip the student/prior lookups.
+      c.student_id ? getStudent(c.student_id) : Promise.resolve(undefined),
+      c.student_id ? listCasesForStudent(c.student_id) : Promise.resolve([]),
     ]);
+    // Each prior report carries its own timeline so the detail page can show the
+    // full found-data + updates history, not just a count.
+    const prior = priorCases.filter((p) => p.id !== c.id);
+    const prior_cases = await Promise.all(
+      prior.map(async (p) => ({ ...p, events: await listCaseEvents(p.id) }))
+    );
     return NextResponse.json({
       case: c,
       events,
       student: student ?? null,
-      prior_cases: priorCases.filter((p) => p.id !== c.id),
+      prior_cases,
     });
   },
   { rateLimitKey: 'cases' }

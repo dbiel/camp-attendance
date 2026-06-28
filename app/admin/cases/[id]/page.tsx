@@ -9,11 +9,13 @@ import type { Student } from '@/lib/types';
 import type { Contact } from '@/lib/contacts';
 import { renderTemplate, smsHref, DEFAULT_TEMPLATES, type MessageTemplates } from '@/lib/messages-shared';
 
+type PriorCase = Case & { events: CaseEvent[] };
+
 interface Detail {
   case: Case;
   events: CaseEvent[];
   student: Student | null;
-  prior_cases: Case[];
+  prior_cases: PriorCase[];
 }
 
 export default function CaseDetail() {
@@ -195,6 +197,47 @@ export default function CaseDetail() {
           })}
         </ol>
       </section>
+
+      {prior_cases.length > 0 && (
+        <section className="mt-6">
+          <h2 className="font-semibold">
+            Prior reports for {student?.preferred_name || student?.first_name || c.student_name}{' '}
+            <span className="text-sm font-normal text-gray-500">({prior_cases.length})</span>
+          </h2>
+          <div className="mt-2 flex flex-col gap-3">
+            {prior_cases.map((p) => (
+              <div key={p.id} className="rounded border bg-white p-3 text-sm">
+                <div className="flex items-baseline justify-between">
+                  <Link href={`/admin/cases/${p.id}`} className="font-medium text-red-700 underline">
+                    {p.summary}
+                    {p.session_label ? ` — ${p.session_label}` : ''}
+                  </Link>
+                  <span className="text-xs text-gray-500">{new Date(p.created_at).toLocaleString()}</span>
+                </div>
+                <p className="mt-0.5 text-xs">
+                  <span className={p.status === 'resolved' ? 'text-green-700' : 'text-red-700'}>
+                    {p.status === 'resolved' ? '✓ resolved' : '● active'}
+                  </span>
+                  {p.resolution_note ? ` — found: ${p.resolution_note}` : ''}
+                </p>
+                {p.events.length > 0 && (
+                  <ol className="mt-2 flex flex-col gap-1 border-l-2 border-gray-200 pl-3">
+                    {p.events.map((e) => (
+                      <li key={e.id} className="text-xs">
+                        <span className="text-gray-500">
+                          {new Date(e.created_at).toLocaleString()} · {e.actor}
+                          {e.type === 'staff_update' && <span className="ml-1 font-medium text-blue-700">· staff link</span>}
+                        </span>
+                        <p className="text-gray-800">{e.body}</p>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }
