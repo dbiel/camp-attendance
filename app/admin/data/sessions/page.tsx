@@ -114,11 +114,11 @@ export default function SessionsDataPage() {
   }
 
   if (authLoading || !user) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-gray-600">Loading...</div></div>;
+    return <div className="min-h-screen bg-[var(--surface)] flex items-center justify-center"><div className="text-[var(--text-2)]">Loading...</div></div>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-[var(--surface)] pb-20">
       <div className="max-w-6xl mx-auto px-4 pt-4">
         <h1 className="text-2xl font-bold text-camp-green">Sessions</h1>
       </div>
@@ -135,11 +135,11 @@ export default function SessionsDataPage() {
         </div>
 
         {loading ? (
-          <div className="text-center text-gray-600 py-8">Loading...</div>
+          <div className="text-center text-[var(--text-2)] py-8">Loading...</div>
         ) : (
           <div className="camp-card overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b border-gray-200">
+              <thead className="bg-[var(--accent-soft)] border-b border-[var(--glass-border)]">
                 <tr>
                   <th className="px-4 py-2 text-left">Name</th>
                   <th className="px-4 py-2 text-left">Type</th>
@@ -151,11 +151,11 @@ export default function SessionsDataPage() {
               </thead>
               <tbody>
                 {filtered.map((session) => (
-                  <tr key={session.id} className="border-b border-gray-200 hover:bg-gray-50">
+                  <tr key={session.id} className="border-b border-[var(--glass-border)] hover:bg-[var(--surface)]">
                     <td className="px-4 py-2 font-semibold">{session.name}</td>
                     <td className="px-4 py-2">{session.type}</td>
                     <td className="px-4 py-2">{session.period_id}</td>
-                    <td className="px-4 py-2 text-gray-600">{session.location || '-'}</td>
+                    <td className="px-4 py-2 text-[var(--text-2)]">{session.location || '-'}</td>
                     <td className="px-4 py-2">{session.ensemble || '-'}</td>
                     <td className="px-4 py-2 space-x-2">
                       <button
@@ -182,7 +182,7 @@ export default function SessionsDataPage() {
       {/* Edit Modal */}
       {editingId !== null && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md max-h-96 overflow-y-auto">
+          <div className="glass-card p-6 w-full max-w-md max-h-96 overflow-y-auto">
             <h2 className="text-xl font-bold text-camp-green mb-4">Edit Session</h2>
             <div className="space-y-4 mb-6">
               <div>

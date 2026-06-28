@@ -60,7 +60,7 @@ function ensembleHeaderClass(ensemble: string): string {
     ];
     return shades[Math.max(0, Math.min(shades.length - 1, n - 1))];
   }
-  return 'bg-gray-100 text-gray-800';
+  return 'bg-[var(--accent-soft)] text-[var(--text)]';
 }
 
 function ensembleCellClass(ensemble: string): string {
@@ -89,11 +89,11 @@ interface SessionCellProps {
 
 function SessionCell({ sessions }: SessionCellProps) {
   if (sessions.length === 0) {
-    return <span className="text-gray-300 select-none">—</span>;
+    return <span className="text-[var(--text-3)] select-none">—</span>;
   }
 
   return (
-    <div className="flex flex-col divide-y divide-gray-200">
+    <div className="flex flex-col divide-y divide-[var(--glass-border)]">
       {sessions.map((s, idx) => {
         const name = s.session_name || s.name || 'Session';
         const location = s.location || '';
@@ -113,14 +113,14 @@ function SessionCell({ sessions }: SessionCellProps) {
               idx > 0 ? 'pt-2' : ''
             }`}
           >
-            <div className="font-semibold text-gray-900 text-xs leading-tight truncate">
+            <div className="font-semibold text-[var(--text)] text-xs leading-tight truncate">
               {name}
             </div>
             {location && (
-              <div className="text-[11px] text-gray-600 truncate">{location}</div>
+              <div className="text-[11px] text-[var(--text-2)] truncate">{location}</div>
             )}
             {teacher && (
-              <div className="text-[11px] text-gray-500 truncate italic">
+              <div className="text-[11px] text-[var(--text-3)] truncate italic">
                 {teacher}
               </div>
             )}
@@ -215,14 +215,14 @@ export default function SchedulePage() {
 
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-[var(--surface)] flex items-center justify-center">
+        <div className="text-[var(--text-2)]">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-[var(--surface)] pb-20">
       <div className="bg-camp-green text-white p-4 sticky top-0 z-40 shadow-md">
         <Link
           href="/admin/dashboard"
@@ -238,9 +238,9 @@ export default function SchedulePage() {
 
       <div className="max-w-[1400px] mx-auto p-4">
         {loading ? (
-          <div className="text-center text-gray-600 py-8">Loading...</div>
+          <div className="text-center text-[var(--text-2)] py-8">Loading...</div>
         ) : schedule.length === 0 ? (
-          <div className="camp-card text-center text-gray-600 py-8">
+          <div className="camp-card text-center text-[var(--text-2)] py-8">
             No sessions scheduled yet.
           </div>
         ) : (
@@ -250,7 +250,7 @@ export default function SchedulePage() {
                 <tr>
                   <th
                     scope="col"
-                    className="sticky left-0 top-0 z-20 bg-gray-100 border border-gray-300 px-3 py-2 text-left font-bold w-40"
+                    className="sticky left-0 top-0 z-20 bg-[var(--accent-soft)] border border-[var(--glass-border)] px-3 py-2 text-left font-bold w-40"
                   >
                     Period
                   </th>
@@ -258,7 +258,7 @@ export default function SchedulePage() {
                     <th
                       key={ens}
                       scope="col"
-                      className={`border border-gray-300 px-3 py-2 text-left font-bold text-xs whitespace-nowrap ${ensembleHeaderClass(
+                      className={`border border-[var(--glass-border)] px-3 py-2 text-left font-bold text-xs whitespace-nowrap ${ensembleHeaderClass(
                         ens
                       )}`}
                     >
@@ -272,11 +272,11 @@ export default function SchedulePage() {
                   <tr key={period.number} className="align-top">
                     <th
                       scope="row"
-                      className="sticky left-0 z-10 bg-gray-50 border border-gray-300 px-3 py-2 text-left font-bold w-40"
+                      className="sticky left-0 z-10 bg-[var(--surface)] border border-[var(--glass-border)] px-3 py-2 text-left font-bold w-40"
                     >
-                      <div className="text-gray-900">{period.name}</div>
+                      <div className="text-[var(--text)]">{period.name}</div>
                       {period.time && (
-                        <div className="text-xs font-normal text-gray-500 mt-0.5">
+                        <div className="text-xs font-normal text-[var(--text-3)] mt-0.5">
                           {period.time}
                         </div>
                       )}
@@ -287,7 +287,7 @@ export default function SchedulePage() {
                       return (
                         <td
                           key={ens}
-                          className={`border border-gray-300 p-0 align-top min-w-[140px] ${ensembleCellClass(
+                          className={`border border-[var(--glass-border)] p-0 align-top min-w-[140px] ${ensembleCellClass(
                             ens
                           )}`}
                         >

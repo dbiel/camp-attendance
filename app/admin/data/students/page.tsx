@@ -227,14 +227,14 @@ export default function StudentsDataPage() {
 
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-[var(--surface)] flex items-center justify-center">
+        <div className="text-[var(--text-2)]">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-[var(--surface)] pb-20">
       <div className="max-w-6xl mx-auto px-4 pt-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-camp-green">Students</h1>
@@ -257,11 +257,11 @@ export default function StudentsDataPage() {
         </div>
 
         {loading ? (
-          <div className="text-center text-gray-600 py-8">Loading...</div>
+          <div className="text-center text-[var(--text-2)] py-8">Loading...</div>
         ) : (
           <div className="camp-card overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b border-gray-200">
+              <thead className="bg-[var(--accent-soft)] border-b border-[var(--glass-border)]">
                 <tr>
                   <th className="px-4 py-2 text-left">Name</th>
                   <th className="px-4 py-2 text-left">Instrument</th>
@@ -279,7 +279,7 @@ export default function StudentsDataPage() {
                   const slots = slotsByStudent[student.id];
                   return (
                     <Fragment key={student.id}>
-                      <tr className="border-b border-gray-200 hover:bg-gray-50">
+                      <tr className="border-b border-[var(--glass-border)] hover:bg-[var(--surface)]">
                         <td className="px-4 py-2 font-semibold">
                           <button onClick={() => toggleExpand(student)} className="text-left hover:text-camp-green">
                             {expanded ? '▾' : '▸'} {student.first_name} {student.last_name}
@@ -287,9 +287,9 @@ export default function StudentsDataPage() {
                         </td>
                         <td className="px-4 py-2">{student.instrument}</td>
                         <td className="px-4 py-2">{student.ensemble}</td>
-                        <td className="px-4 py-2 text-gray-700">{nn ? (nn.current ?? 'No class') : '—'}</td>
-                        <td className="px-4 py-2 text-gray-500">{nn ? nn.next : '—'}</td>
-                        <td className="px-4 py-2 text-gray-600">{student.dorm_room || '-'}</td>
+                        <td className="px-4 py-2 text-[var(--text-2)]">{nn ? (nn.current ?? 'No class') : '—'}</td>
+                        <td className="px-4 py-2 text-[var(--text-3)]">{nn ? nn.next : '—'}</td>
+                        <td className="px-4 py-2 text-[var(--text-2)]">{student.dorm_room || '-'}</td>
                         <td className="px-4 py-2 space-x-2">
                           <button
                             onClick={() => openEdit(student)}
@@ -306,32 +306,32 @@ export default function StudentsDataPage() {
                         </td>
                       </tr>
                       {expanded && (
-                        <tr className="border-b border-gray-200 bg-gray-50">
+                        <tr className="border-b border-[var(--glass-border)] bg-[var(--surface)]">
                           <td colSpan={7} className="px-4 py-3">
                             <div className="grid gap-4 md:grid-cols-2">
                               <div className="text-sm">
                                 <h3 className="mb-1 font-semibold text-camp-green">Details</h3>
-                                <dl className="grid grid-cols-[7rem_1fr] gap-x-2 gap-y-0.5 text-gray-700">
-                                  {student.preferred_name && (<><dt className="text-gray-500">Preferred</dt><dd>{student.preferred_name}</dd></>)}
-                                  <dt className="text-gray-500">Division</dt><dd>{student.division}</dd>
-                                  <dt className="text-gray-500">Grade</dt><dd>{(student as Student & { grade?: string }).grade ?? '—'}</dd>
-                                  <dt className="text-gray-500">Dorm</dt><dd>{student.dorm_building || '—'} {student.dorm_room || ''}</dd>
-                                  <dt className="text-gray-500">Cell</dt><dd>{student.cell_phone || '—'}</dd>
-                                  <dt className="text-gray-500">Parent</dt><dd>{[student.parent_first_name, student.parent_last_name].filter(Boolean).join(' ') || '—'}{student.parent_phone ? ` · ${student.parent_phone}` : ''}</dd>
-                                  <dt className="text-gray-500">Email</dt><dd className="break-all">{student.email || '—'}</dd>
-                                  {student.medical_notes && (<><dt className="text-gray-500">Medical</dt><dd className="text-red-700">{student.medical_notes}</dd></>)}
+                                <dl className="grid grid-cols-[7rem_1fr] gap-x-2 gap-y-0.5 text-[var(--text-2)]">
+                                  {student.preferred_name && (<><dt className="text-[var(--text-3)]">Preferred</dt><dd>{student.preferred_name}</dd></>)}
+                                  <dt className="text-[var(--text-3)]">Division</dt><dd>{student.division}</dd>
+                                  <dt className="text-[var(--text-3)]">Grade</dt><dd>{(student as Student & { grade?: string }).grade ?? '—'}</dd>
+                                  <dt className="text-[var(--text-3)]">Dorm</dt><dd>{student.dorm_building || '—'} {student.dorm_room || ''}</dd>
+                                  <dt className="text-[var(--text-3)]">Cell</dt><dd>{student.cell_phone || '—'}</dd>
+                                  <dt className="text-[var(--text-3)]">Parent</dt><dd>{[student.parent_first_name, student.parent_last_name].filter(Boolean).join(' ') || '—'}{student.parent_phone ? ` · ${student.parent_phone}` : ''}</dd>
+                                  <dt className="text-[var(--text-3)]">Email</dt><dd className="break-all">{student.email || '—'}</dd>
+                                  {student.medical_notes && (<><dt className="text-[var(--text-3)]">Medical</dt><dd className="text-red-700">{student.medical_notes}</dd></>)}
                                 </dl>
                               </div>
                               <div className="text-sm">
                                 <h3 className="mb-1 font-semibold text-camp-green">Schedule</h3>
-                                {!slots && <p className="text-gray-500">Loading…</p>}
-                                {slots && slots.length === 0 && <p className="text-gray-500">No schedule.</p>}
+                                {!slots && <p className="text-[var(--text-3)]">Loading…</p>}
+                                {slots && slots.length === 0 && <p className="text-[var(--text-3)]">No schedule.</p>}
                                 {slots && slots.length > 0 && (
-                                  <ul className="space-y-0.5 text-gray-700">
+                                  <ul className="space-y-0.5 text-[var(--text-2)]">
                                     {dedupeSlots(slots).map((s) => (
                                       <li key={`${s.period_number}-${s.session_id}`}>
-                                        <span className="text-gray-500">P{s.period_number} {s.start_time}</span> · {s.name}
-                                        {s.faculty_name ? <span className="text-gray-500"> · {s.faculty_name}</span> : ''}
+                                        <span className="text-[var(--text-3)]">P{s.period_number} {s.start_time}</span> · {s.name}
+                                        {s.faculty_name ? <span className="text-[var(--text-3)]"> · {s.faculty_name}</span> : ''}
                                       </li>
                                     ))}
                                   </ul>

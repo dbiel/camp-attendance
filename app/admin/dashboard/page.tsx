@@ -245,8 +245,8 @@ export default function AdminDashboard() {
 
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-[var(--surface)] flex items-center justify-center">
+        <div className="text-[var(--text-2)]">Loading...</div>
       </div>
     );
   }
@@ -345,7 +345,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-[var(--surface)] pb-20">
       {/* Header */}
       <div className="bg-camp-green text-white p-4 sticky top-0 z-40 shadow-md">
         <div className="max-w-6xl mx-auto">
@@ -408,7 +408,7 @@ export default function AdminDashboard() {
             className={`px-3 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all ${
               selectedPeriod === null
                 ? 'bg-camp-accent text-white shadow-sm'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                : 'bg-white text-[var(--text-2)] border border-[var(--glass-border)] hover:bg-[var(--surface)]'
             }`}
           >
             All Periods
@@ -420,7 +420,7 @@ export default function AdminDashboard() {
               className={`px-3 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all ${
                 selectedPeriod === p.num
                   ? 'bg-camp-accent text-white shadow-sm'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  : 'bg-white text-[var(--text-2)] border border-[var(--glass-border)] hover:bg-[var(--surface)]'
               }`}
             >
               {p.label}
@@ -452,13 +452,13 @@ export default function AdminDashboard() {
               <div
                 id="student-search-results"
                 role="listbox"
-                className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-30 max-h-80 overflow-y-auto"
+                className="absolute left-0 right-0 top-full mt-1 glass-card z-30 max-h-80 overflow-y-auto"
               >
                 {searchLoading && (
-                  <div className="px-3 py-2 text-sm text-gray-500">Searching…</div>
+                  <div className="px-3 py-2 text-sm text-[var(--text-3)]">Searching…</div>
                 )}
                 {!searchLoading && searchResults.length === 0 && (
-                  <div className="px-3 py-2 text-sm text-gray-500">No students match.</div>
+                  <div className="px-3 py-2 text-sm text-[var(--text-3)]">No students match.</div>
                 )}
                 {searchResults.map((r) => {
                   const dorm = r.dorm_building && r.dorm_building !== 'n/a'
@@ -476,13 +476,13 @@ export default function AdminDashboard() {
                         setSearchTruncated(false);
                         setStudentFilter('');
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none border-b border-gray-100 last:border-b-0"
+                      className="w-full text-left px-3 py-2 hover:bg-[var(--accent-soft)] focus:bg-[var(--accent-soft)] focus:outline-none border-b border-[var(--glass-border)] last:border-b-0"
                     >
-                      <div className="text-sm font-semibold text-gray-900">
+                      <div className="text-sm font-semibold text-[var(--text)]">
                         {r.first_name}
                         {r.preferred_name ? ` (${r.preferred_name})` : ''} {r.last_name}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-[var(--text-3)]">
                         {r.instrument}
                         {r.ensemble ? ` · ${r.ensemble}` : ''}
                         {` · ${dorm}`}
@@ -491,7 +491,7 @@ export default function AdminDashboard() {
                   );
                 })}
                 {searchTruncated && !searchLoading && searchResults.length > 0 && (
-                  <div className="px-3 py-2 text-xs text-gray-500 italic border-t border-gray-100">
+                  <div className="px-3 py-2 text-xs text-[var(--text-3)] italic border-t border-[var(--glass-border)]">
                     Showing first 50 matches — refine your search
                   </div>
                 )}
@@ -537,7 +537,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Active Filters Summary */}
-        <div className="text-sm text-gray-500 mb-4">
+        <div className="text-sm text-[var(--text-3)] mb-4">
           {selectedDay ? formatDayLabel(selectedDay) : ''}
           {selectedPeriod !== null && ` \u2022 ${PERIODS.find(p => p.num === selectedPeriod)?.label}`}
           {statusFilter && ` \u2022 ${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}`}
@@ -550,9 +550,9 @@ export default function AdminDashboard() {
 
         {/* Results: Grouped by Session */}
         {loading ? (
-          <div className="p-8 text-center text-gray-600">Loading...</div>
+          <div className="p-8 text-center text-[var(--text-2)]">Loading...</div>
         ) : sortedGroups.length === 0 ? (
-          <div className="camp-card p-8 text-center text-gray-500">
+          <div className="camp-card p-8 text-center text-[var(--text-3)]">
             {allRecords.length === 0
               ? 'No attendance data for this day yet'
               : 'No records match your filters'}
@@ -562,11 +562,11 @@ export default function AdminDashboard() {
             {sortedGroups.map((group) => (
               <div key={`${group.period_number}-${group.session_id}`} className="camp-card overflow-hidden">
                 {/* Session Header */}
-                <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+                <div className="bg-[var(--accent-soft)] px-4 py-3 border-b border-[var(--glass-border)]">
                   <div className="flex justify-between items-center">
                     <div>
                       <span className="font-bold text-camp-green">{group.session_name}</span>
-                      <span className="text-gray-500 text-sm ml-2">
+                      <span className="text-[var(--text-3)] text-sm ml-2">
                         {group.period_name} &bull; {group.teacher_name}
                       </span>
                     </div>
@@ -577,21 +577,21 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Student List */}
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-[var(--glass-border)]">
                   {group.students.map((record) => {
                     const rowKey = `${record.student_id}-${record.session_id}`;
                     return (
                       <button
                         key={rowKey}
                         onClick={() => setDetailStudentId(record.student_id)}
-                        className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
+                        className="w-full text-left px-4 py-3 hover:bg-[var(--surface)] transition-colors"
                       >
                         <div className="flex justify-between items-center">
                           <div>
                             <span className="font-semibold">{record.first_name} {record.last_name}</span>
-                            <span className="text-gray-500 text-sm ml-2">{record.instrument}</span>
+                            <span className="text-[var(--text-3)] text-sm ml-2">{record.instrument}</span>
                             {record.ensemble && (
-                              <span className="text-gray-400 text-sm ml-1">({record.ensemble})</span>
+                              <span className="text-[var(--text-3)] text-sm ml-1">({record.ensemble})</span>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
