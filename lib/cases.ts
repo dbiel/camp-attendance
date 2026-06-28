@@ -55,6 +55,10 @@ export interface Case {
   created_by: string;
   created_at: string;
   resolved_at: string | null;
+  // Bumped on every event (create/staff-update/note/resolve) so the client can
+  // badge reports with activity "new since I last looked". Optional so pre-existing
+  // docs (no field) read fine — clients fall back to created_at.
+  last_activity_at?: string;
 }
 
 export interface CaseEvent {
@@ -125,6 +129,7 @@ export async function createCase(input: CreateCaseInput): Promise<string> {
     created_by: input.created_by,
     created_at: now,
     resolved_at: null,
+    last_activity_at: now,
   };
   const ref = await adminDb.collection(CASES).add(doc);
   await addCaseEvent(ref.id, 'report_received', input.summary, input.created_by);
@@ -169,14 +174,22 @@ export async function addCaseEvent(
   body: string,
   actor: string
 ): Promise<string> {
+  const now = new Date().toISOString();
   const doc: Omit<CaseEvent, 'id'> = {
     case_id: caseId,
     type,
     body,
     actor,
-    created_at: new Date().toISOString(),
+    created_at: now,
   };
   const ref = await adminDb.collection(EVENTS).add(doc);
+  // Bump the parent's last_activity_at so the hub/history can badge "new since
+  // last looked". Best-effort: a failed bump must not fail the event write.
+  try {
+    await adminDb.collection(CASES).doc(caseId).update({ last_activity_at: now });
+  } catch {
+    // case may not exist yet in a pathological order; the event still stands.
+  }
   return ref.id;
 }
 

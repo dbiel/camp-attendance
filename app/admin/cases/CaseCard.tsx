@@ -25,12 +25,15 @@ export function CaseCard({
   selected,
   onToggleSelect,
   nowOverride,
+  unseen,
 }: {
   c: Case;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
   /** Testing: pretend it's this camp-tz 'HH:MM' for now/next (from ?now=). */
   nowOverride?: string;
+  /** New report or a new update arrived since David last opened this one. */
+  unseen?: boolean;
 }) {
   const { getAuthHeaders } = useAuth();
   const [slots, setSlots] = useState<ScheduleSlot[] | null>(null);
@@ -90,6 +93,14 @@ export function CaseCard({
       <Link href={`/admin/cases/${c.id}`} className="block flex-1 p-4 hover:bg-black/5">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-lg font-semibold">
+            {unseen && (
+              <span
+                className="mr-2 inline-block rounded bg-yellow-300 px-1.5 text-xs font-semibold text-yellow-900"
+                title="New activity since you last opened this report"
+              >
+                ● new
+              </span>
+            )}
             {c.student_name}
             {c.needs_match && (
               <span className="ml-2 rounded bg-yellow-200 px-1.5 text-xs font-semibold text-yellow-900" title="No roster match — reconcile this student">

@@ -9,6 +9,7 @@ import { CaseCard } from './CaseCard';
 import { NewReport } from './NewReport';
 import { SelectionBar } from './SelectionBar';
 import { ReportHistory } from './ReportHistory';
+import { initSeenIfEmpty, isUnseen, readSeen, type SeenMap } from '@/lib/seen';
 
 // useSearchParams() requires a Suspense boundary in Next 14 App Router so the
 // page can statically render its shell; the inner component reads ?from_text.
@@ -32,6 +33,9 @@ function ActiveCases() {
   const [seedReady, setSeedReady] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showNew, setShowNew] = useState(false);
+  // Starts {} so the first (SSR-matching) render shows no badges; an effect loads
+  // the real map after mount → no hydration mismatch.
+  const [seen, setSeen] = useState<SeenMap>({});
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/admin');
@@ -73,6 +77,15 @@ function ActiveCases() {
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [user, refresh]);
+
+  // Load the "seen" map after each fetch so newly-arrived activity badges, and
+  // a report opened-then-returned no longer does. Seeds on first run so existing
+  // reports don't all badge at once.
+  useEffect(() => {
+    if (loading) return;
+    initSeenIfEmpty(cases);
+    setSeen(readSeen());
+  }, [loading, cases]);
 
   // Escalation from the inbox: look up the originating text's body to seed the
   // NewReport auto-parse. We only need this once when arriving via ?from_text.
@@ -168,6 +181,7 @@ function ActiveCases() {
             selected={selected.has(c.id)}
             onToggleSelect={toggleSelect}
             nowOverride={nowOverride}
+            unseen={isUnseen(c, seen, { treatUnknownAsNew: true })}
           />
         ))}
       </section>

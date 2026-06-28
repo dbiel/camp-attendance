@@ -10,6 +10,7 @@ import type { Contact } from '@/lib/contacts';
 import { renderTemplate, smsHref, DEFAULT_TEMPLATES, type MessageTemplates } from '@/lib/messages-shared';
 import { currentAndNextSession, formatNextLabel, type ScheduleSlot } from '@/lib/schedule';
 import { getCurrentTimeHHMM } from '@/lib/date';
+import { markSeen } from '@/lib/seen';
 
 /** Live timeline refresh cadence while a report is active (paused when the tab
  * is backgrounded, stopped once resolved). */
@@ -120,6 +121,12 @@ export default function CaseDetail() {
     const t = setInterval(() => setClock((n) => n + 1), 30_000);
     return () => clearInterval(t);
   }, []);
+
+  // Opening (or live-updating while open) marks this report seen → clears its
+  // "new" badge on the hub/history. Keyed on activity so a fresh poll re-clears.
+  useEffect(() => {
+    if (detail?.case) markSeen(detail.case);
+  }, [detail?.case]);
 
   async function logEvent(type: 'parent_texted' | 'dorm_staff_texted' | 'note', body: string) {
     try {

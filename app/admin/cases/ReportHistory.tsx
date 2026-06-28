@@ -5,6 +5,18 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import type { Case } from '@/lib/cases';
 import { hourBucket, formatClock, getTodayDate } from '@/lib/date';
+import { initSeenIfEmpty, isUnseen, readSeen, type SeenMap } from '@/lib/seen';
+
+/** Small yellow dot marking unseen activity in a bucket. */
+function NewDot() {
+  return (
+    <span
+      className="ml-1 inline-block h-2 w-2 rounded-full bg-yellow-400 align-middle"
+      title="New activity since you last looked"
+      aria-label="new activity"
+    />
+  );
+}
 
 type StatusFilter = 'active' | 'resolved' | 'all';
 
@@ -31,12 +43,26 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
   const [loading, setLoading] = useState(false);
   const [toggledDays, setToggledDays] = useState<Set<string>>(new Set());
   const [toggledHours, setToggledHours] = useState<Set<string>>(new Set());
+  const [seen, setSeen] = useState<SeenMap>({});
   const [, setTick] = useState(0);
 
   useEffect(() => {
     const i = setInterval(() => setTick((t) => t + 1), 60_000);
     return () => clearInterval(i);
   }, []);
+
+  // Load the seen-map after each fetch so buckets with new/updated reports dot.
+  // Opening a report (its detail) records it seen → the dot clears on return.
+  useEffect(() => {
+    if (loading || cases.length === 0) return;
+    initSeenIfEmpty(cases);
+    setSeen(readSeen());
+  }, [loading, cases]);
+
+  const unseen = useCallback(
+    (c: Case) => isUnseen(c, seen, { treatUnknownAsNew: true }),
+    [seen]
+  );
 
   const fetchCases = useCallback(async () => {
     setLoadError(null);
@@ -136,6 +162,7 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
             0
           );
           const open = isDayOpen(day);
+          const dayNew = [...hours.values()].some((arr) => arr.some(unseen));
           const hourKeys = [...hours.keys()].sort().reverse();
           return (
             <section key={day} className="rounded-lg border bg-white">
@@ -143,7 +170,7 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
                 onClick={() => toggle(toggledDays, setToggledDays, day)}
                 className="flex w-full items-center justify-between p-3 text-left font-semibold"
               >
-                <span>{open ? '▾' : '▸'} {dayLabel(day, today)}</span>
+                <span>{open ? '▾' : '▸'} {dayLabel(day, today)}{dayNew && <NewDot />}</span>
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                   {dayCount}
                   {dayActive > 0 && <span className="font-semibold text-red-700"> ({dayActive} still active)</span>}
@@ -154,6 +181,7 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
                   {hourKeys.map((hourKey) => {
                     const list = hours.get(hourKey)!;
                     const hourActive = list.filter((c) => c.status === 'active').length;
+                    const hourNew = list.some(unseen);
                     const hh = Number(hourKey.slice(11, 13));
                     const hOpen = isHourOpen(hourKey);
                     return (
@@ -165,6 +193,7 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
                           {/* Active reports turn the hour red — kids still missing in that period. */}
                           <span className={hourActive > 0 ? 'font-semibold text-red-700' : 'text-gray-600'}>
                             {hOpen ? '▾' : '▸'} {hourLabel(hh)}
+                            {hourNew && <NewDot />}
                             {hourKey === nowHourKey && (
                               <span className="ml-2 rounded bg-red-100 px-1.5 text-xs text-red-700">now</span>
                             )}
@@ -183,7 +212,7 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
                                   className="block rounded border bg-gray-50 p-2 text-sm hover:bg-gray-100"
                                 >
                                   <div className="flex justify-between">
-                                    <span className="font-medium">{c.student_name}</span>
+                                    <span className="font-medium">{c.student_name}{unseen(c) && <NewDot />}</span>
                                     <span className="text-gray-500">
                                       {formatClock(c.occurred_at || c.created_at)}
                                       {c.status === 'resolved' && ' · ✓'}

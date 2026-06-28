@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 
 interface StaffUpdate {
@@ -32,6 +32,10 @@ export default function StaffLinkViewer() {
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [postingRef, setPostingRef] = useState<number | null>(null);
   const [postError, setPostError] = useState<string | null>(null);
+  const [flash, setFlash] = useState(false);
+  // Total update count last time we polled — a jump means the office added
+  // something, so we briefly flash a banner. null until the first load.
+  const prevUpdateCount = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -42,7 +46,14 @@ export default function StaffLinkViewer() {
         return;
       }
       const body = (await res.json()) as { reports: Report[] };
-      setState({ kind: 'ready', reports: body.reports ?? [] });
+      const reports = body.reports ?? [];
+      const total = reports.reduce((n, r) => n + r.updates.length, 0);
+      if (prevUpdateCount.current !== null && total > prevUpdateCount.current) {
+        setFlash(true);
+        setTimeout(() => setFlash(false), 4000);
+      }
+      prevUpdateCount.current = total;
+      setState({ kind: 'ready', reports });
     } catch {
       setState({ kind: 'invalid' });
     }
@@ -107,6 +118,11 @@ export default function StaffLinkViewer() {
 
   return (
     <main className="mx-auto max-w-md p-4">
+      {flash && (
+        <div className="mb-3 rounded bg-yellow-100 p-2 text-center text-sm text-yellow-900">
+          ↻ Updated from the camp office
+        </div>
+      )}
       {reports.length > 1 && (
         <h1 className="mb-3 text-lg font-bold">{reports.length} students to locate</h1>
       )}
