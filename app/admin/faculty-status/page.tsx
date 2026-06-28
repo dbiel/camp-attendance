@@ -74,11 +74,11 @@ export default function AdminFacultyStatus() {
   })();
 
   if (authLoading || !user) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-600">Loading...</div>;
+    return <div className="min-h-screen flex items-center justify-center text-[var(--text-2)]">Loading...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-[var(--surface)] pb-20">
       <div className="bg-camp-green text-white p-4 sticky top-0 z-40 shadow-md">
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-center mb-2">
@@ -100,7 +100,7 @@ export default function AdminFacultyStatus() {
               className={`flex-1 py-3 rounded-lg font-bold text-lg ${
                 dayKey === selectedDay
                   ? 'bg-camp-green text-white shadow-md'
-                  : 'bg-white text-camp-green border-2 border-camp-green'
+                  : 'bg-[var(--surface)] text-camp-green border-2 border-camp-green'
               }`}
               aria-label={formatDayLabel(dayKey)}
             >
@@ -110,7 +110,7 @@ export default function AdminFacultyStatus() {
         </div>
 
         <div className="flex justify-between items-center mb-4">
-          <div className="text-sm text-gray-700">
+          <div className="text-sm text-[var(--text-2)]">
             <span className="font-bold">{facultyTotals.total - facultyTotals.behind}</span> /{' '}
             <span className="font-bold">{facultyTotals.total}</span> caught up
             {' · '}
