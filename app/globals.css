@@ -144,6 +144,43 @@ body {
     background: var(--accent);
     animation: pulse 1.6s ease-in-out infinite;
   }
+
+  /* ═══ SEMANTIC STATUS PILLS (urgent / active / resolved) ═══ */
+  .status-pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap;
+  }
+  .status-pill::before {
+    content: '';
+    @apply w-1.5 h-1.5 rounded-full;
+    background: currentColor;
+  }
+  .status-urgent   { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(204,0,0,0.22); }
+  .status-active   { background: var(--sec-bg);      color: var(--sec);    border: 1px solid rgba(212,136,10,0.22); }
+  .status-resolved { background: var(--elec-bg);     color: var(--elec);   border: 1px solid rgba(26,138,74,0.22); }
+
+  /* ═══ NEW / UNSEEN NOTIFICATION BADGE (yellow) ═══ */
+  .badge-new {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.65rem] font-bold uppercase tracking-wide whitespace-nowrap;
+    background: rgba(234,179,8,0.16);
+    color: #8a6d0a;
+  }
+  .badge-new::before {
+    content: '';
+    @apply w-1.5 h-1.5 rounded-full;
+    background: #eab308;
+  }
+
+  /* ═══ SEMANTIC ATTENDANCE BUTTONS (present = green / absent = red) ═══ */
+  .btn-present {
+    @apply px-4 py-2 rounded-lg font-semibold transition-all duration-150 active:scale-95 text-white;
+    background: #22c55e;
+  }
+  .btn-present:hover { background: #16a34a; }
+  .btn-absent {
+    @apply px-4 py-2 rounded-lg font-semibold transition-all duration-150 active:scale-95 text-white;
+    background: #ef4444;
+  }
+  .btn-absent:hover { background: #dc2626; }
 }
 
 @keyframes pulse {
