@@ -39,6 +39,9 @@ export default function EnsembleAttendancePage() {
   const token = params.token;
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [marks, setMarks] = useState<Record<number, Mark>>({});
+  // Snapshot of marks as last loaded/submitted — when `marks` differs, there are
+  // unsaved changes and the submit button pulses.
+  const [baseline, setBaseline] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('score');
   // Instrument sections collapsed in score-order view (by instrument name).
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -63,6 +66,7 @@ export default function EnsembleAttendancePage() {
         for (const [ref, m] of Object.entries(data.submission.marks_by_ref)) init[Number(ref)] = m;
       }
       setMarks(init);
+      setBaseline(JSON.stringify(init));
     } catch {
       setState({ kind: 'invalid' });
     }
@@ -142,6 +146,32 @@ export default function EnsembleAttendancePage() {
     }
   }
 
+  async function exportXlsx() {
+    setError(null);
+    try {
+      const res = await fetch(`/api/e/${token}/export`);
+      if (!res.ok) {
+        setError('Could not export the roster. Please try again.');
+        return;
+      }
+      const blob = await res.blob();
+      const fname =
+        (state.kind === 'ready' ? `${state.data.ensemble}-roster.xlsx` : 'roster.xlsx').replace(
+          /[^a-z0-9.\-]+/gi,
+          '-'
+        );
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      setError('Could not export the roster.');
+    }
+  }
+
   if (state.kind === 'loading') {
     return <main className="mx-auto max-w-md p-6 text-center text-sm text-[var(--text-3)]">Loading…</main>;
   }
@@ -156,6 +186,7 @@ export default function EnsembleAttendancePage() {
 
   const { data } = state;
   const absentCount = Object.values(marks).filter((m) => m === 'absent').length;
+  const dirty = JSON.stringify(marks) !== baseline;
 
   const renderRow = (r: RosterRow) => {
     const mark = marks[r.ref] ?? 'present';
@@ -209,6 +240,9 @@ export default function EnsembleAttendancePage() {
           student arrives.
         </p>
       )}
+      <button onClick={exportXlsx} className="camp-btn-outline mt-2 px-3 py-1 text-xs">
+        ⬇ Export roster (.xlsx)
+      </button>
 
       <div className="mt-3 flex items-center justify-between">
         <div className="flex overflow-hidden rounded-[var(--radius-pill)] border border-[var(--glass-border)] text-sm">
@@ -262,9 +296,17 @@ export default function EnsembleAttendancePage() {
       <button
         onClick={submit}
         disabled={submitting}
-        className="camp-btn-primary sticky bottom-3 mt-4 w-full px-4 py-3 text-base shadow-lg disabled:opacity-50"
+        className={`camp-btn-primary sticky bottom-3 mt-4 w-full px-4 py-3 text-base shadow-lg disabled:opacity-50 ${
+          dirty && !submitting ? 'animate-pulse ring-4 ring-[var(--accent-glow)]' : ''
+        }`}
       >
-        {submitting ? 'Submitting…' : data.submission ? 'Update attendance' : 'Submit attendance'}
+        {submitting
+          ? 'Submitting…'
+          : data.submission
+            ? dirty
+              ? 'Update attendance — unsaved changes'
+              : 'Update attendance'
+            : 'Submit attendance'}
       </button>
     </main>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import type { Case } from '@/lib/cases';
@@ -36,6 +36,10 @@ function ActiveCases() {
   // Starts {} so the first (SSR-matching) render shows no badges; an effect loads
   // the real map after mount → no hydration mismatch.
   const [seen, setSeen] = useState<SeenMap>({});
+  // Alert when a poll surfaces reports that weren't here before (e.g. an ensemble
+  // manager just marked someone absent) — David shouldn't have to stare at the list.
+  const prevIds = useRef<Set<string> | null>(null);
+  const [newArrivals, setNewArrivals] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/admin');
@@ -47,6 +51,13 @@ function ActiveCases() {
       const res = await fetch('/api/cases?status=active', { headers });
       if (res.ok) {
         const list = (await res.json()).cases as Case[];
+        // Count reports that weren't in the previous active set (skip the very
+        // first load) → drive the "new reports arrived" alert.
+        if (prevIds.current) {
+          const added = list.filter((c) => !prevIds.current!.has(c.id)).length;
+          if (added > 0) setNewArrivals((n) => n + added);
+        }
+        prevIds.current = new Set(list.map((c) => c.id));
         setCases(list);
         // Drop selections for reports that left the active list (e.g. resolved)
         // so a stale id can't ride into a Phase-5 combined link.
@@ -63,11 +74,11 @@ function ActiveCases() {
   useEffect(() => {
     if (!user) return;
     refresh();
-    // Poll every 30s, but skip ticks while the tab is hidden (saves battery /
+    // Poll every 15s, but skip ticks while the tab is hidden (saves battery /
     // reads on a phone in a pocket); refresh immediately on regaining focus.
     const interval = setInterval(() => {
       if (!document.hidden) refresh();
-    }, 30_000);
+    }, 15_000);
     const onVisible = () => {
       if (!document.hidden) refresh();
     };
@@ -139,6 +150,15 @@ function ActiveCases() {
 
   return (
     <main className="mx-auto max-w-2xl p-4">
+      {newArrivals > 0 && (
+        <button
+          type="button"
+          onClick={() => setNewArrivals(0)}
+          className="mb-3 flex w-full animate-pulse items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white shadow"
+        >
+          🔔 {newArrivals} new report{newArrivals > 1 ? 's' : ''} just arrived — tap to dismiss
+        </button>
+      )}
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold">Active Reports</h1>
         {!newOpen && (

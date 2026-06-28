@@ -233,14 +233,40 @@ export default function StudentsDataPage() {
     );
   }
 
+  async function exportRosters() {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/admin/rosters/export', { headers });
+      if (!res.ok) {
+        push({ kind: 'error', text: `Export failed (${res.status})` });
+        return;
+      }
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'camp-rosters.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      push({ kind: 'error', text: 'Export failed' });
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[var(--surface)] pb-20">
       <div className="max-w-6xl mx-auto px-4 pt-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-camp-green">Students</h1>
-          <button type="button" onClick={openAdd} className="camp-btn-primary px-3 py-1.5 text-sm">
-            + Add Student
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={exportRosters} className="camp-btn-outline px-3 py-1.5 text-sm">
+              ⬇ Export rosters (.xlsx)
+            </button>
+            <button type="button" onClick={openAdd} className="camp-btn-primary px-3 py-1.5 text-sm">
+              + Add Student
+            </button>
+          </div>
         </div>
       </div>
 
