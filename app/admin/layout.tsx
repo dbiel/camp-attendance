@@ -16,12 +16,13 @@ import { useAuth } from '@/lib/auth-context';
  * there's no chrome flash during the redirect.
  */
 
-type Primary = 'reports' | 'data' | 'inbox' | null;
+type Primary = 'incident' | 'data' | null;
 
-const PRIMARY_TABS: { key: Exclude<Primary, null>; label: string; href: string; superOnly?: boolean }[] = [
-  { key: 'reports', label: 'Active Reports', href: '/admin/cases' },
+// Two sections only: Incident + Data. Inbox/iMessage is dropped from nav (code
+// kept dormant at /admin/inbox in case David wants it back).
+const PRIMARY_TABS: { key: Exclude<Primary, null>; label: string; href: string }[] = [
+  { key: 'incident', label: 'Incident', href: '/admin/cases' },
   { key: 'data', label: 'Data', href: '/admin/data/students' },
-  { key: 'inbox', label: 'Inbox', href: '/admin/inbox', superOnly: true },
 ];
 
 const SUB_TABS: { key: string; label: string; href: string }[] = [
@@ -34,25 +35,24 @@ const SUB_TABS: { key: string; label: string; href: string }[] = [
 /** Explicit route → tab mapping (no loose startsWith that would misfire). */
 function resolveTabs(pathname: string): { primary: Primary; sub: string | null } {
   if (pathname === '/admin/cases/history') return { primary: 'data', sub: 'reports' };
-  if (pathname === '/admin/cases' || pathname.startsWith('/admin/cases/')) return { primary: 'reports', sub: null };
+  if (pathname === '/admin/cases' || pathname.startsWith('/admin/cases/')) return { primary: 'incident', sub: null };
   if (pathname.startsWith('/admin/data/faculty')) return { primary: 'data', sub: 'faculty' };
   if (pathname.startsWith('/admin/data/sessions')) return { primary: 'data', sub: 'sessions' };
   if (pathname.startsWith('/admin/data/')) return { primary: 'data', sub: 'students' };
-  if (pathname.startsWith('/admin/inbox')) return { primary: 'inbox', sub: null };
   return { primary: null, sub: null };
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '';
   const router = useRouter();
-  const { user, isSuperAdmin, signOut } = useAuth();
+  const { user, signOut } = useAuth();
 
   // Login page and unauthenticated states get no chrome.
   if (pathname === '/admin' || !user) return <>{children}</>;
 
   const { primary, sub } = resolveTabs(pathname);
   const showSubRow = primary === 'data';
-  const visiblePrimary = PRIMARY_TABS.filter((t) => !t.superOnly || isSuperAdmin);
+  const visiblePrimary = PRIMARY_TABS;
 
   async function handleSignOut() {
     await signOut();

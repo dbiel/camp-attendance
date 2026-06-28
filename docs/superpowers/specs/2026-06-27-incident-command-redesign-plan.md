@@ -295,3 +295,9 @@ Implications:
 - **`scripts/seed-camp.mjs`** currently derives only the ensemble base. It needs an **elective-roster input** (e.g. `electives.json`: per-elective → student list) merged into `session_students`. Until that format lands (David's files tomorrow), elective enrollments can be supplied via the existing `session_students.json` override. **Open question: elective roster file shape + how students are keyed (id vs name — name matching is fragile with duplicate surnames).**
 - **Current/Next session columns, report "now/next", Phase 6 ensemble pages** all read the unioned `session_students`, so electives appear automatically once seeded.
 - A period may hold a student's *elective* (not their ensemble) — so "current session" must resolve against the student's full enrollment, not just their ensemble's base.
+
+---
+
+## Nav amendment (2026-06-27, David) — two sections only
+
+Reversing the earlier "keep Inbox" call: the top nav is now **two sections — Incident and Data**. Inbox is dropped from the nav (`/admin/inbox` + the iMessage watcher/code stay **dormant** in case it's wanted later). The "Active Reports" tab is renamed **Incident** (still the live active-reports hub at `/admin/cases`). Data sub-tabs unchanged (Reports/Students/Faculty/Sessions). Shipped in `app/admin/layout.tsx`.
