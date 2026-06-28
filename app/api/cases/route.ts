@@ -111,14 +111,19 @@ export const POST = withAuth(
       const settled = await Promise.allSettled(
         people.map((p) => createForPerson(p, shared, createdBy, batchId))
       );
-      const ids = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
-      const errors = settled.flatMap((r) =>
-        r.status === 'rejected' ? [String((r.reason as Error)?.message ?? r.reason)] : []
+      // Per-person, IN ORDER — so the client maps each result back to its card,
+      // surfaces exactly which kid failed, and retries only those (no dup-filing).
+      const results = settled.map((r) =>
+        r.status === 'fulfilled'
+          ? { ok: true as const, id: r.value }
+          : { ok: false as const, error: String((r.reason as Error)?.message ?? r.reason) }
       );
+      const ids = results.flatMap((r) => (r.ok ? [r.id] : []));
+      const errors = results.flatMap((r) => (!r.ok ? [r.error] : []));
       if (ids.length === 0) {
-        return NextResponse.json({ error: errors[0] || 'No reports created', errors }, { status: 400 });
+        return NextResponse.json({ error: errors[0] || 'No reports created', errors, results }, { status: 400 });
       }
-      return NextResponse.json({ ids, errors });
+      return NextResponse.json({ ids, errors, results });
     }
 
     // ─── Single (back-compat): unchanged contract → { id }. ───

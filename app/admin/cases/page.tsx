@@ -142,6 +142,7 @@ function ActiveCases() {
             if (fromText) router.replace('/admin/cases');
             refresh();
           }}
+          onRefresh={refresh}
           onCancel={() => {
             setShowNew(false);
             if (fromText) router.replace('/admin/cases');

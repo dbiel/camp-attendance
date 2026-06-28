@@ -22,13 +22,16 @@ export const POST = withAuth(
       return NextResponse.json({ ok: false, raw_text: text });
     }
     const byId = new Map(students.map((s) => [s.id, s]));
-    // One entry per kid, each with its own resolved candidate list.
-    const people = parsed.people.map((p) => ({
-      student_query: p.student_query,
-      summary: p.summary,
-      session_label: p.session_label,
-      candidates: p.student_ids
-        .map((id) => byId.get(id))
+    // One entry per kid, each with its own resolved candidate list. Guard each
+    // element defensively — the model could return a malformed entry.
+    const people = (Array.isArray(parsed.people) ? parsed.people : [])
+      .filter((p): p is NonNullable<typeof p> => !!p && typeof p === 'object')
+      .map((p) => ({
+        student_query: typeof p.student_query === 'string' ? p.student_query : null,
+        summary: typeof p.summary === 'string' ? p.summary : '',
+        session_label: typeof p.session_label === 'string' ? p.session_label : null,
+        candidates: (Array.isArray(p.student_ids) ? p.student_ids : [])
+          .map((id) => byId.get(id))
         .filter(Boolean)
         .map((s) => ({
           id: s!.id,

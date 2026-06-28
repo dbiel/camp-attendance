@@ -16,6 +16,7 @@ interface PersonDraft {
   key: string;
   candidates: Candidate[];
   studentId: string;
+  selected: Candidate | null; // the chosen student, shown pinned so the pick is never hidden
   studentQuery: string; // raw name as written (used when "No student found")
   summary: string;
   sessionLabel: string;
@@ -35,16 +36,20 @@ let _seq = 0;
 const nextKey = () => `p${_seq++}`;
 
 function emptyDraft(): PersonDraft {
-  return { key: nextKey(), candidates: [], studentId: '', studentQuery: '', summary: '', sessionLabel: '', noStudent: false };
+  return { key: nextKey(), candidates: [], studentId: '', selected: null, studentQuery: '', summary: '', sessionLabel: '', noStudent: false };
 }
 
 export function NewReport({
   onCreated,
+  onRefresh,
   onCancel,
   seedText,
   sourceTextId,
 }: {
   onCreated: () => void;
+  /** Refresh the hub list WITHOUT closing the form (used on partial failure so
+   * filed reports appear while the failed ones stay open for retry). */
+  onRefresh?: () => void;
   /** Collapse the form without filing (returns to the plain hub). */
   onCancel?: () => void;
   /** When escalating from the inbox, pre-fill + auto-parse from this text body. */
@@ -87,15 +92,19 @@ export function NewReport({
       setReporterPhone('');
       setNeedsContactSave(false);
       if (body.ok && Array.isArray(body.people)) {
-        const drafts: PersonDraft[] = (body.people as ParsedPersonResp[]).map((pp) => ({
-          key: nextKey(),
-          candidates: pp.candidates ?? [],
-          studentId: (pp.candidates ?? [])[0]?.id ?? '',
-          studentQuery: pp.student_query ?? '',
-          summary: pp.summary ?? '',
-          sessionLabel: pp.session_label ?? '',
-          noStudent: false,
-        }));
+        const drafts: PersonDraft[] = (body.people as ParsedPersonResp[]).map((pp) => {
+          const cands = pp.candidates ?? [];
+          return {
+            key: nextKey(),
+            candidates: cands,
+            studentId: cands[0]?.id ?? '',
+            selected: cands[0] ?? null,
+            studentQuery: pp.student_query ?? '',
+            summary: pp.summary ?? '',
+            sessionLabel: pp.session_label ?? '',
+            noStudent: false,
+          };
+        });
         setPeople(drafts.length ? drafts : [emptyDraft()]);
         const r = body.reporter ?? {};
         setReporterContactId(r.reporter_contact_id ?? null);
@@ -128,14 +137,17 @@ export function NewReport({
   }, [seedText]);
 
   async function create() {
-    // Every report must be a picked student OR explicitly "No student found".
-    const unresolved = people.find((p) => !p.noStudent && !p.studentId);
-    if (unresolved) {
-      setError('Each report needs a student picked, or mark it “No student found”.');
-      return;
-    }
     if (people.length === 0) {
       setError('Nothing to file.');
+      return;
+    }
+    // Every report must be a picked student OR "No student found" WITH a name —
+    // never silently file the wrong/blank kid.
+    const unresolved = people.find(
+      (p) => (!p.noStudent && !p.studentId) || (p.noStudent && !p.studentQuery.trim())
+    );
+    if (unresolved) {
+      setError('Each report needs a student picked, or “No student found” with a name.');
       return;
     }
     setBusy(true);
@@ -192,9 +204,12 @@ export function NewReport({
         }
         throw new Error(message);
       }
-      const { ids, errors } = (await res.json()) as { ids: string[]; errors?: string[] };
+      const { ids, results } = (await res.json()) as {
+        ids: string[];
+        results?: Array<{ ok: boolean; id?: string; error?: string }>;
+      };
 
-      // Link the originating text to the first Report (best-effort).
+      // Link the originating text to the first created Report (best-effort).
       if (sourceTextId && ids?.[0]) {
         try {
           await fetch(`/api/texts/${sourceTextId}`, {
@@ -206,9 +221,22 @@ export function NewReport({
           /* report still created */
         }
       }
-      if (errors && errors.length) {
-        setError(`Filed ${ids.length}; ${errors.length} failed: ${errors[0]}`);
+
+      // Partial failure: results are index-correlated to `people`. KEEP the form
+      // open with only the FAILED cards (so the dropped kids are visible and can
+      // be retried without re-filing the successes), refresh the hub to show the
+      // ones that filed, and surface a persistent error. Only fully clean →close.
+      if (results && results.some((r) => !r.ok)) {
+        const failedDrafts = people.filter((_, i) => results[i] && !results[i].ok);
+        const failMsgs = results.filter((r) => !r.ok).map((r) => r.error).filter(Boolean);
+        setPeople(failedDrafts.length ? failedDrafts : people);
+        setError(
+          `Filed ${ids.length}. ${failMsgs.length} could NOT be filed — fix and retry: ${failMsgs.join('; ')}`
+        );
+        onRefresh?.(); // show the successes without closing the form
+        return;
       }
+
       // Stay on the hub — it shows all N new reports.
       onCreated();
     } catch (err) {
@@ -284,7 +312,8 @@ export function NewReport({
               <StudentPicker
                 candidates={p.candidates}
                 value={p.studentId}
-                onChange={(id) => updatePerson(p.key, { studentId: id })}
+                selected={p.selected}
+                onChange={(cand) => updatePerson(p.key, { studentId: cand.id, selected: cand })}
                 getAuthHeaders={getAuthHeaders}
               />
             )}
@@ -356,11 +385,15 @@ export function NewReport({
   );
 }
 
-/** Candidate buttons when the parser found matches; falls back to a name search against /api/students/search. */
-function StudentPicker({ candidates, value, onChange, getAuthHeaders }: {
+/** Candidate buttons when the parser found matches; always allows a roster
+ * search (candidates may all be wrong). The CURRENT selection is shown pinned
+ * at the top so a pick is never hidden behind a search — guarding against
+ * filing the stale auto-pick against the wrong kid. */
+function StudentPicker({ candidates, value, selected, onChange, getAuthHeaders }: {
   candidates: Candidate[];
   value: string;
-  onChange: (id: string) => void;
+  selected: Candidate | null;
+  onChange: (cand: Candidate) => void;
   getAuthHeaders: () => Promise<Record<string, string>>;
 }) {
   const [query, setQuery] = useState('');
@@ -392,14 +425,18 @@ function StudentPicker({ candidates, value, onChange, getAuthHeaders }: {
     }
   }
 
-  // Always allow searching the roster — even when the parser offered candidates,
-  // they may all be wrong (misspelled name).
-  const showSearch = candidates.length === 0 || query.length >= 2;
   const options = query.length >= 2 ? results : candidates;
   return (
     <div>
+      {/* Pinned current selection — always visible, even mid-search. */}
+      {selected && value === selected.id && (
+        <p className="mb-2 rounded border border-red-700 bg-red-50 p-2 text-sm">
+          <span className="font-semibold">✓ Selected:</span> {selected.name}
+          <span className="ml-2 text-gray-500">{selected.instrument} · {selected.ensemble ?? '?'} · {selected.dorm_building || 'commuter'}</span>
+        </p>
+      )}
       <label className="block text-sm font-medium">
-        Student
+        {selected ? 'Change student' : 'Student'}
         <input
           value={query}
           onChange={(e) => search(e.target.value)}
@@ -411,14 +448,18 @@ function StudentPicker({ candidates, value, onChange, getAuthHeaders }: {
         {options.map((c) => (
           <button
             key={c.id}
-            onClick={() => onChange(c.id)}
+            onClick={() => onChange(c)}
             className={`rounded border p-2 text-left text-sm ${value === c.id ? 'border-red-700 bg-red-50' : ''}`}
           >
             <span className="font-medium">{c.name}</span>
             <span className="ml-2 text-gray-500">{c.instrument} · {c.ensemble ?? '?'} · {c.dorm_building || 'commuter'}</span>
           </button>
         ))}
-        {options.length === 0 && <p className="text-sm text-gray-500">{showSearch ? 'No match — try another spelling, or tick “No student found”.' : ''}</p>}
+        {options.length === 0 && (
+          <p className="text-sm text-gray-500">
+            {query.length >= 2 ? 'No match — try another spelling, or tick “No student found”.' : ''}
+          </p>
+        )}
       </div>
     </div>
   );
