@@ -58,17 +58,19 @@ export function Modal({ open, title, onClose, children, size = 'lg' }: Props) {
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black bg-opacity-50 p-0 sm:items-center sm:p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
+      {/* Full-screen scrollable sheet on mobile (all on one view); centered card
+          with internal scroll on sm+. */}
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`bg-white rounded-lg shadow-xl p-6 w-full ${sizeClass} max-h-[90vh] overflow-y-auto`}
+        className={`w-full ${sizeClass} overflow-y-auto bg-white p-6 shadow-xl max-h-screen rounded-none sm:max-h-[90vh] sm:rounded-lg`}
       >
         <h2 id={titleId} className="text-xl font-bold text-camp-green mb-4">
           {title}

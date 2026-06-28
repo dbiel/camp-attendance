@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Faculty, FacultySessionRow } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
+import { Modal } from '@/components/Modal';
 
 interface NowNext {
   current: string | null;
@@ -248,66 +249,69 @@ export default function FacultyDataPage() {
         )}
       </div>
 
-      {/* Edit Modal */}
-      {editingId !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="glass-card p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-camp-green mb-4">Edit Faculty</h2>
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="camp-label">First Name</label>
-                <input
-                  type="text"
-                  value={editData.first_name || ''}
-                  onChange={(e) => setEditData({ ...editData, first_name: e.target.value })}
-                  className="camp-input"
-                />
-              </div>
-              <div>
-                <label className="camp-label">Last Name</label>
-                <input
-                  type="text"
-                  value={editData.last_name || ''}
-                  onChange={(e) => setEditData({ ...editData, last_name: e.target.value })}
-                  className="camp-input"
-                />
-              </div>
-              <div>
-                <label className="camp-label">Role</label>
-                <input
-                  type="text"
-                  value={editData.role || ''}
-                  onChange={(e) => setEditData({ ...editData, role: e.target.value })}
-                  className="camp-input"
-                />
-              </div>
-              <div>
-                <label className="camp-label">Email</label>
-                <input
-                  type="email"
-                  value={editData.email || ''}
-                  onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                  className="camp-input"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={saveEdit} className="flex-1 camp-btn-primary py-2">
-                Save
-              </button>
-              <button
-                onClick={() => {
-                  setEditingId(null);
-                  setEditData({});
-                }}
-                className="flex-1 camp-btn-outline py-2"
-              >
-                Cancel
-              </button>
-            </div>
+      {/* Edit Modal — shared Modal: scrolls, and full-screen on mobile. */}
+      <Modal
+        open={editingId !== null}
+        title="Edit Faculty"
+        size="md"
+        onClose={() => {
+          setEditingId(null);
+          setEditData({});
+        }}
+      >
+        <div className="space-y-4 mb-6">
+          <div>
+            <label className="camp-label">First Name</label>
+            <input
+              type="text"
+              value={editData.first_name || ''}
+              onChange={(e) => setEditData({ ...editData, first_name: e.target.value })}
+              className="camp-input"
+            />
+          </div>
+          <div>
+            <label className="camp-label">Last Name</label>
+            <input
+              type="text"
+              value={editData.last_name || ''}
+              onChange={(e) => setEditData({ ...editData, last_name: e.target.value })}
+              className="camp-input"
+            />
+          </div>
+          <div>
+            <label className="camp-label">Role</label>
+            <input
+              type="text"
+              value={editData.role || ''}
+              onChange={(e) => setEditData({ ...editData, role: e.target.value })}
+              className="camp-input"
+            />
+          </div>
+          <div>
+            <label className="camp-label">Email</label>
+            <input
+              type="email"
+              value={editData.email || ''}
+              onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+              className="camp-input"
+            />
           </div>
         </div>
-      )}
+        <div className="flex gap-3">
+          <button onClick={saveEdit} className="flex-1 camp-btn-primary py-2">
+            Save
+          </button>
+          <button
+            onClick={() => {
+              setEditingId(null);
+              setEditData({});
+            }}
+            className="flex-1 camp-btn-outline py-2"
+          >
+            Cancel
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
