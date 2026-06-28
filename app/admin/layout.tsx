@@ -73,7 +73,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }`;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--surface)]">
       <header className="glass sticky top-0 z-40 shadow-md">
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex items-center justify-between h-14 gap-2">

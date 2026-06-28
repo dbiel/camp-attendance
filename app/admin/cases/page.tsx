@@ -155,7 +155,7 @@ function ActiveCases() {
       )}
 
       <section className="mt-4 flex flex-col gap-2">
-        {loading && <p className="text-sm text-gray-500">Loading…</p>}
+        {loading && <p className="text-sm text-[var(--text-3)]">Loading…</p>}
         {!loading && sorted.length === 0 && (
           <p className="rounded border border-green-300 bg-green-50 p-4 text-sm text-green-800">
             No active reports. 🎺

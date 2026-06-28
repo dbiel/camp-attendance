@@ -92,7 +92,7 @@ export default function AdminLogin() {
         {error && <div className="text-red-600 text-sm font-semibold mt-4">{error}</div>}
 
         <details className="mt-6 text-sm">
-          <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+          <summary className="cursor-pointer text-[var(--text-3)] hover:text-[var(--text-2)]">
             Sign in with email/password instead
           </summary>
         <form onSubmit={handleLogin} className="space-y-4 mt-4">

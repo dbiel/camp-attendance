@@ -174,7 +174,7 @@ function EditableField({ fieldKey, label, type, value, onSave, saving }: Editabl
 
   const display =
     value === undefined || value === null || value === '' ? (
-      <span className="text-gray-400 italic">—</span>
+      <span className="text-[var(--text-3)] italic">—</span>
     ) : (
       String(value)
     );
