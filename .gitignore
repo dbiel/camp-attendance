@@ -13,8 +13,8 @@ yarn-debug.log*
 yarn-error.log*
 .swc
 .firebase/
-source-data/
-data/
+/source-data/
+/data/
 playwright-report/
 test-results/
 tsconfig.tsbuildinfo
