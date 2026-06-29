@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { partitionActiveByHour } from '@/lib/active-board';
-import { hourBucket } from '@/lib/date';
+import { partitionActiveByHour, currentHourKey } from '@/lib/active-board';
+import { hourBucket, getTodayDate } from '@/lib/date';
 
 const mk = (id: string, iso: string) => ({ id, occurred_at: iso, created_at: iso }) as any;
 
@@ -27,5 +27,18 @@ describe('partitionActiveByHour', () => {
     const { thisHour, carriedOver } = partitionActiveByHour([a, b, c], futureKey);
     expect(thisHour).toEqual([]);
     expect(carriedOver.map((x) => x.id)).toEqual(['b', 'a', 'c']);
+  });
+});
+
+describe('currentHourKey', () => {
+  it('builds the key from camp date + override hour (no tz skew)', () => {
+    expect(currentHourKey('14:30', '2026-06-29T00:00:00Z')).toBe(`${getTodayDate()} 14`);
+  });
+  it('zero-pads a single-digit override hour', () => {
+    expect(currentHourKey('9:05', '2026-06-29T00:00:00Z')).toBe(`${getTodayDate()} 09`);
+  });
+  it('buckets the real instant when there is no override', () => {
+    const iso = '2026-06-29T19:50:00Z';
+    expect(currentHourKey(null, iso)).toBe(hourBucket(iso));
   });
 });

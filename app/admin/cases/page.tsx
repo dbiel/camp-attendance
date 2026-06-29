@@ -10,8 +10,7 @@ import { NewReport } from './NewReport';
 import { SelectionBar } from './SelectionBar';
 import { ReportHistory } from './ReportHistory';
 import { initSeenIfEmpty, isUnseen, readSeen, type SeenMap } from '@/lib/seen';
-import { partitionActiveByHour } from '@/lib/active-board';
-import { hourBucket, getTodayDate } from '@/lib/date';
+import { partitionActiveByHour, currentHourKey } from '@/lib/active-board';
 
 // useSearchParams() requires a Suspense boundary in Next 14 App Router so the
 // page can statically render its shell; the inner component reads ?from_text.
@@ -144,9 +143,7 @@ function ActiveCases() {
   // Newest-first, split into the current clock hour vs older still-active
   // ("carried over") incidents. Carried-over kids stay visible (never hidden);
   // CaseCard's elapsed badge keeps urgency legible. ?now=HH:MM overrides the hour.
-  const nowHourKey = nowOverride
-    ? hourBucket(`${getTodayDate()}T${nowOverride}:00`)
-    : hourBucket(new Date().toISOString());
+  const nowHourKey = currentHourKey(nowOverride ?? null, new Date().toISOString());
   const { thisHour, carriedOver } = partitionActiveByHour(cases, nowHourKey);
   const sorted = [...thisHour, ...carriedOver];
   const selectedCaseIds = sorted.filter((c) => selected.has(c.id)).map((c) => c.id);
