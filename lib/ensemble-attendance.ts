@@ -1,7 +1,9 @@
 import { adminDb } from './firebase-admin';
 import { buildCaseDoc, buildEventDoc, CASES_COLLECTION, EVENTS_COLLECTION } from './cases';
 import { getEnsembleRoster, validateEnsembleToken } from './ensemble-links';
-import { getTodayDate } from './date';
+import { getTodayDate, getCurrentTimeHHMM } from './date';
+import { getSessions, getPeriods } from './firestore';
+import { resolveEnsembleNow, type ScheduleSlot } from './schedule';
 import type { Student } from './types';
 
 /**
@@ -31,6 +33,8 @@ interface SubmissionDoc {
   token: string;
   ensemble: string;
   day_key: string;
+  period_number: number;
+  period_name: string;
   marks: Record<string, Mark>; // studentId → mark
   case_ids: Record<string, string>; // studentId → the report filed for them
   submitted_at: string;
@@ -39,11 +43,121 @@ interface SubmissionDoc {
 }
 
 export type SubmitResult =
-  | { ok: false; reason: 'not_found' | 'roster_changed' }
+  | { ok: false; reason: 'not_found' | 'roster_changed' | 'no_rehearsal' }
   | { ok: true; absent_count: number; arrived_count: number; newly_absent: number };
 
-function docId(token: string, day: string): string {
-  return `${token}__${day}`;
+function docId(token: string, day: string, period: number): string {
+  return `${token}__${day}__P${period}`;
+}
+
+export interface CurrentPeriod {
+  period_number: number;
+  period_name: string;
+  period_id: string;
+  session_id: string;
+  start_time: string;
+  end_time: string;
+  location: string | null;
+}
+
+export interface EnsembleSessionContext {
+  ensemble: string;
+  label: string | null;
+  now: string; // HH:MM used
+  status: 'rehearsal' | 'no_rehearsal';
+  period_number: number | null;
+  period_name: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  next: { period_name: string; start_time: string } | null;
+}
+
+const HHMM_RE = /^\d{1,2}:\d{2}$/;
+
+/** Build the ensemble's schedule slots (rehearsals included) + a period-name map. */
+async function loadEnsembleSlots(
+  ensemble: string
+): Promise<{ slots: ScheduleSlot[]; periodName: Map<number, string> }> {
+  const [sessions, periods] = await Promise.all([getSessions(), getPeriods()]);
+  const periodById = new Map(periods.map((p) => [p.id, p]));
+  const periodName = new Map<number, string>(periods.map((p) => [p.number, p.name]));
+  const slots: ScheduleSlot[] = [];
+  for (const s of sessions) {
+    if (s.ensemble !== ensemble) continue;
+    const p = periodById.get(s.period_id);
+    slots.push({
+      session_id: s.id,
+      name: s.name,
+      type: s.type,
+      location: s.location ?? null,
+      period_number: p?.number ?? 0,
+      start_time: p?.start_time ?? '',
+      end_time: p?.end_time ?? '',
+    });
+  }
+  return { slots, periodName };
+}
+
+/** The ensemble's CURRENT rehearsal period (server truth for keying), or null. */
+export async function resolveCurrentPeriod(
+  ensemble: string,
+  nowHHMM: string = getCurrentTimeHHMM()
+): Promise<CurrentPeriod | null> {
+  const { slots, periodName } = await loadEnsembleSlots(ensemble);
+  const r = resolveEnsembleNow(slots, nowHHMM);
+  if (r.status !== 'rehearsal') return null;
+  const c = r.current;
+  return {
+    period_number: c.period_number,
+    period_name: periodName.get(c.period_number) ?? `Period ${c.period_number}`,
+    period_id: String(c.period_number),
+    session_id: c.session_id,
+    start_time: c.start_time,
+    end_time: c.end_time,
+    location: c.location,
+  };
+}
+
+/** Full session context for the public page (handles invalid token + idle). */
+export async function getCurrentEnsembleSession(
+  token: string,
+  nowHHMM?: string
+): Promise<EnsembleSessionContext | null> {
+  const v = await validateEnsembleToken(token);
+  if (!v) return null;
+  const now = nowHHMM && HHMM_RE.test(nowHHMM) ? nowHHMM : getCurrentTimeHHMM();
+  const { slots, periodName } = await loadEnsembleSlots(v.ensemble);
+  const r = resolveEnsembleNow(slots, now);
+  const base = { ensemble: v.ensemble, label: v.label, now };
+  if (r.status === 'rehearsal') {
+    const c = r.current;
+    return {
+      ...base,
+      status: 'rehearsal',
+      period_number: c.period_number,
+      period_name: periodName.get(c.period_number) ?? `Period ${c.period_number}`,
+      start_time: c.start_time,
+      end_time: c.end_time,
+      location: c.location,
+      next: null,
+    };
+  }
+  return {
+    ...base,
+    status: 'no_rehearsal',
+    period_number: null,
+    period_name: null,
+    start_time: null,
+    end_time: null,
+    location: null,
+    next: r.next
+      ? {
+          period_name: periodName.get(r.next.period_number) ?? `Period ${r.next.period_number}`,
+          start_time: r.next.start_time,
+        }
+      : null,
+  };
 }
 
 /** Stable roster ordering (by id) so a ref index means the same student on GET
@@ -52,12 +166,13 @@ function idSorted(roster: Student[]): Student[] {
   return [...roster].sort((a, b) => a.id.localeCompare(b.id));
 }
 
-/** Read the current (locked) submission for a link+day, if any. */
+/** Read the current (locked) submission for a link+day+period, if any. */
 export async function getEnsembleSubmission(
   token: string,
-  day: string = getTodayDate()
+  day: string,
+  period: number
 ): Promise<SubmissionDoc | null> {
-  const doc = await adminDb.collection(SUBMISSIONS).doc(docId(token, day)).get();
+  const doc = await adminDb.collection(SUBMISSIONS).doc(docId(token, day, period)).get();
   return doc.exists ? (doc.data() as SubmissionDoc) : null;
 }
 
@@ -80,11 +195,18 @@ export async function submitEnsembleAttendance(args: {
   expectedRosterSize?: number;
   day?: string;
   now?: Date;
+  nowHHMM?: string;
 }): Promise<SubmitResult> {
   const now = args.now ?? new Date();
   const day = args.day ?? getTodayDate();
   const v = await validateEnsembleToken(args.token);
   if (!v) return { ok: false, reason: 'not_found' };
+
+  // Server is the source of truth for which period this is — the client never
+  // picks it. No live rehearsal → reject so a stale tab can't file into a
+  // non-rehearsal hour (or the wrong period).
+  const cur = await resolveCurrentPeriod(v.ensemble, args.nowHHMM ?? getCurrentTimeHHMM(now));
+  if (!cur) return { ok: false, reason: 'no_rehearsal' };
 
   const roster = idSorted(await getEnsembleRoster(v.ensemble));
   if (typeof args.expectedRosterSize === 'number' && args.expectedRosterSize !== roster.length) {
@@ -103,7 +225,7 @@ export async function submitEnsembleAttendance(args: {
     studentById.set(s.id, s);
   }
 
-  const subRef = adminDb.collection(SUBMISSIONS).doc(docId(args.token, day));
+  const subRef = adminDb.collection(SUBMISSIONS).doc(docId(args.token, day, cur.period_number));
   const casesCol = adminDb.collection(CASES_COLLECTION);
   const eventsCol = adminDb.collection(EVENTS_COLLECTION);
   const nowIso = now.toISOString();
@@ -141,7 +263,10 @@ export async function submitEnsembleAttendance(args: {
               summary: `Absent from ${v.ensemble}`,
               raw_text: `Marked absent in ${v.ensemble} attendance${v.label ? ` by ${v.label}` : ''}.`,
               reporter_name: v.label || `${v.ensemble} attendance`,
-              session_label: v.ensemble,
+              session_label: `${v.ensemble} · ${cur.period_name}`,
+              session_id: cur.session_id,
+              period_id: cur.period_id,
+              period_number: cur.period_number,
               dorm_building: s.dorm_building ?? null,
               dorm_room: s.dorm_room ?? null,
               instrument: s.instrument ?? null,
@@ -170,6 +295,8 @@ export async function submitEnsembleAttendance(args: {
       token: args.token,
       ensemble: v.ensemble,
       day_key: day,
+      period_number: cur.period_number,
+      period_name: cur.period_name,
       marks: mergedMarks,
       case_ids: caseIds,
       submitted_at: existing?.submitted_at ?? nowIso,

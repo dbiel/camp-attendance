@@ -5,6 +5,13 @@ const h = vi.hoisted(() => ({
   validateEnsembleToken: vi.fn(),
   getEnsembleRoster: vi.fn(),
   getTodayDate: vi.fn(() => '2026-06-28'),
+  getCurrentTimeHHMM: vi.fn(() => '10:20'),
+  getSessions: vi.fn(async () => [
+    { id: 'r3', ensemble: 'Band 1', type: 'rehearsal', period_id: '3', location: 'Hemmle', name: 'Band 1 Rehearsal' },
+  ]),
+  getPeriods: vi.fn(async () => [
+    { id: '3', number: 3, name: 'Period 3', start_time: '10:00', end_time: '10:50' },
+  ]),
   buildCaseDoc: vi.fn((input: Record<string, unknown>) => ({ kind: 'case', ...input })),
   buildEventDoc: vi.fn((caseId: string, type: string, body: string, actor: string) => ({
     kind: 'event',
@@ -26,7 +33,8 @@ vi.mock('@/lib/ensemble-links', () => ({
   validateEnsembleToken: h.validateEnsembleToken,
   getEnsembleRoster: h.getEnsembleRoster,
 }));
-vi.mock('@/lib/date', () => ({ getTodayDate: h.getTodayDate }));
+vi.mock('@/lib/date', () => ({ getTodayDate: h.getTodayDate, getCurrentTimeHHMM: h.getCurrentTimeHHMM }));
+vi.mock('@/lib/firestore', () => ({ getSessions: h.getSessions, getPeriods: h.getPeriods }));
 vi.mock('@/lib/cases', () => ({
   buildCaseDoc: h.buildCaseDoc,
   buildEventDoc: h.buildEventDoc,
