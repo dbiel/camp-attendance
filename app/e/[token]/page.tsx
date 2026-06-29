@@ -14,9 +14,20 @@ interface RosterRow {
 
 type Mark = 'present' | 'absent';
 
+interface SessionInfo {
+  status: 'rehearsal' | 'no_rehearsal';
+  period_number: number | null;
+  period_name: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  next: { period_name: string; start_time: string } | null;
+}
+
 interface LoadData {
   ensemble: string;
   label: string | null;
+  session: SessionInfo;
   roster: RosterRow[];
   roster_size: number;
   submission: {
@@ -49,9 +60,15 @@ export default function EnsembleAttendancePage() {
   const [banner, setBanner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Forward a `?now=HH:MM` test override (if present in the page URL) to the API.
+  const nowQuery =
+    typeof window !== 'undefined' && /[?&]now=\d{1,2}:\d{2}/.test(window.location.search)
+      ? `?now=${new URLSearchParams(window.location.search).get('now')}`
+      : '';
+
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/e/${token}`);
+      const res = await fetch(`/api/e/${token}${nowQuery}`);
       if (res.status === 429) return; // transient — keep state
       if (!res.ok) {
         setState({ kind: 'invalid' });
@@ -70,11 +87,37 @@ export default function EnsembleAttendancePage() {
     } catch {
       setState({ kind: 'invalid' });
     }
-  }, [token]);
+  }, [token, nowQuery]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Camp-local wall clock (HH:MM), ticked each second, used for the countdown
+  // and to trigger a reload exactly when a period boundary passes.
+  const [clock, setClock] = useState('');
+  useEffect(() => {
+    const tick = () =>
+      setClock(
+        new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'America/Chicago', hour: '2-digit', minute: '2-digit', hour12: false,
+        }).format(new Date())
+      );
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Auto-rollover: in a rehearsal, reload when the wall clock reaches end_time
+  // (the period rolled); idle, poll once a minute to pick up the next start.
+  // Skipped entirely under a `?now=` test override (frozen clock).
+  const sessEnd = state.kind === 'ready' ? state.data.session.end_time : null;
+  const sessStatus = state.kind === 'ready' ? state.data.session.status : null;
+  useEffect(() => {
+    if (!clock || nowQuery) return;
+    if (sessStatus === 'rehearsal' && sessEnd && clock >= sessEnd) load();
+    if (sessStatus === 'no_rehearsal' && clock.endsWith(':00')) load();
+  }, [clock, sessStatus, sessEnd, nowQuery, load]);
 
   const sortedRoster = useMemo(() => {
     if (state.kind !== 'ready') return [];
@@ -119,13 +162,15 @@ export default function EnsembleAttendancePage() {
     setError(null);
     setBanner(null);
     try {
-      const res = await fetch(`/api/e/${token}/submit`, {
+      const res = await fetch(`/api/e/${token}/submit${nowQuery}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ marks, roster_size: state.data.roster_size }),
       });
       if (res.status === 409) {
-        setError('The roster changed — reloading…');
+        // Roster changed, or the period rolled over — reload to the live state.
+        const j = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(j?.error ?? 'Please reload — the session changed.');
         await load();
         return;
       }
@@ -185,6 +230,28 @@ export default function EnsembleAttendancePage() {
   }
 
   const { data } = state;
+
+  // No live rehearsal for this ensemble right now — quiet card, no roster/submit.
+  if (data.session.status !== 'rehearsal') {
+    return (
+      <main className="mx-auto max-w-md p-6 text-center">
+        <h1 className="text-xl font-bold text-[var(--text)]">{data.ensemble}</h1>
+        <p className="mt-1 text-sm text-[var(--text-2)]">Attendance{data.label ? ` · ${data.label}` : ''}</p>
+        <div className="mt-6 rounded-[var(--radius-sm)] border border-[var(--glass-border)] bg-[var(--surface)] p-6">
+          <p className="text-base font-semibold text-[var(--text)]">No rehearsal right now</p>
+          <p className="mt-2 text-sm text-[var(--text-2)]">
+            {data.session.next
+              ? `Next: ${data.session.next.period_name} · ${data.session.next.start_time}`
+              : 'Done for the day.'}
+          </p>
+          <p className="mt-4 text-xs text-[var(--text-3)]">
+            This page updates automatically when your next rehearsal starts.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   const absentCount = Object.values(marks).filter((m) => m === 'absent').length;
   const dirty = JSON.stringify(marks) !== baseline;
 
@@ -234,6 +301,15 @@ export default function EnsembleAttendancePage() {
     <main className="mx-auto max-w-md p-4">
       <h1 className="text-xl font-bold text-[var(--text)]">{data.ensemble}</h1>
       <p className="text-sm text-[var(--text-2)]">Attendance{data.label ? ` · ${data.label}` : ''}</p>
+      {data.session.period_name && (
+        <div className="mt-1 flex items-center justify-between rounded-[var(--radius-sm)] bg-[var(--accent-soft)] px-3 py-2">
+          <span className="font-semibold text-[var(--text)]">
+            {data.session.period_name} · {data.session.start_time}–{data.session.end_time}
+            {data.session.location ? ` · ${data.session.location}` : ''}
+          </span>
+          <span className="shrink-0 text-xs text-[var(--text-3)]">resets at {data.session.end_time}</span>
+        </div>
+      )}
       {data.submission && (
         <p className="mt-1 text-xs text-[var(--text-3)]">
           Last submitted {new Date(data.submission.submitted_at).toLocaleString()} — you can update if a
