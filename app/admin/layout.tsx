@@ -30,6 +30,7 @@ const SUB_TABS: { key: string; label: string; href: string }[] = [
   { key: 'students', label: 'Students', href: '/admin/data/students' },
   { key: 'faculty', label: 'Faculty', href: '/admin/data/faculty' },
   { key: 'sessions', label: 'Classes', href: '/admin/data/sessions' },
+  { key: 'attendance', label: 'Attendance', href: '/admin/data/attendance' },
 ];
 
 /** Explicit route → tab mapping (no loose startsWith that would misfire). */
@@ -38,6 +39,7 @@ function resolveTabs(pathname: string): { primary: Primary; sub: string | null }
   if (pathname === '/admin/cases' || pathname.startsWith('/admin/cases/')) return { primary: 'incident', sub: null };
   if (pathname.startsWith('/admin/data/faculty')) return { primary: 'data', sub: 'faculty' };
   if (pathname.startsWith('/admin/data/sessions')) return { primary: 'data', sub: 'sessions' };
+  if (pathname.startsWith('/admin/data/attendance')) return { primary: 'data', sub: 'attendance' };
   if (pathname.startsWith('/admin/data/')) return { primary: 'data', sub: 'students' };
   return { primary: null, sub: null };
 }
