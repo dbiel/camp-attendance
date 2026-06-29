@@ -146,7 +146,7 @@ export default function CaseDetail() {
       const res = await fetch(`/api/cases/${params.id}`, {
         method: 'PATCH',
         headers,
-        body: JSON.stringify({ resolution_note: resolveNote }),
+        body: JSON.stringify({ resolution_note: resolveNote.trim() || 'Resolved' }),
       });
       if (res.ok) {
         router.push('/admin/cases');
@@ -278,7 +278,7 @@ export default function CaseDetail() {
               <input
                 value={resolveNote}
                 onChange={(e) => setResolveNote(e.target.value)}
-                placeholder="Where/how was the kid found?"
+                placeholder="Where/how was the kid found? (optional)"
                 className="w-full rounded border p-2 text-sm"
               />
               {resolveError && (
@@ -286,7 +286,7 @@ export default function CaseDetail() {
               )}
               <button
                 onClick={resolve}
-                disabled={!resolveNote.trim() || resolving}
+                disabled={resolving}
                 className="mt-2 rounded bg-green-700 px-4 py-1 text-white disabled:opacity-50"
               >
                 {resolving ? 'Saving…' : 'Confirm resolve'}

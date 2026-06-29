@@ -244,7 +244,7 @@ function ActiveCases() {
 
       {/* Report history (day → hour) lives at the bottom of the Incident page. */}
       <div className="mt-8 border-t pt-4">
-        <ReportHistory defaultStatus="resolved" />
+        <ReportHistory defaultStatus="active" />
       </div>
     </main>
   );
