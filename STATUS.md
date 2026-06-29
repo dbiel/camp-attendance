@@ -6,6 +6,19 @@
 
 ---
 
+## As of 2026-06-29 (Session 8) — Attendance History admin view SHIPPED (concurrent-session safe)
+
+**🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24, `FUNCTIONS_DISCOVERY_TIMEOUT=60`; PR [#2](https://github.com/dbiel/camp-attendance/pull/2), branch `feat/attendance-history`, **NOT merged to main**). **603 unit tests** (591 from Session 7 + 12 new helper tests). Spec+plan in `docs/superpowers/{specs,plans}/2026-06-29-attendance-history*`. Prod smoke green. **No schema/index change, no cron, no change to the public `/e` flow.**
+
+- **New Data ▸ Attendance sub-tab** (`/admin/data/attendance`): after-the-fact view of which ensembles took attendance, when, and which scheduled rehearsals were missed. **Grid** (default) = ensembles (Band 1–7, Orch 1–3) × past periods of a selectable day — 🟩 taken (inline absent badge, tap → time + counts), ⬛ scheduled-but-missed, — no rehearsal. **List** toggle = every submission grouped by period, newest-first, incl. force-opened. Day picker, default today, **past periods only**. "Who" = the ensemble/class name (links are anonymous, per David).
+- **Architecture:** pure derivation `lib/attendance-history.ts` (unit-tested) ← thin `withAuth('lookup_admin')` route `GET /api/admin/attendance-history?day=&now=` ← live `periods`/rehearsal `sessions`/`ensemble_attendance` + `PICKER_ENSEMBLES`. Exported `lib/schedule.toMinutes` for the numeric past-period compare.
+- **Self-review caught 3 (fixed before deploy):** (1) period `number` is an ordering index, NOT the label (5="Period 4B", 9="Period 7") → display the period **name**; (2) lexicographic time compare → numeric `toMinutes` (robust to unpadded `?now`); (3) **force-opened** submissions write `period_number`=clock hour (overlaps real period nums) — parsed from the `H<hour>` doc-id slot, excluded from grid cells, flagged in the list so they never clobber/mislabel a real column.
+- **⚠️ Built in an isolated CLONE at `~/projects/camp-app-attendance-iso`** (NOT a worktree). A concurrent session was committing + `git clean`-ing the main repo, which destroyed two in-repo worktrees mid-build; a separate clone was the only safe workspace. The clone has its own `.env.local` (copied) + `node_modules`.
+- **Deploy was made concurrent-safe:** first attempts hit a persistent `409` on `ssrttubocattendance` — that was the Session-7 deploy holding the function lock, not flakiness. Once Session 7 fast-forwarded onto `main` (origin/main → `837c3f0`), this branch was **rebased onto current main** and deployed **additively** (prod = main incl. the `/e` rework + this feature). Nothing was reverted; deploying from the un-rebased branch WOULD have clobbered Session 7's live work.
+- **For David:** verify interactively (login) — open Data ▸ Attendance, toggle Grid/List, change the day, try `?now=` on the API. Then merge PR #2 to main when ready (it's rebased clean on main).
+
+---
+
 ## As of 2026-06-29 (Session 7) — `/e` roster reports rework SHIPPED
 
 **🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24; branch `feat/e-roster-reports-rework`). **591 unit tests** (+4 net). Built subagent-driven (4 tasks, per-task spec+quality review, opus whole-branch review → READY TO MERGE, no Critical/Important). Spec+plan in `docs/superpowers/{specs,plans}/2026-06-29-e-roster-reports-rework*`. Prod smoke green. **No schema/index change, no cron.**
