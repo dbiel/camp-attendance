@@ -4,6 +4,7 @@ import { validateWindow, isCovering, filterCoveringForStudents } from '@/lib/mar
 const a = (over: Partial<{ status: string; date: string; from: string; until: string; student_id: string; id: string }>) => ({
   id: over.id ?? 'x', student_id: over.student_id ?? 's1', student_name: 'Jane Doe',
   date: over.date ?? '2026-06-29', from: over.from ?? '13:00', until: over.until ?? '14:30',
+  all_day: false,
   note: null, status: (over.status ?? 'active') as 'active' | 'cleared',
   cleared_at: null, cleared_reason: null, created_by: 'd', created_at: 'iso',
 });
@@ -40,5 +41,40 @@ describe('filterCoveringForStudents', () => {
     const map = filterCoveringForStudents(list, ['s1', 's2'], '13:30', '2026-06-29');
     expect([...map.keys()]).toEqual(['s1']); // s2 not covering now, other not in roster
     expect(map.get('s1')?.id).toBe('m1');
+  });
+});
+
+import { validDate, resolveWindow, filterUpcoming } from '@/lib/marked-absences';
+
+describe('validDate', () => {
+  it('accepts today and future YYYY-MM-DD', () => {
+    expect(validDate('2026-06-29', '2026-06-29')).toBe(true);
+    expect(validDate('2026-07-01', '2026-06-29')).toBe(true);
+  });
+  it('rejects past dates and malformed strings', () => {
+    expect(validDate('2026-06-28', '2026-06-29')).toBe(false);
+    expect(validDate('6/29/2026', '2026-06-29')).toBe(false);
+    expect(validDate('', '2026-06-29')).toBe(false);
+  });
+});
+
+describe('resolveWindow', () => {
+  it('forces 00:00–23:59 for all-day', () => {
+    expect(resolveWindow(true, '13:00', '14:00')).toEqual({ from: '00:00', until: '23:59' });
+  });
+  it('keeps the given window when not all-day', () => {
+    expect(resolveWindow(false, '13:00', '14:00')).toEqual({ from: '13:00', until: '14:00' });
+  });
+});
+
+describe('filterUpcoming', () => {
+  const mk = (id: string, date: string, from: string) => ({
+    id, student_id: 's', student_name: 'n', date, from, until: '23:59', all_day: false,
+    note: null, status: 'active', cleared_at: null, cleared_reason: null, created_by: 'd', created_at: 'iso',
+  }) as any;
+  it('keeps today+future, drops past, sorts by date then from', () => {
+    const list = [mk('c', '2026-07-02', '09:00'), mk('a', '2026-06-29', '13:00'), mk('b', '2026-06-29', '08:00'), mk('p', '2026-06-28', '09:00')];
+    const out = filterUpcoming(list, '2026-06-29');
+    expect(out.map((x) => x.id)).toEqual(['b', 'a', 'c']);
   });
 });

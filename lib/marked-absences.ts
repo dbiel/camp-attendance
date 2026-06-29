@@ -8,6 +8,7 @@ export interface MarkedAbsence {
   date: string;          // 'YYYY-MM-DD' camp-tz
   from: string;          // 'HH:MM' inclusive
   until: string;         // 'HH:MM' exclusive
+  all_day: boolean;      // true → whole-day; from/until are '00:00'/'23:59'
   note: string | null;
   status: 'active' | 'cleared';
   cleared_at: string | null;
@@ -22,6 +23,23 @@ const HHMM = /^\d{2}:\d{2}$/;
 /** Pure: a valid HH:MM window with from strictly before until. */
 export function validateWindow(from: string, until: string): boolean {
   return HHMM.test(from) && HHMM.test(until) && from < until;
+}
+
+/** Pure: a valid camp-tz YYYY-MM-DD that is today or later. */
+export function validDate(date: string, today: string = getTodayDate()): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= today;
+}
+
+/** Pure: the stored window. All-day collapses to the whole camp day. */
+export function resolveWindow(allDay: boolean, from: string, until: string): { from: string; until: string } {
+  return allDay ? { from: '00:00', until: '23:59' } : { from, until };
+}
+
+/** Pure: today + future active absences, sorted by date then start time. */
+export function filterUpcoming(absences: MarkedAbsence[], today: string): MarkedAbsence[] {
+  return absences
+    .filter((a) => a.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.from.localeCompare(b.from));
 }
 
 /** Pure: does this absence cover `nowHHMM` on `date`? until is exclusive. */
@@ -51,8 +69,9 @@ export function filterCoveringForStudents(
 export interface CreateMarkedAbsenceInput {
   student_id: string;
   student_name: string;
-  from: string;
-  until: string;
+  from?: string;
+  until?: string;
+  all_day?: boolean;
   note?: string | null;
   date?: string;
   created_by: string;
@@ -60,14 +79,19 @@ export interface CreateMarkedAbsenceInput {
 
 export async function createMarkedAbsence(input: CreateMarkedAbsenceInput): Promise<string> {
   if (!input.student_id) throw new Error('no_student');
-  if (!validateWindow(input.from, input.until)) throw new Error('bad_window');
+  const date = input.date ?? getTodayDate();
+  if (!validDate(date)) throw new Error('bad_date');
+  const allDay = input.all_day === true;
+  if (!allDay && !validateWindow(input.from ?? '', input.until ?? '')) throw new Error('bad_window');
+  const { from, until } = resolveWindow(allDay, input.from ?? '', input.until ?? '');
   const now = new Date().toISOString();
   const doc: Omit<MarkedAbsence, 'id'> = {
     student_id: input.student_id,
     student_name: input.student_name,
-    date: input.date ?? getTodayDate(),
-    from: input.from,
-    until: input.until,
+    date,
+    from,
+    until,
+    all_day: allDay,
     note: input.note && input.note.trim() ? input.note.trim() : null,
     status: 'active',
     cleared_at: null,
@@ -90,6 +114,14 @@ export async function listMarkedAbsences(date: string): Promise<MarkedAbsence[]>
   return snap.docs
     .map((d) => ({ id: d.id, ...(d.data() as Omit<MarkedAbsence, 'id'>) }))
     .sort((a, b) => a.from.localeCompare(b.from));
+}
+
+/** Today + future active absences (admin list). Equality-only query + in-code
+ * date filter — no composite index. */
+export async function listUpcomingMarkedAbsences(): Promise<MarkedAbsence[]> {
+  const snap = await adminDb.collection(COLL).where('status', '==', 'active').get();
+  const all = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MarkedAbsence, 'id'>) }));
+  return filterUpcoming(all, getTodayDate());
 }
 
 /** Roster students with an active absence covering now (student_id → absence). */
