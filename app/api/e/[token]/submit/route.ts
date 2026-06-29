@@ -49,16 +49,27 @@ export const POST = async (
   const expectedRosterSize =
     typeof body?.roster_size === 'number' ? body.roster_size : undefined;
 
+  // ?now=HH:MM overrides the clock for testing a specific period (camp tz otherwise).
+  const nowParam = new URL(request.url).searchParams.get('now');
+  const nowHHMM = nowParam && /^\d{1,2}:\d{2}$/.test(nowParam) ? nowParam : undefined;
+
   const result = await submitEnsembleAttendance({
     token: params.token,
     marksByRef,
     expectedRosterSize,
+    nowHHMM,
   });
 
   if (!result.ok) {
     if (result.reason === 'roster_changed') {
       return NextResponse.json(
         { error: 'The roster changed — please reload before submitting.' },
+        { status: 409 }
+      );
+    }
+    if (result.reason === 'no_rehearsal') {
+      return NextResponse.json(
+        { error: 'No rehearsal is in session right now — please reload.' },
         { status: 409 }
       );
     }
