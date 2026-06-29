@@ -18,6 +18,10 @@ describe('validateWindow', () => {
     expect(validateWindow('1300', '14:30')).toBe(false);
     expect(validateWindow('', '14:30')).toBe(false);
   });
+  it('rejects single-digit (non-zero-padded) hours', () => {
+    expect(validateWindow('9:00', '10:00')).toBe(false);
+    expect(validateWindow('09:00', '10:00')).toBe(true);
+  });
 });
 
 describe('isCovering', () => {

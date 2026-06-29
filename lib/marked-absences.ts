@@ -17,7 +17,7 @@ export interface MarkedAbsence {
 }
 
 const COLL = 'marked_absences';
-const HHMM = /^\d{1,2}:\d{2}$/;
+const HHMM = /^\d{2}:\d{2}$/;
 
 /** Pure: a valid HH:MM window with from strictly before until. */
 export function validateWindow(from: string, until: string): boolean {
