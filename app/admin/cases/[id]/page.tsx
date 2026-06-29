@@ -11,6 +11,7 @@ import { renderTemplate, smsHref, DEFAULT_TEMPLATES, type MessageTemplates } fro
 import { currentAndNextSession, formatNextLabel, type ScheduleSlot } from '@/lib/schedule';
 import { getCurrentTimeHHMM } from '@/lib/date';
 import { markSeen } from '@/lib/seen';
+import { AddTimelineNote } from './AddTimelineNote';
 
 /** Live timeline refresh cadence while a report is active (paused when the tab
  * is backgrounded, stopped once resolved). */
@@ -300,6 +301,7 @@ export default function CaseDetail() {
 
       <section className="mt-6">
         <h2 className="font-semibold">Timeline</h2>
+        <AddTimelineNote onSubmit={(body) => logEvent('note', body)} />
         <ol className="mt-2 flex flex-col gap-1 text-sm">
           {events.map((e) => {
             const isStaff = e.type === 'staff_update';
