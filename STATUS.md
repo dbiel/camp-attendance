@@ -6,6 +6,21 @@
 
 ---
 
+## As of 2026-06-29 (Session 7) — `/e` roster reports rework SHIPPED
+
+**🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24; branch `feat/e-roster-reports-rework`). **591 unit tests** (+4 net). Built subagent-driven (4 tasks, per-task spec+quality review, opus whole-branch review → READY TO MERGE, no Critical/Important). Spec+plan in `docs/superpowers/{specs,plans}/2026-06-29-e-roster-reports-rework*`. Prod smoke green. **No schema/index change, no cron.**
+
+- **What changed (manager-facing `/e` roster only; admin side untouched):** reorganized how the ensemble manager sees excused kids vs incidents.
+  - **"Needs attention" pin → the kids the OFFICE excused** (`marked_absent`), amber, header "Needs attention — N (excused by office)", **display-only** (name · out until HH:MM · note). They still auto-mark Absent + show the inline note on their roster row.
+  - **Incidents → a per-row "📄 Previous Report →" link**, shown on any kid with a report **from today — active OR resolved** (so the manager knows if the kid was reported absent/late in another class today). Tapping opens the report layer.
+  - **The report layer** shows what happened (summary, status, **"Resolved — <note>"** for resolved) and **KEEPS** its typed update box (active reports). The **tap-Present "came back" tardy-arrival flow is unchanged** — both update channels preserved (David's explicit ask).
+- **Code:** `lib/ensemble-incidents.ts` renamed/broadened — `listActiveIncidentRefs`→**`listTodayReportRefs`** (today active+resolved, roster-scoped), `getEnsembleIncidentByRef`→**`getEnsembleReportByRef`** (most-recent today case, any status); `postEnsembleIncidentUpdate` unchanged (targets the active case). `lib/projections.ts` adds **`resolution_note`** to the ensemble report projection (allowlist preserved — no new PII). `/e` GET returns **`report_refs`** (was `incident_refs`). "Today" = camp-tz date of `occurred_at||created_at` via `hourBucket().slice(0,10)`; in-code filter over active+resolved (no new index). Page: pin from `marked_absent`, per-row from `report_refs`, `openReportRef` state; layer shows the resolved note.
+- **Prod smoke (live):** `/e/<bad>` → **200**, `/api/e/<bad>/incident/0` → **404**, `…/incident/0/update` POST → **410** (update path preserved), `/api/marked-absences` → **401**, `/admin/cases` → **200**.
+- **⚠️ For David to verify interactively** (login + real ensemble token): excused kids in the yellow pin; a kid with a today report shows "📄 Previous Report" → layer (resolved shows "Resolved — <note>", active shows the update box); tap Present after submitting still pings you (came-back).
+- **Process note:** during the build a subagent twice spun up an unrelated "attendance history" branch + git worktree under `.claude/worktrees/` — both removed; no impact on shipped code. (That idea — an at-a-glance "which rehearsals haven't taken attendance yet" board — is a real future option if wanted.)
+
+---
+
 ## As of 2026-06-29 (Session 6) — Office-marked (excused) absences SHIPPED
 
 **🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24; branch `feat/office-marked-absences`). **587 unit tests** (+21). Built subagent-driven (6 tasks, per-task spec+quality review, opus whole-branch review → READY TO MERGE, no Critical/Important). Spec+plan in `docs/superpowers/{specs,plans}/2026-06-29-office-marked-absences*`. Prod smoke green. **No cron, no `cases` schema/index change.**
