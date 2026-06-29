@@ -27,6 +27,8 @@ const h = vi.hoisted(() => ({
   txSet: vi.fn(),
   txUpdate: vi.fn(),
   idSeq: { n: 0 },
+  markedMap: new Map<string, { id: string; status: string; date: string; from: string; until: string; student_id: string }>(),
+  cleared: [] as string[],
 }));
 
 vi.mock('@/lib/ensemble-links', () => ({
@@ -40,6 +42,10 @@ vi.mock('@/lib/cases', () => ({
   buildEventDoc: h.buildEventDoc,
   CASES_COLLECTION: 'cases',
   EVENTS_COLLECTION: 'case_events',
+}));
+vi.mock('@/lib/marked-absences', () => ({
+  activeMarkedAbsencesForStudents: async () => h.markedMap,
+  clearMarkedAbsence: async (id: string) => { h.cleared.push(id); },
 }));
 vi.mock('@/lib/firebase-admin', () => ({
   adminDb: {
@@ -80,6 +86,8 @@ beforeEach(() => {
   h.getEnsembleRoster.mockResolvedValue([student('a'), student('b')]); // idSorted → a,b
   h.submissionSnap = { exists: false, data: () => undefined };
   h.idSeq.n = 0;
+  h.markedMap = new Map();
+  h.cleared = [];
 });
 
 describe('submitEnsembleAttendance', () => {
@@ -165,5 +173,22 @@ describe('submitEnsembleAttendance', () => {
     await submitEnsembleAttendance({ token: 't', marksByRef: { 0: 'absent', 1: 'present' } });
     expect(h.buildCaseDoc).toHaveBeenCalledTimes(1);
     expect(h.buildCaseDoc.mock.calls[0][0]).toMatchObject({ student_id: 'a' });
+  });
+
+  it('office-absent kid marked absent → NO incident filed', async () => {
+    h.markedMap = new Map([['a', { id: 'm1', status: 'active', date: '2026-06-28', from: '00:00', until: '23:59', student_id: 'a' }]]);
+    const res = await submitEnsembleAttendance({ token: 't', marksByRef: { 0: 'absent', 1: 'absent' } });
+    expect(res.ok).toBe(true);
+    // only student b (not office-marked) files a case
+    expect(h.buildCaseDoc).toHaveBeenCalledTimes(1);
+    expect(h.buildCaseDoc.mock.calls[0][0]).toMatchObject({ student_id: 'b' });
+  });
+
+  it('office-absent kid marked PRESENT (arrived) → absence cleared, no case', async () => {
+    h.markedMap = new Map([['a', { id: 'm1', status: 'active', date: '2026-06-28', from: '00:00', until: '23:59', student_id: 'a' }]]);
+    const res = await submitEnsembleAttendance({ token: 't', marksByRef: { 0: 'present' } });
+    expect(res.ok).toBe(true);
+    expect(h.buildCaseDoc).not.toHaveBeenCalled();
+    expect(h.cleared).toEqual(['m1']);
   });
 });

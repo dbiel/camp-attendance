@@ -4,6 +4,7 @@ import { getEnsembleRoster, validateEnsembleToken } from './ensemble-links';
 import { getTodayDate, getCurrentTimeHHMM } from './date';
 import { getSessions, getPeriods } from './firestore';
 import { resolveEnsembleNow, type ScheduleSlot } from './schedule';
+import { activeMarkedAbsencesForStudents, clearMarkedAbsence } from './marked-absences';
 import type { Student } from './types';
 
 /**
@@ -279,6 +280,8 @@ export async function submitEnsembleAttendance(args: {
     studentById.set(s.id, s);
   }
 
+  const officeAbsent = await activeMarkedAbsencesForStudents(Object.keys(nextMarks), nowHHMM, day);
+
   const subRef = adminDb.collection(SUBMISSIONS).doc(docId(args.token, day, cur.slot_key));
   const casesCol = adminDb.collection(CASES_COLLECTION);
   const eventsCol = adminDb.collection(EVENTS_COLLECTION);
@@ -304,7 +307,7 @@ export async function submitEnsembleAttendance(args: {
       const prev = prevMarks[studentId];
       const hasCase = Boolean(caseIds[studentId]);
 
-      if (mark === 'absent' && !hasCase) {
+      if (mark === 'absent' && !hasCase && !officeAbsent.has(studentId)) {
         // New absence → file a report (dedup: only when no case yet for this kid).
         const s = studentById.get(studentId)!;
         const caseRef = casesCol.doc();
@@ -361,6 +364,12 @@ export async function submitEnsembleAttendance(args: {
     const absentCount = Object.values(mergedMarks).filter((mk) => mk === 'absent').length;
     return { newlyAbsent, arrived, absentCount };
   });
+
+  for (const [studentId, mark] of Object.entries(nextMarks)) {
+    if (mark === 'present' && officeAbsent.has(studentId)) {
+      await clearMarkedAbsence(officeAbsent.get(studentId)!.id, 'arrived');
+    }
+  }
 
   return {
     ok: true,
