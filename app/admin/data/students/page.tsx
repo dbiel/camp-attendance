@@ -357,6 +357,7 @@ export default function StudentsDataPage() {
                                     {dedupeSlots(slots).map((s) => (
                                       <li key={`${s.period_number}-${s.session_id}`}>
                                         <span className="text-[var(--text-3)]">P{s.period_number} {s.start_time}</span> · {s.name}
+                                        {s.location ? <span className="font-medium text-camp-green"> · {s.location}</span> : ''}
                                         {s.faculty_name ? <span className="text-[var(--text-3)]"> · {s.faculty_name}</span> : ''}
                                       </li>
                                     ))}
