@@ -1,0 +1,137 @@
+import type { Period } from './types';
+
+/**
+ * Pure derivation for the admin "Attendance History" view. Turns raw
+ * `ensemble_attendance` submissions + live `periods` + live rehearsal `sessions`
+ * into a grid model (ensemble × past period) plus a chronological list. No I/O —
+ * the API route feeds it Firestore data so this stays unit-testable.
+ */
+
+export interface AttendanceSubmission {
+  ensemble: string;
+  day_key: string;
+  period_number: number;
+  period_name: string;
+  marks: Record<string, 'present' | 'absent'>;
+  roster_size: number;
+  submitted_at: string;
+}
+
+export interface RehearsalSlot {
+  ensemble: string;
+  period_number: number;
+}
+
+export type AttendanceCell =
+  | { state: 'taken'; submitted_at: string; absent_count: number; roster_size: number }
+  | { state: 'missed' }
+  | { state: 'none' };
+
+export interface AttendanceListItem {
+  ensemble: string;
+  period_number: number;
+  period_name: string;
+  submitted_at: string;
+  absent_count: number;
+  roster_size: number;
+  scheduled: boolean;
+  in_grid: boolean;
+}
+
+export interface AttendancePeriod {
+  number: number;
+  name: string;
+  start_time: string;
+  end_time: string;
+}
+
+export interface AttendanceHistory {
+  day: string;
+  periods: AttendancePeriod[];
+  ensembles: string[];
+  cells: Record<string, Record<number, AttendanceCell>>;
+  list: AttendanceListItem[];
+  availableDays: string[];
+}
+
+export interface BuildArgs {
+  day: string;
+  today: string;
+  nowHHMM: string;
+  periods: Period[];
+  rehearsalSessions: RehearsalSlot[];
+  submissions: AttendanceSubmission[];
+  allDayKeys: string[];
+  ensembles: readonly string[];
+}
+
+function absentCount(marks: Record<string, 'present' | 'absent'>): number {
+  return Object.values(marks ?? {}).filter((m) => m === 'absent').length;
+}
+
+/** A period is "past" if its day is before today, or it's today and now is at/after its end. */
+function isPast(p: Period, day: string, today: string, nowHHMM: string): boolean {
+  if (day < today) return true;
+  if (day > today) return false;
+  return nowHHMM >= p.end_time;
+}
+
+export function buildAttendanceHistory(args: BuildArgs): AttendanceHistory {
+  const { day, today, nowHHMM, periods, rehearsalSessions, submissions, allDayKeys, ensembles } = args;
+
+  const daySubs = submissions.filter((s) => s.day_key === day);
+
+  const pastPeriods: AttendancePeriod[] = periods
+    .filter((p) => isPast(p, day, today, nowHHMM))
+    .sort((a, b) => a.number - b.number)
+    .map((p) => ({ number: p.number, name: p.name, start_time: p.start_time, end_time: p.end_time }));
+  const pastNums = new Set(pastPeriods.map((p) => p.number));
+
+  const scheduled = new Map<string, Set<number>>();
+  for (const r of rehearsalSessions) {
+    if (!scheduled.has(r.ensemble)) scheduled.set(r.ensemble, new Set());
+    scheduled.get(r.ensemble)!.add(r.period_number);
+  }
+
+  const subByKey = new Map<string, AttendanceSubmission>();
+  for (const s of daySubs) subByKey.set(`${s.ensemble}__${s.period_number}`, s);
+
+  const cells: Record<string, Record<number, AttendanceCell>> = {};
+  for (const ens of ensembles) {
+    cells[ens] = {};
+    for (const p of pastPeriods) {
+      const sub = subByKey.get(`${ens}__${p.number}`);
+      if (sub) {
+        cells[ens][p.number] = {
+          state: 'taken',
+          submitted_at: sub.submitted_at,
+          absent_count: absentCount(sub.marks),
+          roster_size: sub.roster_size,
+        };
+      } else if (scheduled.get(ens)?.has(p.number)) {
+        cells[ens][p.number] = { state: 'missed' };
+      } else {
+        cells[ens][p.number] = { state: 'none' };
+      }
+    }
+  }
+
+  const ensSet = new Set(ensembles);
+  const list: AttendanceListItem[] = daySubs
+    .slice()
+    .sort((a, b) => (a.submitted_at < b.submitted_at ? 1 : a.submitted_at > b.submitted_at ? -1 : 0))
+    .map((s) => ({
+      ensemble: s.ensemble,
+      period_number: s.period_number,
+      period_name: s.period_name,
+      submitted_at: s.submitted_at,
+      absent_count: absentCount(s.marks),
+      roster_size: s.roster_size,
+      scheduled: scheduled.get(s.ensemble)?.has(s.period_number) ?? false,
+      in_grid: ensSet.has(s.ensemble) && pastNums.has(s.period_number),
+    }));
+
+  const availableDays = [...new Set([...allDayKeys, today])].sort().reverse();
+
+  return { day, periods: pastPeriods, ensembles: [...ensembles], cells, list, availableDays };
+}
