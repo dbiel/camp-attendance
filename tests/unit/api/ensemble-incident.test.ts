@@ -10,7 +10,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/ensemble-incidents', () => ({
-  listActiveIncidentRefs: async () => h.refs,
+  listTodayReportRefs: async () => h.refs,
   getEnsembleReportByRef: async () => h.detail,
   postEnsembleIncidentUpdate: async () => h.update,
 }));
