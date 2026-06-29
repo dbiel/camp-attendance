@@ -33,6 +33,7 @@ interface LoadData {
   roster: RosterRow[];
   roster_size: number;
   incident_refs: number[];
+  marked_absent: Record<number, { note: string; until: string }>;
   submission: {
     marks_by_ref: Record<number, Mark> | null;
     locked: boolean;
@@ -86,6 +87,8 @@ export default function EnsembleAttendancePage() {
       // Default everyone present; overlay any prior submission's marks.
       const init: Record<number, Mark> = {};
       for (const r of data.roster) init[r.ref] = 'present';
+      // Office-marked absences default the row to Absent (a saved submission still wins).
+      for (const refStr of Object.keys(data.marked_absent ?? {})) init[Number(refStr)] = 'absent';
       if (data.submission?.marks_by_ref) {
         for (const [ref, m] of Object.entries(data.submission.marks_by_ref)) init[Number(ref)] = m;
       }
@@ -305,6 +308,12 @@ export default function EnsembleAttendancePage() {
             >
               🔴 incident — view
             </button>
+          )}
+          {data.marked_absent?.[r.ref] && (
+            <p className="mt-0.5 text-xs font-medium text-amber-700">
+              Office: out until {data.marked_absent[r.ref].until}
+              {data.marked_absent[r.ref].note ? ` — ${data.marked_absent[r.ref].note}` : ''}
+            </p>
           )}
         </div>
         <div className="flex shrink-0 gap-1">
