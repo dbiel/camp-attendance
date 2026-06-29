@@ -57,3 +57,21 @@ export function formatNextLabel(slot: ScheduleSlot | null): string {
   const room = slot.location && slot.location.trim() ? slot.location.trim() : '(no room)';
   return `${slot.name} · ${slot.start_time} · ${room}`;
 }
+
+export type EnsembleNow =
+  | { status: 'rehearsal'; current: ScheduleSlot; next: ScheduleSlot | null }
+  | { status: 'no_rehearsal'; current: null; next: ScheduleSlot | null };
+
+/**
+ * Resolve an ensemble's CURRENT rehearsal at `nowHHMM` (camp-local). Gates to
+ * `type === 'rehearsal'` slots so meals/sectionals/electives never offer
+ * attendance. Reuses the strict-window `currentAndNextSession`; `next` is the
+ * ensemble's next rehearsal today (drives the "Next: …" line when idle).
+ */
+export function resolveEnsembleNow(slots: ScheduleSlot[], nowHHMM: string): EnsembleNow {
+  const rehearsals = slots.filter((s) => s.type === 'rehearsal');
+  const { current, next } = currentAndNextSession(rehearsals, nowHHMM);
+  return current
+    ? { status: 'rehearsal', current, next }
+    : { status: 'no_rehearsal', current: null, next };
+}
