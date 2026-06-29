@@ -15,6 +15,13 @@ import type { AttendanceHistory, AttendanceListItem } from '@/lib/attendance-his
 type View = 'grid' | 'list';
 type Selected = { ensemble: string; period: number } | null;
 
+/** "Period 4A" → "P4A", "Assembly" → "Assembly". The period `number` is just an
+ * ordering index (1–10) and does NOT equal the displayed period, so always
+ * label from the name. */
+function shortPeriod(name: string): string {
+  return name.replace(/^Period\s+/, 'P');
+}
+
 export function AttendanceHistoryView() {
   const { getAuthHeaders } = useAuth();
   const [view, setView] = useState<View>('grid');
@@ -120,7 +127,7 @@ function GridView({
       const p = data.periods.find((x) => x.number === selected.period);
       return {
         ensemble: selected.ensemble,
-        label: p ? `Period ${p.number} · ${p.name}` : `Period ${selected.period}`,
+        label: p ? p.name : `Period ${selected.period}`,
         ...cell,
       };
     })();
@@ -146,7 +153,7 @@ function GridView({
               </th>
               {data.periods.map((p) => (
                 <th key={p.number} className="border-b border-[var(--glass-border)] p-2 text-center">
-                  <div className="font-semibold">P{p.number}</div>
+                  <div className="font-semibold whitespace-nowrap">{shortPeriod(p.name)}</div>
                   <div className="text-[10px] font-normal text-[var(--text-3)]">
                     {p.start_time}–{p.end_time}
                   </div>
@@ -215,14 +222,16 @@ function GridView({
 }
 
 function ListView({ data }: { data: AttendanceHistory }) {
-  // Group by period_number, groups ordered by period number descending (latest first).
+  // Group by period_name, preserving the list's newest-first order of first
+  // appearance. Grouping by name (not period_number) avoids conflating a
+  // force-opened clock hour with a real period that shares the same number.
   const groups = useMemo(() => {
-    const byPeriod = new Map<number, AttendanceListItem[]>();
+    const byName = new Map<string, AttendanceListItem[]>();
     for (const item of data.list) {
-      if (!byPeriod.has(item.period_number)) byPeriod.set(item.period_number, []);
-      byPeriod.get(item.period_number)!.push(item);
+      if (!byName.has(item.period_name)) byName.set(item.period_name, []);
+      byName.get(item.period_name)!.push(item);
     }
-    return [...byPeriod.entries()].sort((a, b) => b[0] - a[0]); // list is already newest-first within each
+    return [...byName.entries()]; // Map preserves insertion (= newest-first) order
   }, [data.list]);
 
   if (data.list.length === 0) {
@@ -231,17 +240,15 @@ function ListView({ data }: { data: AttendanceHistory }) {
 
   return (
     <div className="space-y-4">
-      {groups.map(([periodNumber, items]) => (
-        <div key={periodNumber}>
-          <h3 className="mb-1 text-sm font-semibold text-[var(--text-2)]">
-            P{periodNumber} · {items[0].period_name}
-          </h3>
+      {groups.map(([periodName, items]) => (
+        <div key={periodName}>
+          <h3 className="mb-1 text-sm font-semibold text-[var(--text-2)]">{periodName}</h3>
           <ul className="divide-y divide-[var(--glass-border)] rounded-lg border border-[var(--glass-border)]">
             {items.map((item, i) => (
               <li key={`${item.ensemble}-${i}`} className="flex items-center justify-between px-3 py-2 text-sm">
                 <span className="font-medium">
                   {item.ensemble}
-                  {!item.in_grid && <span className="ml-2 text-xs text-[var(--text-3)]">(force-opened)</span>}
+                  {item.forced && <span className="ml-2 text-xs text-[var(--text-3)]">(force-opened)</span>}
                 </span>
                 <span className="text-[var(--text-2)]">
                   taken {formatClock(item.submitted_at)}

@@ -51,6 +51,8 @@ export const GET = withAuth(
         roster_size?: number;
         submitted_at?: string;
       };
+      // Doc id = `${token}__${day}__${slotKey}`; slotKey `H<hour>` ⇒ force-opened.
+      const slotKey = d.id.split('__').pop() ?? '';
       return {
         ensemble: x.ensemble ?? '',
         day_key: x.day_key ?? '',
@@ -59,6 +61,7 @@ export const GET = withAuth(
         marks: x.marks ?? {},
         roster_size: x.roster_size ?? 0,
         submitted_at: x.submitted_at ?? '',
+        forced: slotKey.startsWith('H'),
       };
     });
     const allDayKeys = [...new Set(submissions.map((s) => s.day_key).filter(Boolean))];

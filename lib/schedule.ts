@@ -19,7 +19,8 @@ export interface ScheduleSlot {
   end_time: string; // 'HH:MM' camp-local
 }
 
-function toMinutes(t: string): number {
+/** Parse 'HH:MM' (zero-padded or not) to minutes-since-midnight; NaN if malformed. */
+export function toMinutes(t: string): number {
   const m = /^(\d{1,2}):(\d{2})$/.exec(t ?? '');
   if (!m) return NaN;
   const h = Number(m[1]);

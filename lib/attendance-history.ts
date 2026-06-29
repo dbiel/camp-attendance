@@ -1,4 +1,5 @@
 import type { Period } from './types';
+import { toMinutes } from './schedule';
 
 /**
  * Pure derivation for the admin "Attendance History" view. Turns raw
@@ -15,6 +16,12 @@ export interface AttendanceSubmission {
   marks: Record<string, 'present' | 'absent'>;
   roster_size: number;
   submitted_at: string;
+  /**
+   * True for force-opened submissions, whose `period_number` is a clock hour
+   * (8–17) that overlaps real period numbers (1–10). Forced submissions never
+   * map to a grid cell — they only appear in the list.
+   */
+  forced?: boolean;
 }
 
 export interface RehearsalSlot {
@@ -36,6 +43,7 @@ export interface AttendanceListItem {
   roster_size: number;
   scheduled: boolean;
   in_grid: boolean;
+  forced: boolean;
 }
 
 export interface AttendancePeriod {
@@ -73,7 +81,11 @@ function absentCount(marks: Record<string, 'present' | 'absent'>): number {
 function isPast(p: Period, day: string, today: string, nowHHMM: string): boolean {
   if (day < today) return true;
   if (day > today) return false;
-  return nowHHMM >= p.end_time;
+  // Numeric compare (not lexicographic) so unpadded times like '9:30' work too.
+  const now = toMinutes(nowHHMM);
+  const end = toMinutes(p.end_time);
+  if (Number.isNaN(now) || Number.isNaN(end)) return false;
+  return now >= end;
 }
 
 export function buildAttendanceHistory(args: BuildArgs): AttendanceHistory {
@@ -93,8 +105,11 @@ export function buildAttendanceHistory(args: BuildArgs): AttendanceHistory {
     scheduled.get(r.ensemble)!.add(r.period_number);
   }
 
+  // Only scheduled-period (non-forced) submissions map to grid cells. Forced
+  // submissions carry a clock-hour period_number that overlaps real periods, so
+  // keying them here would clobber a genuine submission / mislabel a column.
   const subByKey = new Map<string, AttendanceSubmission>();
-  for (const s of daySubs) subByKey.set(`${s.ensemble}__${s.period_number}`, s);
+  for (const s of daySubs) if (!s.forced) subByKey.set(`${s.ensemble}__${s.period_number}`, s);
 
   const cells: Record<string, Record<number, AttendanceCell>> = {};
   for (const ens of ensembles) {
@@ -127,8 +142,9 @@ export function buildAttendanceHistory(args: BuildArgs): AttendanceHistory {
       submitted_at: s.submitted_at,
       absent_count: absentCount(s.marks),
       roster_size: s.roster_size,
-      scheduled: scheduled.get(s.ensemble)?.has(s.period_number) ?? false,
-      in_grid: ensSet.has(s.ensemble) && pastNums.has(s.period_number),
+      scheduled: !s.forced && (scheduled.get(s.ensemble)?.has(s.period_number) ?? false),
+      in_grid: !s.forced && ensSet.has(s.ensemble) && pastNums.has(s.period_number),
+      forced: !!s.forced,
     }));
 
   const availableDays = [...new Set([...allDayKeys, today])].sort().reverse();

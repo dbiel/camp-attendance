@@ -108,6 +108,53 @@ describe('buildAttendanceHistory', () => {
     expect(r.cells['Band 1']).toBeDefined(); // grid unaffected
   });
 
+  it('numeric (not lexicographic) time compare handles unpadded now', () => {
+    // now=9:30 → P1 (ends 08:50) past; P2 (09:50) and P3 (10:50) not yet.
+    const r = buildAttendanceHistory(base({ nowHHMM: '9:30' }));
+    expect(r.periods.map((p) => p.number)).toEqual([1]);
+  });
+
+  it('forced submission does NOT occupy a real grid cell with the same period_number', () => {
+    const r = buildAttendanceHistory(
+      base({
+        submissions: [
+          // genuine scheduled submission for Band 1, period 1
+          {
+            ensemble: 'Band 1',
+            day_key: '2026-06-29',
+            period_number: 1,
+            period_name: 'Period 1',
+            marks: { a: 'present', b: 'absent' },
+            roster_size: 2,
+            submitted_at: '2026-06-29T13:05:00.000Z',
+          },
+          // force-opened submission that happens to carry period_number 1 (clock hour)
+          {
+            ensemble: 'Band 1',
+            day_key: '2026-06-29',
+            period_number: 1,
+            period_name: 'Forced attendance',
+            marks: { a: 'absent', b: 'absent' },
+            roster_size: 2,
+            submitted_at: '2026-06-29T15:30:00.000Z',
+            forced: true,
+          },
+        ],
+      })
+    );
+    // grid cell reflects the genuine submission (1 absent), not the forced one (2 absent)
+    expect(r.cells['Band 1'][1]).toEqual({
+      state: 'taken',
+      submitted_at: '2026-06-29T13:05:00.000Z',
+      absent_count: 1,
+      roster_size: 2,
+    });
+    // both appear in the list; forced flagged, in_grid false, newest first
+    expect(r.list).toHaveLength(2);
+    expect(r.list[0]).toMatchObject({ forced: true, in_grid: false, scheduled: false });
+    expect(r.list[1]).toMatchObject({ forced: false, in_grid: true });
+  });
+
   it('availableDays = distinct day_keys ∪ today, newest first', () => {
     const r = buildAttendanceHistory(base({ allDayKeys: ['2026-06-27', '2026-06-28'] }));
     expect(r.availableDays).toEqual(['2026-06-29', '2026-06-28', '2026-06-27']);
