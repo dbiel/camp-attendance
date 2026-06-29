@@ -10,6 +10,8 @@ import { NewReport } from './NewReport';
 import { SelectionBar } from './SelectionBar';
 import { ReportHistory } from './ReportHistory';
 import { initSeenIfEmpty, isUnseen, readSeen, type SeenMap } from '@/lib/seen';
+import { partitionActiveByHour } from '@/lib/active-board';
+import { hourBucket, getTodayDate } from '@/lib/date';
 
 // useSearchParams() requires a Suspense boundary in Next 14 App Router so the
 // page can statically render its shell; the inner component reads ?from_text.
@@ -139,13 +141,14 @@ function ActiveCases() {
 
   if (authLoading || !user) return null;
 
-  // Flat list, MOST URGENT FIRST (longest elapsed = oldest occurred_at). Never
-  // collapsed — auto-hiding a still-missing kid would be a safety bug.
-  const sorted = [...cases].sort(
-    (a, b) =>
-      new Date(a.occurred_at || a.created_at).getTime() -
-      new Date(b.occurred_at || b.created_at).getTime()
-  );
+  // Newest-first, split into the current clock hour vs older still-active
+  // ("carried over") incidents. Carried-over kids stay visible (never hidden);
+  // CaseCard's elapsed badge keeps urgency legible. ?now=HH:MM overrides the hour.
+  const nowHourKey = nowOverride
+    ? hourBucket(`${getTodayDate()}T${nowOverride}:00`)
+    : hourBucket(new Date().toISOString());
+  const { thisHour, carriedOver } = partitionActiveByHour(cases, nowHourKey);
+  const sorted = [...thisHour, ...carriedOver];
   const selectedCaseIds = sorted.filter((c) => selected.has(c.id)).map((c) => c.id);
   const newOpen = showNew || Boolean(fromText);
 
@@ -214,7 +217,8 @@ function ActiveCases() {
             No active reports. 🎺
           </p>
         )}
-        {sorted.map((c) => (
+
+        {thisHour.map((c) => (
           <CaseCard
             key={c.id}
             c={c}
@@ -223,13 +227,33 @@ function ActiveCases() {
             nowOverride={nowOverride}
             updateFlag={
               isUnseen(c, seen, { treatUnknownAsNew: true })
-                ? seen[c.id] !== undefined
-                  ? 'updated'
-                  : 'new'
+                ? seen[c.id] !== undefined ? 'updated' : 'new'
                 : null
             }
           />
         ))}
+
+        {carriedOver.length > 0 && (
+          <>
+            <h2 className="mt-4 text-sm font-semibold text-amber-700">
+              ⏱ Carried over from earlier — {carriedOver.length}
+            </h2>
+            {carriedOver.map((c) => (
+              <CaseCard
+                key={c.id}
+                c={c}
+                selected={selected.has(c.id)}
+                onToggleSelect={toggleSelect}
+                nowOverride={nowOverride}
+                updateFlag={
+                  isUnseen(c, seen, { treatUnknownAsNew: true })
+                    ? seen[c.id] !== undefined ? 'updated' : 'new'
+                    : null
+                }
+              />
+            ))}
+          </>
+        )}
       </section>
 
       <SelectionBar
