@@ -6,7 +6,8 @@ import { Modal } from '@/components/Modal';
 interface Update { body: string; actor: string; created_at: string }
 interface Incident {
   first_name: string; last_initial: string; instrument: string;
-  report_summary: string; status: 'active' | 'resolved'; updates: Update[];
+  report_summary: string; status: 'active' | 'resolved';
+  resolution_note: string | null; updates: Update[];
 }
 
 /** Pop-up layer on the ensemble roster: shows a flagged student's incident
@@ -89,6 +90,9 @@ export function StudentIncidentLayer({
           >
             {incident.status === 'resolved' ? 'Resolved' : 'Active'}
           </span>
+          {incident.status === 'resolved' && incident.resolution_note && (
+            <p className="mt-1 text-sm text-green-700">Resolved — {incident.resolution_note}</p>
+          )}
           <p className="mt-2 text-[var(--text)]">{incident.report_summary}</p>
 
           <h3 className="mt-4 text-sm font-semibold text-[var(--text-2)]">Timeline</h3>

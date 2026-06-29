@@ -32,7 +32,7 @@ interface LoadData {
   session: SessionInfo;
   roster: RosterRow[];
   roster_size: number;
-  incident_refs: number[];
+  report_refs: number[];
   marked_absent: Record<number, { note: string; until: string }>;
   submission: {
     marks_by_ref: Record<number, Mark> | null;
@@ -66,7 +66,7 @@ export default function EnsembleAttendancePage() {
   // Clock hour the taker force-opened attendance for (null = not forced). The
   // forced window auto-expires when the wall clock ticks into the next hour.
   const [forcedHour, setForcedHour] = useState<number | null>(null);
-  const [openIncidentRef, setOpenIncidentRef] = useState<number | null>(null);
+  const [openReportRef, setOpenReportRef] = useState<number | null>(null);
 
   // Forward a `?now=HH:MM` test override (if present in the page URL) to the API.
   const nowQuery =
@@ -249,8 +249,10 @@ export default function EnsembleAttendancePage() {
 
   const { data } = state;
 
-  const flaggedRefs = new Set(data.incident_refs ?? []);
-  const flaggedRows = data.roster.filter((r) => flaggedRefs.has(r.ref));
+  // Per-row "Previous Report" comes from today's reports (active+resolved).
+  const reportRefs = new Set(data.report_refs ?? []);
+  // The "Needs attention" pin now lists the kids the OFFICE excused.
+  const excusedRows = data.roster.filter((r) => data.marked_absent?.[r.ref]);
 
   // Active = a slot is live and the taker can mark/submit: a scheduled rehearsal,
   // a server-resumed forced hour, or a locally force-opened hour (this clock hour
@@ -301,12 +303,12 @@ export default function EnsembleAttendancePage() {
             {r.instrument || '—'}
             {r.grade ? ` · Grade ${r.grade}` : ''}
           </p>
-          {flaggedRefs.has(r.ref) && (
+          {reportRefs.has(r.ref) && (
             <button
-              onClick={() => setOpenIncidentRef(r.ref)}
+              onClick={() => setOpenReportRef(r.ref)}
               className="mt-0.5 text-xs font-semibold text-red-700 underline"
             >
-              🔴 incident — view
+              📄 Previous Report →
             </button>
           )}
           {data.marked_absent?.[r.ref] && (
@@ -369,21 +371,21 @@ export default function EnsembleAttendancePage() {
         ⬇ Export roster (.xlsx)
       </button>
 
-      {flaggedRows.length > 0 && (
-        <section className="mt-3 rounded-[var(--radius-sm)] border border-red-300 bg-red-50 p-2">
-          <h2 className="text-sm font-bold text-red-800">Needs attention — {flaggedRows.length}</h2>
+      {excusedRows.length > 0 && (
+        <section className="mt-3 rounded-[var(--radius-sm)] border border-amber-300 bg-amber-50 p-2">
+          <h2 className="text-sm font-bold text-amber-800">Needs attention — {excusedRows.length} (excused by office)</h2>
           <ul className="mt-1 flex flex-col gap-1">
-            {flaggedRows.map((r) => (
-              <li key={r.ref}>
-                <button
-                  onClick={() => setOpenIncidentRef(r.ref)}
-                  className="flex w-full items-center justify-between rounded border border-red-200 bg-white px-3 py-2 text-left text-sm"
-                >
-                  <span className="font-medium text-[var(--text)]">🔴 {r.first_name} {r.last_name}</span>
-                  <span className="text-xs text-red-700">View incident →</span>
-                </button>
-              </li>
-            ))}
+            {excusedRows.map((r) => {
+              const a = data.marked_absent[r.ref];
+              return (
+                <li key={r.ref} className="rounded border border-amber-200 bg-white px-3 py-2 text-sm">
+                  <span className="font-medium text-[var(--text)]">🟡 {r.first_name} {r.last_name}</span>
+                  <span className="ml-2 text-xs text-amber-700">
+                    out until {a.until}{a.note ? ` · ${a.note}` : ''}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
@@ -463,16 +465,16 @@ export default function EnsembleAttendancePage() {
         </button>
       )}
 
-      {openIncidentRef !== null && (
+      {openReportRef !== null && (
         <StudentIncidentLayer
           token={token}
-          refIndex={openIncidentRef}
+          refIndex={openReportRef}
           name={(() => {
-            const r = data.roster.find((x) => x.ref === openIncidentRef);
+            const r = data.roster.find((x) => x.ref === openReportRef);
             return r ? `${r.first_name} ${r.last_name}` : 'Student';
           })()}
           nowQuery={nowQuery}
-          onClose={() => { setOpenIncidentRef(null); load(); }}
+          onClose={() => { setOpenReportRef(null); load(); }}
         />
       )}
     </main>

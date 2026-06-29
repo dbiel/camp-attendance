@@ -38,4 +38,19 @@ describe('StudentIncidentLayer', () => {
     );
     await waitFor(() => expect(box.value).toBe(''));
   });
+
+  it('shows the resolution note for a resolved report', async () => {
+    (global.fetch as any) = vi.fn(async () => ({
+      ok: true, status: 200,
+      json: async () => ({ incident: {
+        first_name: 'Jane', last_initial: 'D.', instrument: 'Flute',
+        report_summary: 'Absent from Band 5', status: 'resolved',
+        resolution_note: 'found in dorm', updates: [],
+      } }),
+    }));
+    render(<StudentIncidentLayer token="t" refIndex={1} name="Jane D." nowQuery="" onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/found in dorm/)).toBeInTheDocument());
+    // update box hidden on a resolved report
+    expect(screen.queryByPlaceholderText(/add an update/i)).toBeNull();
+  });
 });
