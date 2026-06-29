@@ -4,6 +4,7 @@ import {
   sessionStudentsForTeacher,
   toStaffLinkProjection,
   toEnsembleRosterProjection,
+  toEnsembleIncidentProjection,
 } from '@/lib/projections';
 import type { Faculty, SessionStudentDenormalized, Student } from '@/lib/types';
 import type { Case, CaseEvent } from '@/lib/cases';
@@ -269,5 +270,37 @@ describe('toEnsembleRosterProjection', () => {
     expect(blob).not.toContain('st1'); // student id
     expect(out[0]!).not.toHaveProperty('dorm_building');
     expect(out[0]!).not.toHaveProperty('student_id');
+  });
+});
+
+describe('toEnsembleIncidentProjection', () => {
+  const student = {
+    first_name: 'Jane', preferred_name: '', last_name: 'Doe', instrument: 'Flute',
+    dorm_building: 'Wall', dorm_room: '214', medical_notes: 'asthma',
+    parent_phone: '555', cell_phone: '556',
+  } as any;
+  const c = { summary: 'Absent from Band 5', status: 'active' } as any;
+  const events = [
+    { type: 'note', body: 'internal only', actor: 'david@x', created_at: '2026-06-29T18:00:00Z' },
+    { type: 'staff_update', body: 'checking dorm', actor: 'Counselor', created_at: '2026-06-29T18:05:00Z' },
+  ] as any;
+
+  it('omits dorm and all PII beyond first name + last initial + instrument', () => {
+    const p = toEnsembleIncidentProjection(c, student, events);
+    expect(p).toEqual({
+      first_name: 'Jane',
+      last_initial: 'D.',
+      instrument: 'Flute',
+      report_summary: 'Absent from Band 5',
+      status: 'active',
+      updates: [{ body: 'checking dorm', actor: 'Camp staff', created_at: '2026-06-29T18:05:00Z' }],
+    });
+    expect(JSON.stringify(p)).not.toMatch(/Wall|214|asthma|555|556/);
+  });
+
+  it('includes only staff_update events, with a neutral author', () => {
+    const p = toEnsembleIncidentProjection(c, student, events);
+    expect(p.updates).toHaveLength(1);
+    expect(p.updates[0].actor).toBe('Camp staff');
   });
 });

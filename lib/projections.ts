@@ -112,3 +112,38 @@ export function toStaffLinkProjection(
       .map((e) => ({ body: e.body, actor: 'Camp staff', created_at: e.created_at })),
   };
 }
+
+/**
+ * Scoped projection for the public ensemble incident layer (`/e/<token>` →
+ * tap a flagged student). Awareness-only audience: like the staff link but
+ * WITHOUT dorm/room (an ensemble leader needs to know what's going on, not to
+ * locate the kid). Allowlist — never the full surname, dorm, medical, parent
+ * contact, cell, raw text, student_id, reporter, schedule, or other students.
+ * `updates` carries ONLY staff_update events under a neutral author.
+ */
+export interface EnsembleIncidentProjection {
+  first_name: string;
+  last_initial: string;
+  instrument: string;
+  report_summary: string;
+  status: CaseStatus;
+  updates: StaffLinkUpdate[];
+}
+
+export function toEnsembleIncidentProjection(
+  c: Case,
+  student: Student | null,
+  events: CaseEvent[]
+): EnsembleIncidentProjection {
+  const lastName = student?.last_name ?? '';
+  return {
+    first_name: student?.preferred_name || student?.first_name || '',
+    last_initial: lastName ? `${lastName.charAt(0)}.` : '',
+    instrument: student?.instrument ?? '',
+    report_summary: c.summary,
+    status: c.status,
+    updates: events
+      .filter((e) => e.type === 'staff_update')
+      .map((e) => ({ body: e.body, actor: 'Camp staff', created_at: e.created_at })),
+  };
+}
