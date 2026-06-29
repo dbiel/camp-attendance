@@ -6,6 +6,21 @@
 
 ---
 
+## As of 2026-06-29 (Session 6) — Office-marked (excused) absences SHIPPED
+
+**🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24; branch `feat/office-marked-absences`). **587 unit tests** (+21). Built subagent-driven (6 tasks, per-task spec+quality review, opus whole-branch review → READY TO MERGE, no Critical/Important). Spec+plan in `docs/superpowers/{specs,plans}/2026-06-29-office-marked-absences*`. Prod smoke green. **No cron, no `cases` schema/index change.**
+
+- **What it is:** the admin marks a kid absent for a **clock-time window** (from–until, today); during that window the kid's row on the public `/e/<token>` ensemble roster **defaults to Absent + shows a note**; it **does not create an incident** on the admin board (suppression); if the manager taps Present (kid showed up) the office-absence **clears quietly** (no alert).
+- **Admin UI:** **"Mark absent"** button on the Incident page (`app/admin/cases/MarkAbsent.tsx`, next to "+ New report") — `StudentPicker` (extracted to a shared `app/admin/cases/StudentPicker.tsx`) + From/Until `<input type=time>` + optional note. A compact **"Marked absent (today)"** list with **Clear** is the admin's record (these never become incidents).
+- **Data:** new **`marked_absences`** collection (Admin-SDK-only, rules catch-all `read:if false`): `{student_id, student_name, date, from, until, note, status:'active'|'cleared', cleared_reason, created_by}`. `lib/marked-absences.ts` — **pure** covering-now logic (`status==active && date==today && from<=now<until`, `until` exclusive, **2-digit HH:MM** lexicographic compare, honors `?now=`). Expiry after `until` is computed (no cron). Queries are equality-only (no composite index).
+- **Routes:** `POST /api/marked-absences` (create), `GET ?date=` (today's list), `DELETE /api/marked-absences/[id]` (clear `'manual'`) — all `withAuth('lookup_admin')`.
+- **`/e` surfacing:** GET returns a **ref-keyed** `marked_absent` map `{ [ref]: {note, until} }` (opaque roster index, **no student_id/PII**). The page defaults those rows to Absent **before** overlaying a saved submission (a saved mark wins) and shows an amber "Office: out until HH:MM — note" line.
+- **Submit (`submitEnsembleAttendance`):** office-absent set resolved **once** before the transaction; absent branch gains `&& !officeAbsent.has(studentId)` so a covered kid **files no case**; arrival-clear (`clearMarkedAbsence(id,'arrived')`) runs **after** the transaction (re-run-safe). Normal absences still file incidents exactly as before.
+- **⚠️ For David to verify interactively** (login + a real ensemble token): Mark a kid absent for a window → `/e` roster shows them auto-Absent with the note → submitting files no incident on the board → marking them Present clears the office-absence. Public-route contract verified by prod smoke (admin routes 401; `/e` 200).
+- **Deferred minors** (none blocking; in the SDD ledger): `/e` `?now=` regex still allows 1-digit hour (test-param only); `marked_absences` relies on the catch-all deny (could add an explicit rule); a couple of weak/redundant test+UI cosmetics.
+
+---
+
 ## As of 2026-06-29 (Session 5) — Timeline notes + ensemble incident awareness + hourly carry-over + newest-first SHIPPED
 
 **🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24; branch `feat/timeline-ensemble-awareness`). **566 unit tests** (+43). Built subagent-driven (8 tasks, per-task spec+quality review, opus whole-branch review → READY TO MERGE, no Critical/Important). Spec+plan in `docs/superpowers/{specs,plans}/2026-06-29-timeline-ensemble-awareness*`. Prod smoke green (see below). **No schema/index change, no cron.**
