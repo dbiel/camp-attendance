@@ -6,23 +6,44 @@
 
 ---
 
-## As of 2026-06-28 (overnight) — Phases 4–6 + reskin LIVE (branch `feat/incident-command-redesign`)
+## As of 2026-06-28 (late) — Hourly-rolling ensemble attendance LIVE (`main`)
 
-**🟢 LIVE & verified on https://ttuboc-attendance.web.app.** Everything below deployed and smoke-checked (uniform 404s on bad tokens, 401 on admin routes, 200 on pages). 495 unit tests green. Branch pushed; **not yet merged to main** (prod runs from branch deploys). Rollback anchor tag: `deploy-2026-06-27-pre-reskin` (commit `0378c44`).
+**🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24; `main` @ `1623803`, pushed → CI also deploys). **518 unit tests** pass (+10). Smoke: `/api/e/<bad>` → uniform 404 (with/without `?now=`), `/e/<bad>` page → 200. Spec/plan in `docs/superpowers/{specs,plans}/2026-06-28-hourly-ensemble-attendance*`.
 
-- **Phase 4 — report detail (live).** `app/admin/cases/[id]/page.tsx`: timeline auto-polls every 15s (pauses when tab hidden, stops once resolved); new **"Where they should be"** panel = now/next class (strict period windows) + collapsible full-day schedule (ensemble base + electives); `?now=HH:MM` test override.
-- **Live-feed notification badges (live).** New `lib/seen.ts` (localStorage seen-map, pure `isUnseen`/`activityOf`, unit-tested; first-run seeds so no badge flood). Backbone: `cases.last_activity_at` bumped on every event via `addCaseEvent`. Hub `CaseCard` shows a **`.badge-new`** "new" pill; `ReportHistory` shows yellow dots on day/hour buckets + rows with unseen activity; opening a report's detail (`markSeen`) clears it; mobile `/r` viewer flashes "Updated from the camp office" on new activity.
-- **Phase 5 — staff-link polish (live; adversarial security review: no HIGH/MED).** Scoped `/r` viewer now shows **D1 dorm building+room (prominent locator)** + **D2 full name** (`preferred_name||first_name` + full `last_name`); **D3 auto-resolve** (a resolved kid stays visible, but the link 404s once ALL its kids are resolved); **share TTL 4h→2h**. Projection still allowlists name/instrument/dorm only — never medical/parent/cell/raw/reporter/student-id/schedule/history. ⚠️ **For David to confirm:** exposing campers' **full last name + dorm** on the unauthenticated (forwardable) `/r` link — it's the reviewed plan (D2 was approved; paired with 2h TTL + revoke + auto-die + anti-leak headers + 128-bit token) and matches your Phase-6 "first/last name on open links is fine" call. One commit reverts to last-initial if you'd rather.
-- **Phase 6 — ensemble open attendance → auto-incidents (live; adversarial review: 1 HIGH + 3 MED, ALL fixed).** Tokenized **open `/e/<token>`** page (no login), mobile-first; roster = name·instrument·grade, sortable **score order** (standard concert-band instrumentation, `lib/score-order.ts`) or last name. Present/Absent → Submit. Each **Absent auto-files a report** on the hub (`source: 'ensemble_attendance'`); a later **Absent→Present** flips it to a **tardy-arrival** update (`tardy_arrived` + timeline note) — surfaces via the badge poll, **no external notification**. **super_admin link management** in Settings → *Ensemble Attendance Links* (generate/copy/revoke per ensemble). New collections `ensemble_links` + `ensemble_attendance` are **server-only in rules** and **in the wipe list**. Review HIGH fixed: the submit read-modify-write + case creation runs in a **Firestore transaction** (concurrent/retried submits can't orphan or duplicate reports; `createCase` refactored to `buildCaseDoc`/`buildEventDoc`). Accepted residual (documented): token-validation timing delta — moot vs a 128-bit token.
-- **Liquid-glass reskin MERGED (live).** Merged `feat/liquid-glass-reskin` (presentational-only). Resolved 3 conflicts keeping this branch's logic + the reskin tokens; restyled the new surfaces (badges, `/e` page, ensemble-links section, schedule panel) with the design system's semantic classes (`.badge-new`, `.btn-present/.btn-absent`, glass tokens) per `docs/RESKIN-NOTES.md`.
+- **What changed:** the existing `/e/<token>` ensemble links (Bands 1–7, Orch 1–3, Jazz 1–2) are now **period-aware**. Same tokens, no re-issue. The page resolves *which rehearsal this ensemble has right now* from live `sessions`+`periods`, shows `Ensemble · Period N · HH:MM–HH:MM · room`, and **auto-rolls** at each period boundary (marks reset to Present; prior hour clears from the taker's view). Between rehearsals: "No rehearsal right now. Next: …".
+- **Keying:** submissions re-keyed day→**day+period** (`ensemble_attendance` doc id `token__date__P<n>`; doc gained `period_number`/`period_name`). Each hour is its own take; absences file reports stamped with `session_id`/`period_id`/`period_number` + `session_label` "Ensemble · Period N". Server re-resolves the period on submit and **rejects `no_rehearsal`** (409) so a stale tab can't file into the wrong hour. `?now=HH:MM` honored on GET **and** submit.
+- **New code:** `resolveEnsembleNow` (`lib/schedule.ts`, gates to `type==='rehearsal'`); `resolveCurrentPeriod`/`getCurrentEnsembleSession` (`lib/ensemble-attendance.ts`); GET `/api/e/[token]` returns live session context; admin **Ensemble attendance** grid (Data ▸ Classes 3rd toggle, `EnsembleAttendanceGrid.tsx` + `/api/admin/ensemble-attendance`, lookup_admin, read-only, ensemble×day cells).
+- **Hard dependency (David confirmed seeded):** requires 2026 rehearsal `sessions`+`periods` in live Firestore. Verified resolver against `source-data/2026/build` — Band 1 (P3+P4A then P6), Orch 1 (P2+P3 then P7) resolve correctly.
+- **⚠️ For David to verify (after-hours now → plain links show "No rehearsal"):** open a real link with **`?now=10:20`** → should show `Period 3 · 10:00–10:50` + roster; **`?now=12:30`** → "No rehearsal right now. Next: …". Mark someone absent under a rehearsal `?now=` → report on hub; reload → mark persists for that period only.
 
-**Waiting on David (morning):**
-1. **2026 elective rosters** (+ optional `grade` column) → seed via `scripts/seed-camp.mjs` (schedule already unions base+electives; grade column shows "—" until data has it).
-2. **Confirm the staff-link full-name/dorm exposure** (above) — keep or revert to last-initial.
-3. Optional: your **exact score-order** instrument list (I used the standard one; `lib/score-order.ts` is toggle-ready to swap).
-4. **Test the new flows** when convenient: Settings → generate an ensemble link → open `/e/<token>` → mark someone absent → Submit → it appears on the Incident hub; flip them Present → "tardy arrived" update.
+---
 
-**Standing:** ultracode ON (workflow per phase + adversarial review before deploy). Autonomy: proceed through phases + auto-deploy; **never send texts/emails / contact anyone outside the org** (CI egress guard green).
+## As of 2026-06-28 — GO-LIVE: Phases 4–6 + reskin live, merged to `main`, CI green
+
+**🟢 LIVE & verified on https://ttuboc-attendance.web.app.** Branch `feat/incident-command-redesign` **fast-forwarded onto `main`** (both at `8455e69`); **CI now deploys green from `main`** (build + hosting + rules + indexes). **508 unit tests** pass. Full prod smoke test green: admin APIs → 401, public token routes → 404/410, viewer pages → 200, anon Firestore read of camper data → **403**. Tags: **`go-live-2026-06-28`** (rollback anchor), `deploy-2026-06-28-phases4-6-reskin`, `deploy-2026-06-27-pre-reskin`.
+
+**Shipped this session (all live):**
+- **Phase 4 report detail** — live 15s timeline poll (pause-hidden, stop-resolved) + "Where they should be" now/next + full-day schedule panel.
+- **Live-feed notification badges** — `lib/seen.ts` seen-map; `cases.last_activity_at` bumped on every event. Hub cards show **"new"** (yellow) vs **"⬆ UPDATED"** (blue ring/badge) vs **"🏃 tardy arrived"**; ReportHistory dots; mobile `/r` "updated" flash. Hub also shows a pulsing **"🔔 N new · M updated"** banner; poll 30s→**15s**.
+- **Phase 5 staff-link** — D1 dorm building + D3 auto-resolve + TTL **2h**. **D2 final decision (David): full FIRST name + LAST INITIAL only** (not full surname) + a current-status/updated-time line. Reviewed: no HIGH/MED.
+- **Phase 6 ensemble attendance** — open `/e/<token>`, **grouped-by-instrument accordion** ("Flute — 7") / last-name sort; Present/Absent → Submit → auto-files reports; Absent→Present = tardy update; **submit button pulses on unsaved changes**. **Transaction-based** submit (review HIGH fixed). Admin link mgmt in Settings.
+- **Liquid-glass reskin merged** (`feat/liquid-glass-reskin`, PR #1) + new surfaces restyled with its semantic classes.
+- **XLSX export** (`lib/xlsx-export.ts`) — admin all-rosters (tab/ensemble) on Data▸Students + per-ensemble on `/e`.
+- **Bulk-resolve** from the SelectionBar (auto-logs each).
+- **Master schedule view** — Data▸Classes "Master schedule" toggle (`lib/master-schedule.ts` = **last year's** room×period grid + browser).
+- **Faculty schedules** — Data▸Faculty mirrors Students: Current(room)/Next columns (`/api/faculty/now-next`) + expandable schedule w/ rooms.
+- **Edit modals** scroll + **full-screen on mobile** (shared `components/Modal.tsx`; faculty + sessions converted).
+- **Hardening** — durable **per-token** rate limiter (`checkRateLimitDurable`, Firestore-backed, fails open) on the two public writes.
+- **Fixed latent gitignore bug** — `data/` rule also matched `app/admin/data/`, silently dropping `MasterSchedule.tsx` from git (CI caught it). Anchored to `/data/` + `/source-data/`.
+
+**Waiting on David:**
+1. **2026 elective rosters** (+ optional `grade`) and the **new master schedule** → drop into `lib/master-schedule.ts` (same shape) + seed via `scripts/seed-camp.mjs`. Master view + faculty/student now-next use *last year's* data until then.
+2. **Rotate the Anthropic API key** (in chat/STATUS history) — new key → `ANTHROPIC_API_KEY` GH secret + local `.env.local`. **Manual; only David can.**
+3. Optional: exact **score-order** instrument list (standard one in use; `lib/score-order.ts` toggle-ready).
+
+**Known follow-ups (not blocking):** master-schedule view is a standalone reference, NOT yet wired into the live `sessions`/now-next (a "wire master schedule → live data" integration was offered); faculty Current/room columns are sparse until the master schedule populates `sessions.faculty_id` + `location`.
+
+**Standing:** ultracode ON (workflow per phase + adversarial review before deploy). Autonomy: proceed + auto-deploy; **never send texts/emails / contact anyone outside the org** (CI egress guard green).
 
 ---
 
