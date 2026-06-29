@@ -3,6 +3,7 @@ import { getCurrentEnsembleSession, getRosterForToken, getEnsembleSubmission } f
 import { toEnsembleRosterProjection } from '@/lib/projections';
 import { getTodayDate } from '@/lib/date';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { listActiveIncidentRefs } from '@/lib/ensemble-incidents';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,8 @@ export const GET = async (
   if (!rosterData) return NextResponse.json(UNIFORM_FAILURE, { status: 404 });
   const roster = toEnsembleRosterProjection(rosterData.roster);
 
+  const incident_refs = (await listActiveIncidentRefs(params.token)) ?? [];
+
   // Re-express the current slot's submitted marks by the opaque ref (never
   // student id). Only meaningful when a slot is live (rehearsal or forced).
   const submission = ctx.slot_key
@@ -70,6 +73,7 @@ export const GET = async (
     session,
     roster,
     roster_size: rosterData.roster.length,
+    incident_refs,
     submission: submission
       ? { marks_by_ref, locked: true, submitted_at: submission.submitted_at, updated_at: submission.updated_at }
       : null,
