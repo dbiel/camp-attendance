@@ -6,13 +6,18 @@
 
 ---
 
-## As of 2026-06-29 — Shared ensemble PICKER LINK live + Google sign-in fixed
+## As of 2026-06-29 (Session 3) — Roster data edits (2 moves + 2 new students) via Admin SDK; deploy pipeline validated
 
-**🟢 LIVE & confirmed by David on https://ttuboc-attendance.web.app.** On `main` (clean, pushed). **537 unit tests** (+13), build green. Two things shipped/fixed this session.
+**🟢 LIVE in prod Firestore (`ttuboc-attendance`).** On `main` (clean). No code changes this session — direct roster data writes + a deploy clear. **Standing rule added: never add camp data David didn't explicitly give** (`feedback-camp-no-blind-data` memory).
 
-- **Shared picker link.** ONE link → pick your ensemble (Bands 1–7, Orchestra 1–3; Jazz excluded) → that ensemble's existing `/e/<token>` page. Replaces handing out 10 separate links. New `kind:'selector'` doc in `ensemble_links`; public `/e/pick/<token>` page + `GET /api/e/pick/[token]` (rate-limited, uniform 404); admin "Shared picker link" box in **Settings ▸ Ensemble Attendance Links** (create/copy/revoke). **Purely additive — attendance/submit/export/period-rollover untouched.** Code: `lib/ensemble-links.ts` (`PICKER_ENSEMBLES`, `issueSelectorLink`, `resolvePickerTargets`, `buildPickerItems`), `app/e/pick/[token]/page.tsx`, `app/api/e/pick/[token]/route.ts`, `app/admin/settings/EnsembleLinksSection.tsx`. Spec/plan in `docs/superpowers/{specs,plans}/2026-06-28-shared-ensemble-picker-link*`.
-- **Google sign-in fixed (was broken on iPhone + desktop).** Deployed app's Firebase `authDomain` is `ttuboc-attendance.web.app`, but the OAuth client only had the `…firebaseapp.com` handler registered → Safari "missing initial state" + desktop `redirect_uri_mismatch`. **Fix (David did it in console — needs owner `davidbiel1919@gmail.com`):** added `https://ttuboc-attendance.web.app` (JS origin) + `https://ttuboc-attendance.web.app/__/auth/handler` (redirect URI) to the "Web client (auto created by Google Service)". Both desktop + phone sign-in now work.
-- **⚠️ Deploy gotcha hit hard this session:** 5 rapid pushes to `main` wedged the SSR Cloud Run function (`ssrttubocattendance`) with `409 "unable to queue the operation"`; CI reported deploy "success" while the function update silently failed, so `web.app` served old code (route 404'd) for ~7 hrs even though the new code was live on Cloud Run directly. **Cleared by a LOCAL owner `firebase deploy --only hosting` (Node 24, webframeworks) — not CI reruns.** Don't push many commits to main in quick succession. Full details in the `feedback-camp-app-deploy` memory.
+- **Roster moves must go through the Admin SDK, NOT the app UI.** `updateStudent` (`lib/firestore.ts:59`) updates only the student doc — it does **not** re-derive `session_students` enrollments. Editing ensemble in-app would strand a student in their old band's rehearsals. So each move = delete old ensemble-base enrollments + add the new ones (Admin SDK script, FB_* from `.env.local`; Firestore rules `read:if false` so firebase MCP reads 403). Pattern: dry-run → batch apply → read-back verify.
+- **Angel Whealy (`605`, Euph): Band 6 MS → Band 5 HS/MS.** New electives per David: Music in Technology (sess 213, P1) + Tuba/Euph Ensemble B4/B5 (sess 237, P6); old electives dropped (collided with Band 5 P2 sectional / P7 rehearsal). Base 2,3,5,6,7,79,80.
+- **Nash Fowler (`178`, Bassoon): Band 7 MS → Band 6 MS.** Electives Music in Film (P2) + Double Reed Ensemble B6/B7 (P7) carried over (fit Band 6's free slots). Base 8,9,10,11,13,14,163.
+- **Audrey Schoonover — CREATED (`WXcuXCZjJZwR8jEDxduJ`), Flute, Band 6 MS.** Wasn't in roster; David said add new. Base only (8,9,10,11,13,14,54); **no electives** (P2/P7 open); division/dorm/grade/contacts blank.
+- **Elida Ponce — CREATED (`bsAxw0SF66UvedGW4NL7`), Flute, Band 4.** Electives Music History (sess 211, P1) + Flute Choir B4/B5 (sess 230, P6). Base 22,24,26,27,28,129,130; division/dorm/grade/contacts blank.
+- New students use Firestore **auto-ids** (`.add()`) to avoid colliding with numeric seed ids (1–632).
+- **Deploy pipeline VALIDATED (no change needed):** the failed CI run David flagged was the Session-2 deploy-hardening commit itself working as designed — 3 retries all hit the transient `409` on `ssrttubocattendance`, so the job correctly went **RED** instead of fake-green. Cleared with the standing remedy: local owner `firebase deploy --only hosting` (Node 24, webframeworks, `FUNCTIONS_DISCOVERY_TIMEOUT=60`) → `release complete`. Smoke green.
+- **For David / next session:** Audrey has no electives (P2/P7 open) and both new students have blank division/dorm/grade/contacts — fill in-app or hand over; do NOT fabricate (per the new rule).
 
 ---
 
