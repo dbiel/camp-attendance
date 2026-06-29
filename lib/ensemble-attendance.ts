@@ -46,8 +46,12 @@ export type SubmitResult =
   | { ok: false; reason: 'not_found' | 'roster_changed' | 'no_rehearsal' }
   | { ok: true; absent_count: number; arrived_count: number; newly_absent: number };
 
-function docId(token: string, day: string, period: number): string {
-  return `${token}__${day}__P${period}`;
+// Submission doc id keyed by a SLOT: `P<n>` for a scheduled period, `H<hour>`
+// for a force-opened clock hour. Clock hours (8–17) overlap real period numbers
+// (1–10), so the P/H prefix is load-bearing — never key forced + scheduled to
+// the same doc.
+function docId(token: string, day: string, slotKey: string): string {
+  return `${token}__${day}__${slotKey}`;
 }
 
 export interface CurrentPeriod {
@@ -58,13 +62,35 @@ export interface CurrentPeriod {
   start_time: string;
   end_time: string;
   location: string | null;
+  forced: boolean;
+  slot_key: string; // `P<n>` (scheduled) or `H<hour>` (forced)
+}
+
+/** A force-opened attendance window: the current clock hour [HH:00, HH+1:00). */
+export function forcedPeriodFor(nowHHMM: string): CurrentPeriod {
+  const hour = Number((nowHHMM.split(':')[0] ?? '0'));
+  const start = `${String(hour).padStart(2, '0')}:00`;
+  const end = `${String(hour + 1).padStart(2, '0')}:00`;
+  return {
+    period_number: hour,
+    period_name: 'Forced attendance',
+    period_id: `H${hour}`,
+    session_id: '',
+    start_time: start,
+    end_time: end,
+    location: null,
+    forced: true,
+    slot_key: `H${hour}`,
+  };
 }
 
 export interface EnsembleSessionContext {
   ensemble: string;
   label: string | null;
   now: string; // HH:MM used
-  status: 'rehearsal' | 'no_rehearsal';
+  status: 'rehearsal' | 'no_rehearsal' | 'forced';
+  forced: boolean;
+  slot_key: string | null;
   period_number: number | null;
   period_name: string | null;
   start_time: string | null;
@@ -116,6 +142,8 @@ export async function resolveCurrentPeriod(
     start_time: c.start_time,
     end_time: c.end_time,
     location: c.location,
+    forced: false,
+    slot_key: `P${c.period_number}`,
   };
 }
 
@@ -135,6 +163,8 @@ export async function getCurrentEnsembleSession(
     return {
       ...base,
       status: 'rehearsal',
+      forced: false,
+      slot_key: `P${c.period_number}`,
       period_number: c.period_number,
       period_name: periodName.get(c.period_number) ?? `Period ${c.period_number}`,
       start_time: c.start_time,
@@ -143,9 +173,30 @@ export async function getCurrentEnsembleSession(
       next: null,
     };
   }
+  // No scheduled rehearsal — but if attendance was force-opened this clock hour
+  // (a submission already exists for the H<hour> slot), resume it so a browser
+  // refresh mid-hour stays live until the hour ends.
+  const fp = forcedPeriodFor(now);
+  const forcedSub = await getEnsembleSubmission(token, getTodayDate(), fp.slot_key);
+  if (forcedSub) {
+    return {
+      ...base,
+      status: 'forced',
+      forced: true,
+      slot_key: fp.slot_key,
+      period_number: fp.period_number,
+      period_name: fp.period_name,
+      start_time: fp.start_time,
+      end_time: fp.end_time,
+      location: null,
+      next: null,
+    };
+  }
   return {
     ...base,
     status: 'no_rehearsal',
+    forced: false,
+    slot_key: null,
     period_number: null,
     period_name: null,
     start_time: null,
@@ -166,13 +217,13 @@ function idSorted(roster: Student[]): Student[] {
   return [...roster].sort((a, b) => a.id.localeCompare(b.id));
 }
 
-/** Read the current (locked) submission for a link+day+period, if any. */
+/** Read the current (locked) submission for a link+day+slot, if any. */
 export async function getEnsembleSubmission(
   token: string,
   day: string,
-  period: number
+  slotKey: string
 ): Promise<SubmissionDoc | null> {
-  const doc = await adminDb.collection(SUBMISSIONS).doc(docId(token, day, period)).get();
+  const doc = await adminDb.collection(SUBMISSIONS).doc(docId(token, day, slotKey)).get();
   return doc.exists ? (doc.data() as SubmissionDoc) : null;
 }
 
@@ -196,6 +247,7 @@ export async function submitEnsembleAttendance(args: {
   day?: string;
   now?: Date;
   nowHHMM?: string;
+  force?: boolean;
 }): Promise<SubmitResult> {
   const now = args.now ?? new Date();
   const day = args.day ?? getTodayDate();
@@ -203,9 +255,11 @@ export async function submitEnsembleAttendance(args: {
   if (!v) return { ok: false, reason: 'not_found' };
 
   // Server is the source of truth for which period this is — the client never
-  // picks it. No live rehearsal → reject so a stale tab can't file into a
-  // non-rehearsal hour (or the wrong period).
-  const cur = await resolveCurrentPeriod(v.ensemble, args.nowHHMM ?? getCurrentTimeHHMM(now));
+  // picks it. A scheduled rehearsal wins; otherwise the taker can `force` open
+  // the current clock hour. No rehearsal and no force → reject so a stale tab
+  // can't file into the wrong slot.
+  const nowHHMM = args.nowHHMM ?? getCurrentTimeHHMM(now);
+  const cur = (await resolveCurrentPeriod(v.ensemble, nowHHMM)) ?? (args.force ? forcedPeriodFor(nowHHMM) : null);
   if (!cur) return { ok: false, reason: 'no_rehearsal' };
 
   const roster = idSorted(await getEnsembleRoster(v.ensemble));
@@ -225,7 +279,7 @@ export async function submitEnsembleAttendance(args: {
     studentById.set(s.id, s);
   }
 
-  const subRef = adminDb.collection(SUBMISSIONS).doc(docId(args.token, day, cur.period_number));
+  const subRef = adminDb.collection(SUBMISSIONS).doc(docId(args.token, day, cur.slot_key));
   const casesCol = adminDb.collection(CASES_COLLECTION);
   const eventsCol = adminDb.collection(EVENTS_COLLECTION);
   const nowIso = now.toISOString();

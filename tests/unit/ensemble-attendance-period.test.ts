@@ -1,4 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Controls whether the forced-slot submission "exists" (for force-resume tests).
+const fa = vi.hoisted(() => ({ forcedExists: false }));
+vi.mock('@/lib/firebase-admin', () => ({
+  adminDb: {
+    collection: () => ({ doc: () => ({ get: async () => ({ exists: fa.forcedExists, data: () => ({}) }) }) }),
+  },
+}));
 
 // Mock the I/O collaborators so we test the period/keying logic only.
 const sessions = [
@@ -18,7 +26,11 @@ vi.mock('@/lib/ensemble-links', () => ({
   getEnsembleRoster: vi.fn(async () => [{ id: 'a', first_name: 'Al', last_name: 'X', instrument: 'Flute' }]),
 }));
 
-import { getCurrentEnsembleSession, resolveCurrentPeriod } from '@/lib/ensemble-attendance';
+import { getCurrentEnsembleSession, resolveCurrentPeriod, forcedPeriodFor } from '@/lib/ensemble-attendance';
+
+beforeEach(() => {
+  fa.forcedExists = false;
+});
 
 describe('period resolution', () => {
   it('resolveCurrentPeriod inside Period 3 → keys to period 3 + session r3', async () => {
@@ -47,5 +59,22 @@ describe('period resolution', () => {
 
   it('invalid token → null', async () => {
     expect(await getCurrentEnsembleSession('bad', '11:10')).toBeNull();
+  });
+
+  it('forced resume: idle but a forced submission exists this hour → status forced', async () => {
+    fa.forcedExists = true;
+    const ctx = await getCurrentEnsembleSession('good', '12:30');
+    expect(ctx?.status).toBe('forced');
+    expect(ctx?.forced).toBe(true);
+    expect(ctx?.slot_key).toBe('H12');
+    expect(ctx?.end_time).toBe('13:00');
+  });
+
+  it('forcedPeriodFor builds the current clock-hour window', async () => {
+    const fp = forcedPeriodFor('12:30');
+    expect(fp.slot_key).toBe('H12');
+    expect(fp.start_time).toBe('12:00');
+    expect(fp.end_time).toBe('13:00');
+    expect(fp.forced).toBe(true);
   });
 });

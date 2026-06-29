@@ -35,6 +35,7 @@ export const GET = async (
 
   const session = {
     status: ctx.status,
+    forced: ctx.forced,
     period_number: ctx.period_number,
     period_name: ctx.period_name,
     start_time: ctx.start_time,
@@ -43,24 +44,17 @@ export const GET = async (
     next: ctx.next,
   };
 
-  // Idle: no roster, no submission — the page shows the "no rehearsal" card.
-  if (ctx.status !== 'rehearsal' || ctx.period_number === null) {
-    return NextResponse.json({
-      ensemble: ctx.ensemble,
-      label: ctx.label,
-      session,
-      roster: [],
-      roster_size: 0,
-      submission: null,
-    });
-  }
-
+  // Always return the roster — when idle the page shows it greyed out (still
+  // browsable) with a "Force open attendance" action; when live it's active.
   const rosterData = await getRosterForToken(params.token);
   if (!rosterData) return NextResponse.json(UNIFORM_FAILURE, { status: 404 });
   const roster = toEnsembleRosterProjection(rosterData.roster);
 
-  // Re-express any existing submission's marks by the opaque ref (never student id).
-  const submission = await getEnsembleSubmission(params.token, getTodayDate(), ctx.period_number);
+  // Re-express the current slot's submitted marks by the opaque ref (never
+  // student id). Only meaningful when a slot is live (rehearsal or forced).
+  const submission = ctx.slot_key
+    ? await getEnsembleSubmission(params.token, getTodayDate(), ctx.slot_key)
+    : null;
   let marks_by_ref: Record<number, 'present' | 'absent'> | null = null;
   if (submission) {
     marks_by_ref = {};

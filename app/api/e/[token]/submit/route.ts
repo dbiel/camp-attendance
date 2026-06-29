@@ -31,6 +31,7 @@ export const POST = async (
   const body = (await request.json().catch(() => null)) as {
     marks?: unknown;
     roster_size?: unknown;
+    force?: unknown;
   } | null;
 
   const rawMarks = body?.marks;
@@ -58,6 +59,7 @@ export const POST = async (
     marksByRef,
     expectedRosterSize,
     nowHHMM,
+    force: body?.force === true,
   });
 
   if (!result.ok) {

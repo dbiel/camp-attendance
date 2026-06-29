@@ -15,7 +15,8 @@ interface RosterRow {
 type Mark = 'present' | 'absent';
 
 interface SessionInfo {
-  status: 'rehearsal' | 'no_rehearsal';
+  status: 'rehearsal' | 'no_rehearsal' | 'forced';
+  forced: boolean;
   period_number: number | null;
   period_name: string | null;
   start_time: string | null;
@@ -59,6 +60,9 @@ export default function EnsembleAttendancePage() {
   const [submitting, setSubmitting] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Clock hour the taker force-opened attendance for (null = not forced). The
+  // forced window auto-expires when the wall clock ticks into the next hour.
+  const [forcedHour, setForcedHour] = useState<number | null>(null);
 
   // Forward a `?now=HH:MM` test override (if present in the page URL) to the API.
   const nowQuery =
@@ -115,7 +119,9 @@ export default function EnsembleAttendancePage() {
   const sessStatus = state.kind === 'ready' ? state.data.session.status : null;
   useEffect(() => {
     if (!clock || nowQuery) return;
-    if (sessStatus === 'rehearsal' && sessEnd && clock >= sessEnd) load();
+    // A live slot (rehearsal or forced) ends at end_time → reload to roll over.
+    if ((sessStatus === 'rehearsal' || sessStatus === 'forced') && sessEnd && clock >= sessEnd) load();
+    // Idle: poll at the top of the hour to pick up the next rehearsal's start.
     if (sessStatus === 'no_rehearsal' && clock.endsWith(':00')) load();
   }, [clock, sessStatus, sessEnd, nowQuery, load]);
 
@@ -165,7 +171,13 @@ export default function EnsembleAttendancePage() {
       const res = await fetch(`/api/e/${token}/submit${nowQuery}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ marks, roster_size: state.data.roster_size }),
+        // force when this isn't a scheduled rehearsal (taker force-opened the
+        // hour); the server ignores it when a real rehearsal is in session.
+        body: JSON.stringify({
+          marks,
+          roster_size: state.data.roster_size,
+          force: state.data.session.status !== 'rehearsal',
+        }),
       });
       if (res.status === 409) {
         // Roster changed, or the period rolled over — reload to the live state.
@@ -231,36 +243,46 @@ export default function EnsembleAttendancePage() {
 
   const { data } = state;
 
-  // No live rehearsal for this ensemble right now — quiet card, no roster/submit.
-  if (data.session.status !== 'rehearsal') {
-    return (
-      <main className="mx-auto max-w-md p-6 text-center">
-        <h1 className="text-xl font-bold text-[var(--text)]">{data.ensemble}</h1>
-        <p className="mt-1 text-sm text-[var(--text-2)]">Attendance{data.label ? ` · ${data.label}` : ''}</p>
-        <div className="mt-6 rounded-[var(--radius-sm)] border border-[var(--glass-border)] bg-[var(--surface)] p-6">
-          <p className="text-base font-semibold text-[var(--text)]">No rehearsal right now</p>
-          <p className="mt-2 text-sm text-[var(--text-2)]">
-            {data.session.next
-              ? `Next: ${data.session.next.period_name} · ${data.session.next.start_time}`
-              : 'Done for the day.'}
-          </p>
-          <p className="mt-4 text-xs text-[var(--text-3)]">
-            This page updates automatically when your next rehearsal starts.
-          </p>
-        </div>
-      </main>
-    );
-  }
+  // Active = a slot is live and the taker can mark/submit: a scheduled rehearsal,
+  // a server-resumed forced hour, or a locally force-opened hour (this clock hour
+  // only — it auto-expires when the wall clock rolls into the next hour).
+  const clockHour = clock ? Number(clock.slice(0, 2)) : null;
+  const localForced = forcedHour !== null && clockHour === forcedHour;
+  const active = data.session.status === 'rehearsal' || data.session.status === 'forced' || localForced;
+
+  // The live-window label: server rehearsal/forced if present, else the locally
+  // forced clock hour.
+  const fh = forcedHour ?? 0;
+  const live =
+    data.session.status !== 'no_rehearsal' && data.session.period_name
+      ? {
+          title: data.session.forced ? 'Forced attendance' : data.session.period_name,
+          range: `${data.session.start_time}–${data.session.end_time}`,
+          location: data.session.location,
+          end: data.session.end_time,
+        }
+      : localForced
+        ? {
+            title: 'Forced attendance',
+            range: `${String(fh).padStart(2, '0')}:00–${String(fh + 1).padStart(2, '0')}:00`,
+            location: null as string | null,
+            end: `${String(fh + 1).padStart(2, '0')}:00`,
+          }
+        : null;
 
   const absentCount = Object.values(marks).filter((m) => m === 'absent').length;
   const dirty = JSON.stringify(marks) !== baseline;
 
   const renderRow = (r: RosterRow) => {
     const mark = marks[r.ref] ?? 'present';
+    const idle = mark === 'present' ? 'btn-present text-sm' : 'rounded-lg bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--text-2)]';
+    const idleAbsent = mark === 'absent' ? 'btn-absent text-sm' : 'rounded-lg bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--text-2)]';
     return (
       <li
         key={r.ref}
-        className="flex items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-[var(--glass-border)] bg-[var(--surface)] p-2"
+        className={`flex items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-[var(--glass-border)] bg-[var(--surface)] p-2 ${
+          active ? '' : 'opacity-50'
+        }`}
       >
         <div className="min-w-0">
           <p className="truncate font-medium text-[var(--text)]">
@@ -273,22 +295,16 @@ export default function EnsembleAttendancePage() {
         </div>
         <div className="flex shrink-0 gap-1">
           <button
+            disabled={!active}
             onClick={() => setMarks((p) => ({ ...p, [r.ref]: 'present' }))}
-            className={
-              mark === 'present'
-                ? 'btn-present text-sm'
-                : 'rounded-lg bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--text-2)]'
-            }
+            className={`${idle} ${active ? '' : 'cursor-not-allowed'}`}
           >
             Present
           </button>
           <button
+            disabled={!active}
             onClick={() => setMarks((p) => ({ ...p, [r.ref]: 'absent' }))}
-            className={
-              mark === 'absent'
-                ? 'btn-absent text-sm'
-                : 'rounded-lg bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--text-2)]'
-            }
+            className={`${idleAbsent} ${active ? '' : 'cursor-not-allowed'}`}
           >
             Absent
           </button>
@@ -301,13 +317,23 @@ export default function EnsembleAttendancePage() {
     <main className="mx-auto max-w-md p-4">
       <h1 className="text-xl font-bold text-[var(--text)]">{data.ensemble}</h1>
       <p className="text-sm text-[var(--text-2)]">Attendance{data.label ? ` · ${data.label}` : ''}</p>
-      {data.session.period_name && (
+      {active && live && (
         <div className="mt-1 flex items-center justify-between rounded-[var(--radius-sm)] bg-[var(--accent-soft)] px-3 py-2">
           <span className="font-semibold text-[var(--text)]">
-            {data.session.period_name} · {data.session.start_time}–{data.session.end_time}
-            {data.session.location ? ` · ${data.session.location}` : ''}
+            {live.title} · {live.range}
+            {live.location ? ` · ${live.location}` : ''}
           </span>
-          <span className="shrink-0 text-xs text-[var(--text-3)]">resets at {data.session.end_time}</span>
+          <span className="shrink-0 text-xs text-[var(--text-3)]">until {live.end}</span>
+        </div>
+      )}
+      {!active && (
+        <div className="mt-1 rounded-[var(--radius-sm)] border border-[var(--glass-border)] bg-[var(--surface)] px-3 py-2">
+          <p className="text-sm font-semibold text-[var(--text)]">No rehearsal right now</p>
+          <p className="text-xs text-[var(--text-2)]">
+            {data.session.next
+              ? `Next: ${data.session.next.period_name} · ${data.session.next.start_time}`
+              : 'Done for the day.'}
+          </p>
         </div>
       )}
       {data.submission && (
@@ -369,21 +395,31 @@ export default function EnsembleAttendancePage() {
       {error && <p className="mt-3 text-center text-sm text-red-600">{error}</p>}
       {banner && <p className="mt-3 rounded bg-green-50 p-2 text-center text-sm text-green-800">{banner}</p>}
 
-      <button
-        onClick={submit}
-        disabled={submitting}
-        className={`camp-btn-primary sticky bottom-3 mt-4 w-full px-4 py-3 text-base shadow-lg disabled:opacity-50 ${
-          dirty && !submitting ? 'animate-pulse ring-4 ring-[var(--accent-glow)]' : ''
-        }`}
-      >
-        {submitting
-          ? 'Submitting…'
-          : data.submission
-            ? dirty
-              ? 'Update attendance — unsaved changes'
-              : 'Update attendance'
-            : 'Submit attendance'}
-      </button>
+      {active ? (
+        <button
+          onClick={submit}
+          disabled={submitting}
+          className={`camp-btn-primary sticky bottom-3 mt-4 w-full px-4 py-3 text-base shadow-lg disabled:opacity-50 ${
+            dirty && !submitting ? 'animate-pulse ring-4 ring-[var(--accent-glow)]' : ''
+          }`}
+        >
+          {submitting
+            ? 'Submitting…'
+            : data.submission
+              ? dirty
+                ? 'Update attendance — unsaved changes'
+                : 'Update attendance'
+              : 'Submit attendance'}
+        </button>
+      ) : (
+        <button
+          onClick={() => clockHour !== null && setForcedHour(clockHour)}
+          disabled={clockHour === null}
+          className="camp-btn-primary sticky bottom-3 mt-4 w-full px-4 py-3 text-base shadow-lg disabled:opacity-50"
+        >
+          Force open attendance
+        </button>
+      )}
     </main>
   );
 }

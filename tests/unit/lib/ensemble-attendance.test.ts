@@ -139,6 +139,24 @@ describe('submitEnsembleAttendance', () => {
     if (res.ok) expect(res.arrived_count).toBe(1);
   });
 
+  it('no scheduled rehearsal and not forced → no_rehearsal, files nothing', async () => {
+    const res = await submitEnsembleAttendance({ token: 't', marksByRef: { 0: 'absent' }, nowHHMM: '12:30' });
+    expect(res).toEqual({ ok: false, reason: 'no_rehearsal' });
+    expect(h.buildCaseDoc).not.toHaveBeenCalled();
+  });
+
+  it('force-open: no rehearsal but force:true files attendance for the clock hour', async () => {
+    const res = await submitEnsembleAttendance({
+      token: 't',
+      marksByRef: { 0: 'absent' },
+      force: true,
+      nowHHMM: '12:30',
+    });
+    expect(res.ok).toBe(true);
+    expect(h.buildCaseDoc).toHaveBeenCalledTimes(1);
+    expect(h.buildCaseDoc.mock.calls[0][0]).toMatchObject({ student_id: 'a', period_id: 'H12' });
+  });
+
   it('Present→Absent after submit files a report for the newly-absent kid', async () => {
     h.submissionSnap = {
       exists: true,

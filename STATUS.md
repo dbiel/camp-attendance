@@ -6,6 +6,19 @@
 
 ---
 
+## As of 2026-06-28 (Session 2) — Real 2026 roster + full schedule SEEDED to live Firestore
+
+**🟢 DATA LIVE on https://ttuboc-attendance.web.app.** Seeded from Google Drive (BOC26 folder, `1IVSgIsbJKzT_iCc-BTrfTIxGwV-uuhtS`) via a deterministic ETL: **632 students · 83 faculty · 10 periods · 264 sessions · 5,665 enrollments** (prod was empty → clean first seed). This satisfies the "David confirmed seeded" dependency the hourly-rolling attendance + now/next features needed. On `main`; **2 local commits not pushed** — `9d798a4` (seed: grade/school/electives passthrough) + `427ceab` (UI: room shown in student schedule detail, **deployed** via `firebase deploy --only hosting`). Push needs `gh auth switch --user dbiel`.
+
+- **Roster:** each student carries instrument/ensemble/chair, grade+school, division (Overnight/Commuter), dorm building/room, parent/emergency contact, electives. Joined across **6 Drive sheets** by normalized name with a guarded fuzzy fallback (Levenshtein ≤1 + shared exact token + "don't match another real camper" guard).
+- **Schedule:** full period grid parsed from the **10 Ensemble Master List `.docx`** — rehearsals/sectionals/masterclasses with **per-instrument rooms**, lunch, assembly, + each kid's 2 electives (room from the doc's options list). Jazz 1/2 = Period 8.
+- **Room cross-check vs the color-coded `Master Schedule.pdf`** (parsed by word bbox): 196 agree; **3 conflicts** (Band 1 Clarinet sectional 207↔SOM 202; Band 6 Oboe/Horn room swap) → David chose **master wins** → `ROOM_OVERRIDES` in `build-schedule.mjs`, re-seeded → 0 discrepancies.
+- **ETL lives in `source-data/2026/`** (gitignored — camper PII). Re-run after source edits: `node source-data/2026/build-seed.mjs && node source-data/2026/build-schedule.mjs` → clear `sessions`+`session_students` collections → `node scripts/seed-camp.mjs source-data/2026/build --yes`.
+- **NEVER fill blind data** (David's hard rule): unmatched rooms show `"NA"` (15 sessions); missing grades/contacts left blank.
+- **Known gaps — none blocking, all itemized in 3 `.txt` reports in the BOC26 Drive folder:** ~60 grade/contact nickname gaps (Abi/Abigail, Tony/Antonio), 42 elective `NA` rooms, 5 unlinked electives, commuter genders blank. Fillable in-app (Data ▸ Students).
+
+---
+
 ## As of 2026-06-28 (late) — Hourly-rolling ensemble attendance LIVE (`main`)
 
 **🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24; `main` @ `1623803`, pushed → CI also deploys). **518 unit tests** pass (+10). Smoke: `/api/e/<bad>` → uniform 404 (with/without `?now=`), `/e/<bad>` page → 200. Spec/plan in `docs/superpowers/{specs,plans}/2026-06-28-hourly-ensemble-attendance*`.
