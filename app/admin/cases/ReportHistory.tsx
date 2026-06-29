@@ -205,7 +205,13 @@ export function ReportHistory({ defaultStatus = 'all' }: { defaultStatus?: Statu
                         </button>
                         {hOpen && (
                           <ul className="flex flex-col gap-1 px-3 pb-2">
-                            {list.map((c) => (
+                            {[...list]
+                              .sort(
+                                (a, b) =>
+                                  new Date(b.occurred_at || b.created_at).getTime() -
+                                  new Date(a.occurred_at || a.created_at).getTime()
+                              )
+                              .map((c) => (
                               <li key={c.id}>
                                 <Link
                                   href={`/admin/cases/${c.id}`}
