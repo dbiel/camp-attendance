@@ -6,6 +6,17 @@
 
 ---
 
+## As of 2026-06-28 (Session 2, late) — `/e` force-open + always-export + greyed idle roster LIVE
+
+**🟢 DEPLOYED** (`main` @ `941847f`, pushed; local `firebase deploy --only hosting`, Node 24). **522 unit tests** (+4). Smoke green: bad-token GET → 404, bad-token **force** submit (`/submit`, `force:true`) → uniform 404 (not 500), `/e` page → 200.
+
+- **Idle `/e` no longer a dead-end.** When no rehearsal is scheduled, the page now shows the **full roster greyed out** (still browsable — instrument accordion expand/collapse works; Present/Absent disabled), **Export roster (.xlsx) always available**, and a **"Force open attendance"** button.
+- **Force open → live until the end of the actual clock hour.** Tapping it makes attendance live for the current clock hour `[HH:00, HH+1:00)`; submissions key to an **`H<hour>` slot** (distinct from scheduled `P<n>` slots — clock hours 8–17 overlap period numbers, so the P/H prefix is load-bearing). A **scheduled rehearsal always wins** over force. A submitted forced hour **resumes on browser refresh** (GET returns `status:'forced'`) until the wall clock rolls into the next hour, then it reverts to greyed/idle. Local force-state auto-expires at the hour boundary client-side too.
+- **Server trust unchanged:** `force` only bypasses the "is a rehearsal scheduled now" gate; roster is still re-derived server-side, refs validated, absences still file period/slot-stamped reports. New `forcedPeriodFor` + `force` arg in `submitEnsembleAttendance`; `docId`/`getEnsembleSubmission` now slot-keyed (`P<n>`/`H<hour>`); GET always returns the roster.
+- **Verify (`?now=`):** `…/e/<token>?now=12:30` → "No rehearsal right now" + greyed roster + Export + **Force open**; tap Force → roster activates, "Forced attendance · 12:00–13:00"; mark + Submit → report on hub; reload → stays live (resumed) until 1:00.
+
+---
+
 ## As of 2026-06-28 (Session 2) — Real 2026 roster + full schedule SEEDED to live Firestore
 
 **🟢 DATA LIVE on https://ttuboc-attendance.web.app.** Seeded from Google Drive (BOC26 folder, `1IVSgIsbJKzT_iCc-BTrfTIxGwV-uuhtS`) via a deterministic ETL: **632 students · 83 faculty · 10 periods · 264 sessions · 5,665 enrollments** (prod was empty → clean first seed). This satisfies the "David confirmed seeded" dependency the hourly-rolling attendance + now/next features needed. On `main`; **2 local commits not pushed** — `9d798a4` (seed: grade/school/electives passthrough) + `427ceab` (UI: room shown in student schedule detail, **deployed** via `firebase deploy --only hosting`). Push needs `gh auth switch --user dbiel`.
