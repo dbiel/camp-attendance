@@ -140,13 +140,13 @@ function ActiveCases() {
 
   if (authLoading || !user) return null;
 
-  // Newest-first, split into the current clock hour vs older still-active
-  // ("carried over") incidents. Carried-over kids stay visible (never hidden);
-  // CaseCard's elapsed badge keeps urgency legible. ?now=HH:MM overrides the hour.
+  // Newest-first. The TOP board shows ONLY the current clock hour. Once an
+  // incident's hour passes it drops off the top and lives in the history section
+  // below (still active, flagged red there — never hidden, just out of the live
+  // board). ?now=HH:MM overrides the hour for testing.
   const nowHourKey = currentHourKey(nowOverride ?? null, new Date().toISOString());
   const { thisHour, carriedOver } = partitionActiveByHour(cases, nowHourKey);
-  const sorted = [...thisHour, ...carriedOver];
-  const selectedCaseIds = sorted.filter((c) => selected.has(c.id)).map((c) => c.id);
+  const selectedCaseIds = thisHour.filter((c) => selected.has(c.id)).map((c) => c.id);
   const newOpen = showNew || Boolean(fromText);
 
   function toggleSelect(id: string) {
@@ -209,9 +209,14 @@ function ActiveCases() {
 
       <section className="mt-4 flex flex-col gap-2">
         {loading && <p className="text-sm text-[var(--text-3)]">Loading…</p>}
-        {!loading && sorted.length === 0 && (
+        {!loading && thisHour.length === 0 && carriedOver.length === 0 && (
           <p className="rounded border border-green-300 bg-green-50 p-4 text-sm text-green-800">
             No active reports. 🎺
+          </p>
+        )}
+        {!loading && thisHour.length === 0 && carriedOver.length > 0 && (
+          <p className="rounded border border-[var(--glass-border)] bg-[var(--surface)] p-3 text-sm text-[var(--text-2)]">
+            No active reports this hour.
           </p>
         )}
 
@@ -230,26 +235,16 @@ function ActiveCases() {
           />
         ))}
 
+        {/* Hour-passed incidents leave the live board — a single pointer to the
+            history section below keeps a still-missing kid one tap away. */}
         {carriedOver.length > 0 && (
-          <>
-            <h2 className="mt-4 text-sm font-semibold text-amber-700">
-              ⏱ Carried over from earlier — {carriedOver.length}
-            </h2>
-            {carriedOver.map((c) => (
-              <CaseCard
-                key={c.id}
-                c={c}
-                selected={selected.has(c.id)}
-                onToggleSelect={toggleSelect}
-                nowOverride={nowOverride}
-                updateFlag={
-                  isUnseen(c, seen, { treatUnknownAsNew: true })
-                    ? seen[c.id] !== undefined ? 'updated' : 'new'
-                    : null
-                }
-              />
-            ))}
-          </>
+          <a
+            href="#report-history"
+            className="mt-1 flex items-center justify-between rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+          >
+            <span>⏱ {carriedOver.length} still active from an earlier hour</span>
+            <span className="font-semibold">in history below ↓</span>
+          </a>
         )}
       </section>
 
@@ -263,8 +258,9 @@ function ActiveCases() {
         }}
       />
 
-      {/* Report history (day → hour) lives at the bottom of the Incident page. */}
-      <div className="mt-8 border-t pt-4">
+      {/* Report history (day → hour) lives at the bottom of the Incident page.
+          Hour-passed still-active incidents land here (flagged red, "N active"). */}
+      <div id="report-history" className="mt-8 border-t pt-4">
         <ReportHistory defaultStatus="active" />
       </div>
     </main>
