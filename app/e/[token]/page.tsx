@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { StudentIncidentLayer } from './StudentIncidentLayer';
 
 interface RosterRow {
   ref: number;
@@ -31,6 +32,7 @@ interface LoadData {
   session: SessionInfo;
   roster: RosterRow[];
   roster_size: number;
+  incident_refs: number[];
   submission: {
     marks_by_ref: Record<number, Mark> | null;
     locked: boolean;
@@ -63,6 +65,7 @@ export default function EnsembleAttendancePage() {
   // Clock hour the taker force-opened attendance for (null = not forced). The
   // forced window auto-expires when the wall clock ticks into the next hour.
   const [forcedHour, setForcedHour] = useState<number | null>(null);
+  const [openIncidentRef, setOpenIncidentRef] = useState<number | null>(null);
 
   // Forward a `?now=HH:MM` test override (if present in the page URL) to the API.
   const nowQuery =
@@ -243,6 +246,9 @@ export default function EnsembleAttendancePage() {
 
   const { data } = state;
 
+  const flaggedRefs = new Set(data.incident_refs ?? []);
+  const flaggedRows = data.roster.filter((r) => flaggedRefs.has(r.ref));
+
   // Active = a slot is live and the taker can mark/submit: a scheduled rehearsal,
   // a server-resumed forced hour, or a locally force-opened hour (this clock hour
   // only — it auto-expires when the wall clock rolls into the next hour).
@@ -292,6 +298,14 @@ export default function EnsembleAttendancePage() {
             {r.instrument || '—'}
             {r.grade ? ` · Grade ${r.grade}` : ''}
           </p>
+          {flaggedRefs.has(r.ref) && (
+            <button
+              onClick={() => setOpenIncidentRef(r.ref)}
+              className="mt-0.5 text-xs font-semibold text-red-700 underline"
+            >
+              🔴 incident — view
+            </button>
+          )}
         </div>
         <div className="flex shrink-0 gap-1">
           <button
@@ -345,6 +359,25 @@ export default function EnsembleAttendancePage() {
       <button onClick={exportXlsx} className="camp-btn-outline mt-2 px-3 py-1 text-xs">
         ⬇ Export roster (.xlsx)
       </button>
+
+      {flaggedRows.length > 0 && (
+        <section className="mt-3 rounded-[var(--radius-sm)] border border-red-300 bg-red-50 p-2">
+          <h2 className="text-sm font-bold text-red-800">Needs attention — {flaggedRows.length}</h2>
+          <ul className="mt-1 flex flex-col gap-1">
+            {flaggedRows.map((r) => (
+              <li key={r.ref}>
+                <button
+                  onClick={() => setOpenIncidentRef(r.ref)}
+                  className="flex w-full items-center justify-between rounded border border-red-200 bg-white px-3 py-2 text-left text-sm"
+                >
+                  <span className="font-medium text-[var(--text)]">🔴 {r.first_name} {r.last_name}</span>
+                  <span className="text-xs text-red-700">View incident →</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="mt-3 flex items-center justify-between">
         <div className="flex overflow-hidden rounded-[var(--radius-pill)] border border-[var(--glass-border)] text-sm">
@@ -419,6 +452,19 @@ export default function EnsembleAttendancePage() {
         >
           Force open attendance
         </button>
+      )}
+
+      {openIncidentRef !== null && (
+        <StudentIncidentLayer
+          token={token}
+          refIndex={openIncidentRef}
+          name={(() => {
+            const r = data.roster.find((x) => x.ref === openIncidentRef);
+            return r ? `${r.first_name} ${r.last_name}` : 'Student';
+          })()}
+          nowQuery={nowQuery}
+          onClose={() => { setOpenIncidentRef(null); load(); }}
+        />
       )}
     </main>
   );
