@@ -127,6 +127,7 @@ export interface EnsembleIncidentProjection {
   instrument: string;
   report_summary: string;
   status: CaseStatus;
+  resolution_note: string | null;
   updates: StaffLinkUpdate[];
 }
 
@@ -142,6 +143,7 @@ export function toEnsembleIncidentProjection(
     instrument: student?.instrument ?? '',
     report_summary: c.summary,
     status: c.status,
+    resolution_note: c.resolution_note ?? null,
     updates: events
       .filter((e) => e.type === 'staff_update')
       .map((e) => ({ body: e.body, actor: 'Camp staff', created_at: e.created_at })),

@@ -293,6 +293,7 @@ describe('toEnsembleIncidentProjection', () => {
       instrument: 'Flute',
       report_summary: 'Absent from Band 5',
       status: 'active',
+      resolution_note: null,
       updates: [{ body: 'checking dorm', actor: 'Camp staff', created_at: '2026-06-29T18:05:00Z' }],
     });
     expect(JSON.stringify(p)).not.toMatch(/Wall|214|asthma|555|556/);
@@ -302,5 +303,18 @@ describe('toEnsembleIncidentProjection', () => {
     const p = toEnsembleIncidentProjection(c, student, events);
     expect(p.updates).toHaveLength(1);
     expect(p.updates[0].actor).toBe('Camp staff');
+  });
+
+  it('carries resolution_note for a resolved report and stays PII-free', () => {
+    const resolved = { summary: 'Absent from Band 5', status: 'resolved', resolution_note: 'found in dorm' } as any;
+    const p = toEnsembleIncidentProjection(resolved, student, events);
+    expect(p.status).toBe('resolved');
+    expect(p.resolution_note).toBe('found in dorm');
+    expect(JSON.stringify(p)).not.toMatch(/Wall|214|asthma|555|556/);
+  });
+
+  it('resolution_note is null when absent on the case', () => {
+    const p = toEnsembleIncidentProjection(c, student, events);
+    expect(p.resolution_note).toBeNull();
   });
 });
