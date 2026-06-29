@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Session, Period } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { MasterSchedule } from './MasterSchedule';
+import { EnsembleAttendanceGrid } from './EnsembleAttendanceGrid';
 import { Modal } from '@/components/Modal';
 
 export default function SessionsDataPage() {
@@ -16,7 +17,7 @@ export default function SessionsDataPage() {
   const [editData, setEditData] = useState<Partial<Session>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [view, setView] = useState<'master' | 'records'>('master');
+  const [view, setView] = useState<'master' | 'records' | 'attendance'>('master');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -137,8 +138,20 @@ export default function SessionsDataPage() {
           >
             Class records
           </button>
+          <button
+            onClick={() => setView('attendance')}
+            className={`px-3 py-1 ${view === 'attendance' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-2)]'}`}
+          >
+            Ensemble attendance
+          </button>
         </div>
       </div>
+
+      {view === 'attendance' && (
+        <div className="max-w-6xl mx-auto p-4">
+          <EnsembleAttendanceGrid />
+        </div>
+      )}
 
       {view === 'master' && (
         <div className="max-w-6xl mx-auto p-4">
