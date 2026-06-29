@@ -47,6 +47,16 @@
 
 ---
 
+## As of 2026-06-29 — Shared ensemble PICKER LINK live + Google sign-in fixed
+
+**🟢 LIVE & confirmed by David on https://ttuboc-attendance.web.app.** On `main` (clean, pushed). **537 unit tests** (+13), build green. Two things shipped/fixed this session.
+
+- **Shared picker link.** ONE link → pick your ensemble (Bands 1–7, Orchestra 1–3; Jazz excluded) → that ensemble's existing `/e/<token>` page. Replaces handing out 10 separate links. New `kind:'selector'` doc in `ensemble_links`; public `/e/pick/<token>` page + `GET /api/e/pick/[token]` (rate-limited, uniform 404); admin "Shared picker link" box in **Settings ▸ Ensemble Attendance Links** (create/copy/revoke). **Purely additive — attendance/submit/export/period-rollover untouched.** Code: `lib/ensemble-links.ts` (`PICKER_ENSEMBLES`, `issueSelectorLink`, `resolvePickerTargets`, `buildPickerItems`), `app/e/pick/[token]/page.tsx`, `app/api/e/pick/[token]/route.ts`, `app/admin/settings/EnsembleLinksSection.tsx`. Spec/plan in `docs/superpowers/{specs,plans}/2026-06-28-shared-ensemble-picker-link*`.
+- **Google sign-in fixed (was broken on iPhone + desktop).** Deployed app's Firebase `authDomain` is `ttuboc-attendance.web.app`, but the OAuth client only had the `…firebaseapp.com` handler registered → Safari "missing initial state" + desktop `redirect_uri_mismatch`. **Fix (David did it in console — needs owner `davidbiel1919@gmail.com`):** added `https://ttuboc-attendance.web.app` (JS origin) + `https://ttuboc-attendance.web.app/__/auth/handler` (redirect URI) to the "Web client (auto created by Google Service)". Both desktop + phone sign-in now work.
+- **⚠️ Deploy gotcha hit hard this session:** 5 rapid pushes to `main` wedged the SSR Cloud Run function (`ssrttubocattendance`) with `409 "unable to queue the operation"`; CI reported deploy "success" while the function update silently failed, so `web.app` served old code (route 404'd) for ~7 hrs even though the new code was live on Cloud Run directly. **Cleared by a LOCAL owner `firebase deploy --only hosting` (Node 24, webframeworks) — not CI reruns.** Don't push many commits to main in quick succession. Full details in the `feedback-camp-app-deploy` memory.
+
+---
+
 ## As of 2026-06-28 (Session 2, late) — `/e` force-open + always-export + greyed idle roster LIVE
 
 **🟢 DEPLOYED** (`main` @ `941847f`, pushed; local `firebase deploy --only hosting`, Node 24). **522 unit tests** (+4). Smoke green: bad-token GET → 404, bad-token **force** submit (`/submit`, `force:true`) → uniform 404 (not 500), `/e` page → 200.
