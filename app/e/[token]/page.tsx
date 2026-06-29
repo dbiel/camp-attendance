@@ -33,7 +33,7 @@ interface LoadData {
   roster: RosterRow[];
   roster_size: number;
   report_refs: number[];
-  marked_absent: Record<number, { note: string; until: string }>;
+  marked_absent: Record<number, { note: string; until: string; all_day: boolean }>;
   submission: {
     marks_by_ref: Record<number, Mark> | null;
     locked: boolean;
@@ -313,7 +313,9 @@ export default function EnsembleAttendancePage() {
           )}
           {data.marked_absent?.[r.ref] && (
             <p className="mt-0.5 text-xs font-medium text-amber-700">
-              Office: out until {data.marked_absent[r.ref].until}
+              {data.marked_absent[r.ref].all_day
+                ? 'Office: out all day'
+                : `Office: out until ${data.marked_absent[r.ref].until}`}
               {data.marked_absent[r.ref].note ? ` — ${data.marked_absent[r.ref].note}` : ''}
             </p>
           )}
@@ -381,7 +383,7 @@ export default function EnsembleAttendancePage() {
                 <li key={r.ref} className="rounded border border-amber-200 bg-white px-3 py-2 text-sm">
                   <span className="font-medium text-[var(--text)]">🟡 {r.first_name} {r.last_name}</span>
                   <span className="ml-2 text-xs text-amber-700">
-                    out until {a.until}{a.note ? ` · ${a.note}` : ''}
+                    {a.all_day ? 'out all day' : `out until ${a.until}`}{a.note ? ` · ${a.note}` : ''}
                   </span>
                 </li>
               );

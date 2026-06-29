@@ -60,10 +60,10 @@ export const GET = async (
     nowForAbsence,
     getTodayDate()
   );
-  const marked_absent: Record<number, { note: string; until: string }> = {};
+  const marked_absent: Record<number, { note: string; until: string; all_day: boolean }> = {};
   rosterData.roster.forEach((s, i) => {
     const a = markedMap.get(s.id);
-    if (a) marked_absent[i] = { note: a.note || 'Marked absent by office', until: a.until };
+    if (a) marked_absent[i] = { note: a.note || 'Marked absent by office', until: a.until, all_day: a.all_day };
   });
 
   // Re-express the current slot's submitted marks by the opaque ref (never

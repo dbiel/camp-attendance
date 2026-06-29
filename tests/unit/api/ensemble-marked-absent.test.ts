@@ -25,10 +25,10 @@ beforeEach(() => { h.marked = new Map(); h.rl = true; });
 
 describe('GET /api/e/[token] marked_absent', () => {
   it('returns a ref-keyed marked_absent map (no student_id)', async () => {
-    h.marked = new Map([['s1', { id: 'm1', note: 'doctor appt', until: '14:30', from: '13:00', status: 'active', date: '2026-06-29', student_id: 's1', student_name: 'Jane Doe' }]]);
+    h.marked = new Map([['s1', { id: 'm1', note: 'doctor appt', until: '14:30', from: '13:00', status: 'active', date: '2026-06-29', student_id: 's1', student_name: 'Jane Doe', all_day: true }]]);
     const res = await GET(req(), { params: { token: 't' } });
     const body = await res.json();
-    expect(body.marked_absent).toEqual({ 0: { note: 'doctor appt', until: '14:30' } });
+    expect(body.marked_absent).toEqual({ 0: { note: 'doctor appt', until: '14:30', all_day: true } });
     expect(JSON.stringify(body.marked_absent)).not.toContain('s1');
   });
   it('omits students with no covering absence', async () => {
