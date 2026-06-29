@@ -11,6 +11,7 @@ import { SelectionBar } from './SelectionBar';
 import { ReportHistory } from './ReportHistory';
 import { initSeenIfEmpty, isUnseen, readSeen, type SeenMap } from '@/lib/seen';
 import { partitionActiveByHour, currentHourKey } from '@/lib/active-board';
+import { MarkAbsent } from './MarkAbsent';
 
 // useSearchParams() requires a Suspense boundary in Next 14 App Router so the
 // page can statically render its shell; the inner component reads ?from_text.
@@ -181,11 +182,14 @@ function ActiveCases() {
       )}
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-bold">Active Reports</h1>
-        {!newOpen && (
-          <button type="button" onClick={() => setShowNew(true)} className="camp-btn-primary px-3 py-1.5 text-sm">
-            + New report
-          </button>
-        )}
+        <div className="flex gap-2">
+          {!newOpen && (
+            <button type="button" onClick={() => setShowNew(true)} className="camp-btn-primary px-3 py-1.5 text-sm">
+              + New report
+            </button>
+          )}
+          <MarkAbsent getAuthHeaders={getAuthHeaders} />
+        </div>
       </header>
 
       {seedReady && newOpen && (
