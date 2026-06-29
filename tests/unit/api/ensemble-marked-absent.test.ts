@@ -12,7 +12,7 @@ vi.mock('@/lib/ensemble-attendance', () => ({
   getRosterForToken: async () => ({ ensemble: 'Band 5', label: null, roster: h.roster }),
   getEnsembleSubmission: async () => null,
 }));
-vi.mock('@/lib/ensemble-incidents', () => ({ listActiveIncidentRefs: async () => [] }));
+vi.mock('@/lib/ensemble-incidents', () => ({ listTodayReportRefs: async () => [] }));
 vi.mock('@/lib/marked-absences', () => ({ activeMarkedAbsencesForStudents: async () => h.marked }));
 vi.mock('@/lib/date', () => ({ getTodayDate: () => '2026-06-29', getCurrentTimeHHMM: () => '13:30' }));
 vi.mock('@/lib/rate-limit', () => ({ checkRateLimit: () => h.rl, getClientIp: () => '1.2.3.4' }));

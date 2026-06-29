@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEnsembleIncidentByRef } from '@/lib/ensemble-incidents';
+import { getEnsembleReportByRef } from '@/lib/ensemble-incidents';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +18,7 @@ export const GET = async (
   if (!Number.isInteger(ref) || ref < 0) {
     return NextResponse.json({ error: 'Bad request' }, { status: 400 });
   }
-  const incident = await getEnsembleIncidentByRef(params.token, ref);
+  const incident = await getEnsembleReportByRef(params.token, ref);
   if (!incident) return NextResponse.json(UNIFORM_FAILURE, { status: 404 });
   return NextResponse.json({ incident });
 };

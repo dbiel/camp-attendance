@@ -11,7 +11,7 @@ const h = vi.hoisted(() => ({
 
 vi.mock('@/lib/ensemble-incidents', () => ({
   listActiveIncidentRefs: async () => h.refs,
-  getEnsembleIncidentByRef: async () => h.detail,
+  getEnsembleReportByRef: async () => h.detail,
   postEnsembleIncidentUpdate: async () => h.update,
 }));
 vi.mock('@/lib/rate-limit', () => ({

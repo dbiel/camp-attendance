@@ -4,7 +4,7 @@ import { toEnsembleRosterProjection } from '@/lib/projections';
 import { getTodayDate, getCurrentTimeHHMM } from '@/lib/date';
 import { activeMarkedAbsencesForStudents } from '@/lib/marked-absences';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
-import { listActiveIncidentRefs } from '@/lib/ensemble-incidents';
+import { listTodayReportRefs } from '@/lib/ensemble-incidents';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,7 +52,7 @@ export const GET = async (
   if (!rosterData) return NextResponse.json(UNIFORM_FAILURE, { status: 404 });
   const roster = toEnsembleRosterProjection(rosterData.roster);
 
-  const incident_refs = (await listActiveIncidentRefs(params.token)) ?? [];
+  const report_refs = (await listTodayReportRefs(params.token)) ?? [];
 
   const nowForAbsence = nowHHMM ?? getCurrentTimeHHMM();
   const markedMap = await activeMarkedAbsencesForStudents(
@@ -86,7 +86,7 @@ export const GET = async (
     session,
     roster,
     roster_size: rosterData.roster.length,
-    incident_refs,
+    report_refs,
     marked_absent,
     submission: submission
       ? { marks_by_ref, locked: true, submitted_at: submission.submitted_at, updated_at: submission.updated_at }
