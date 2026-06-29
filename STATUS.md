@@ -6,6 +6,32 @@
 
 ---
 
+## As of 2026-06-29 (Session 5) — Timeline notes + ensemble incident awareness + hourly carry-over + newest-first SHIPPED
+
+**🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24; branch `feat/timeline-ensemble-awareness`). **566 unit tests** (+43). Built subagent-driven (8 tasks, per-task spec+quality review, opus whole-branch review → READY TO MERGE, no Critical/Important). Spec+plan in `docs/superpowers/{specs,plans}/2026-06-29-timeline-ensemble-awareness*`. Prod smoke green (see below). **No schema/index change, no cron.**
+
+- **Add to the timeline (admin).** Case detail (`app/admin/cases/[id]/page.tsx`) now has an **"Add to timeline"** note box (`AddTimelineNote.tsx`) → posts a `note` event via the existing `/api/cases/[id]/events`; bumps `last_activity_at` so the hub badges "updated". Shows for active and resolved cases.
+- **Ensemble roster → student incident layer (the big one).** On the public `/e/<token>` roster, students with an active incident **badge 🔴 + pin to a "Needs attention" section above the instrument groups** (they also stay in their instrument group for marking). Tapping opens a Modal (`StudentIncidentLayer.tsx`) showing the scoped incident **timeline + status + a two-way "add update" box** that posts back to the office (appears as a blue `staff_update` in the admin timeline; office updates flash "↻ updated" on the layer, mirroring `/r`).
+  - New routes: `GET /api/e/[token]/incident/[ref]` + `POST …/update`; `GET /api/e/[token]` now also returns `incident_refs`. New lib `lib/ensemble-incidents.ts` (token+ref → incident, **scoped to the token's server-derived roster** — a leaked token reaches only its own ensemble's kids). New **no-dorm** projection `toEnsembleIncidentProjection` (allowlist: first name + last initial, instrument, summary, status, `staff_update` events only — **no dorm/medical/contact/raw text/student_id**). Uniform 404 (bad token/out-of-range ref), 400 (bad ref/empty/>2000 body), 410 (resolved/gone); per-IP rate limit + durable per-token cap on the write (mirrors `/r`).
+- **Hourly carry-over (display-only).** The admin active board splits still-active incidents into **"This hour"** vs **"⏱ Carried over from earlier — N"** by camp-tz clock hour (`lib/active-board.ts` `partitionActiveByHour`). **Never changes status / never hides a missing kid** — carried-over cards stay visible with the elapsed badge. No cron.
+- **Newest-first everywhere.** Active board flipped to newest-first (was oldest-first), within each group; `ReportHistory` within-hour order sorted newest-first (day/hour keys were already reverse-sorted); prior-cases already desc; ensemble grid is an ensemble×day matrix (no time order → unchanged).
+- **Post-review fix:** the `?now=HH:MM` active-board override built a tz-naive timestamp (would mis-bucket on the UTC prod server); now built directly in camp tz via `currentHourKey` (+3 tests). Live behavior was always correct; this fixes the QA affordance.
+- **Prod smoke (live):** `/api/e/<bad>/incident/0` → **404**, `…/incident/abc` → **400**, `…/incident/0/update` POST → **410**, empty body → **400**, `/e/<bad>` → **200**, `/admin/cases` → **200**.
+- **⚠️ For David to verify interactively** (needs login + a real ensemble token): the Add-to-timeline box; the "Needs attention" pin + incident layer + Send-update round-trip on a real `/e/<token>?now=<rehearsal>` with an absent kid; the "This hour"/"Carried over" split (force a prior hour with `?now=`).
+
+---
+
+## As of 2026-06-29 (Session 4) — New student Brailey McCormick (Alto Sax, Band 5); Band-7 bassoon already moved
+
+**🟢 LIVE in prod Firestore (`ttuboc-attendance`).** On `main` (clean). No code changes — one new student via Admin SDK (dry-run → apply → read-back). No deploy needed (app reads live Firestore).
+
+- **Brailey McCormick — CREATED (`egXDGRfYHNz4ss4Qf6yB`), Alto Saxophone, Band 5 HS/MS.** Full schedule (9 enrollments): base `2,3,5,6,7` (rehearsals/lunch/assembly) + `107,108` (sax sectional+masterclass — saxes share the "Tenor Saxophone" sectional/masterclass label) + electives `203` (P1 Music in Film) & `233` (P6 Sax Choir B4/B5) — David gave electives, mirrors Aceyn Coronado `120`. division/dorm/grade/contacts blank (per no-blind-data rule).
+- **⚠️ Base set ≠ "all sessions matching the ensemble."** The 25 sessions where `ensemble=='Band 5 HS/MS'` include per-instrument sectionals for every instrument; enrolling in all would wrongly add Bassoon/Trumpet/etc. sectionals. Correct base mirrors an existing same-instrument student (e.g. Dylan Coldiron `118`): commons + that instrument's sectional+masterclass.
+- **"Move the only Band-7 bassoon to Band 6" — already done in Session 3.** Nash Fowler (`178`) is in Band 6 MS (alongside Liam Cleavinger `115`). Band 7 MS now has **zero** bassoons. No action taken — flagged to David as already complete.
+- **For David / next session:** Brailey's division/dorm/grade/contacts are blank — fill in-app (Data ▸ Students) or hand over; do NOT fabricate.
+
+---
+
 ## As of 2026-06-29 (Session 3) — Roster data edits (2 moves + 2 new students) via Admin SDK; deploy pipeline validated
 
 **🟢 LIVE in prod Firestore (`ttuboc-attendance`).** On `main` (clean). No code changes this session — direct roster data writes + a deploy clear. **Standing rule added: never add camp data David didn't explicitly give** (`feedback-camp-no-blind-data` memory).
