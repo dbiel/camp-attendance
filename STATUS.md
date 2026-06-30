@@ -6,6 +6,17 @@
 
 ---
 
+## As of 2026-06-30 (Session 11) — BUGFIX: `/e` "Previous Report" modal invisible (Tailwind purge) — DEPLOYED
+
+**🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24, `FUNCTIONS_DISCOVERY_TIMEOUT=60`; branch `feat/incident-split-view` @ `cef824d`, **NOT merged to main** — prod still ahead of main). **616 unit tests** (unchanged — config-only fix), tsc clean. `origin/main` unchanged at `7efbd17` → clean additive deploy. **Verified live in-browser:** tapping "📄 Previous Report →" on the `/e` roster now opens the student incident modal (overlay at viewport 0,0 full-screen; title/status/timeline/update box all render).
+
+- **Symptom (David's report):** attendance-takers tap a kid's "📄 Previous Report →" link on `/e/<token>` and **nothing happens** — no popup, no dim.
+- **Root cause:** `tailwind.config.ts` `content` only globbed `./app/**`. The shared modal lives in **`components/Modal.tsx`** (outside that path), so Tailwind **purged every utility used only there** — `inset-0`, `z-50`, `bg-opacity-50`, `max-w-2xl`, etc. Classes that also appear under `app/` (`fixed`, `flex`) survived, so the overlay got `position:fixed` **without `inset-0`** → it fell to its in-flow static position **~6286px down the page**, invisible. (Confirmed: no `.inset-0` rule in the shipped CSS; forcing `inset:0` snapped the modal to the viewport.)
+- **Fix (`cef824d`):** added `./components/**/*` and `./lib/**/*` to Tailwind `content`. Rebuilt → `.inset-0{inset:0}`, `.z-50{z-index:50}`, `bg-opacity-50` now compile. **This also un-breaks every other `components/Modal` use** (admin StudentDetailModal, Toast, `lib/*.tsx`) that silently lost the same utilities.
+- **Scope:** purely a CSS-build/config fix; **no app logic, schema, index, cron, or rules change**. The data layer + API were always correct (all `report_refs` returned 200).
+
+---
+
 ## As of 2026-06-30 (Session 10b) — Incident split view + attendance current-hour + multi-day absence + reversible "Remove from camp" — DEPLOYED
 
 **🟢 DEPLOYED to https://ttuboc-attendance.web.app** (two deploys this session: the 4 features, then the history-left layout fix `644e493`; local `firebase deploy --only hosting`, Node 24, `FUNCTIONS_DISCOVERY_TIMEOUT=60`; branch `feat/incident-split-view` @ `644e493`, **NOT merged to main** — prod is ahead of main). **616 unit tests** (+6), tsc + eslint clean. `origin/main` unchanged at `7efbd17` → clean additive deploys. Prod smoke green: `/admin/cases` 200, `/admin/data/{students,attendance}` 200, `/api/marked-absences` 401, `/e` 404. **No new index, no cron, no rules change** (`marked_absences` admin-SDK-only; `withdrawn` writes via Admin SDK bypass rules).
