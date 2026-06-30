@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { StudentPicker, type Candidate } from './StudentPicker';
-import { getTodayDate } from '@/lib/date';
+import { getTodayDate, getCurrentTimeHHMM } from '@/lib/date';
 
 interface Absence {
   id: string;
   student_name: string;
   date: string;
+  end_date?: string;
   all_day: boolean;
   from: string;
   until: string;
@@ -20,19 +21,42 @@ function dayLabel(date: string, today: string): string {
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-/** Office "mark a kid absent" control: a student + a clock window → POST; plus a
- * compact list of today's active office-absences with Clear. */
+/** Range label: "Today" for a single day, "Today → Wed Jul 2" across days. */
+function rangeLabel(date: string, endDate: string | undefined, today: string): string {
+  const start = dayLabel(date, today);
+  if (!endDate || endDate === date) return start;
+  return `${start} → ${dayLabel(endDate, today)}`;
+}
+
+/** Whole-hour helpers — the office only cares about the hour (minutes ignored). */
+function hourFloor(hhmm: string): string {
+  return `${hhmm.slice(0, 2)}:00`;
+}
+function nextHour(hhmm: string): string {
+  const h = Math.min(parseInt(hhmm.slice(0, 2), 10) + 1, 23);
+  return `${String(h).padStart(2, '0')}:00`;
+}
+
+/** Office "mark a kid absent" control: a student + a date range + a clock window
+ * → POST; a "Remove from camp" action that withdraws the student; plus a compact
+ * list of upcoming office-absences with Clear. */
 export function MarkAbsent({ getAuthHeaders }: { getAuthHeaders: () => Promise<Record<string, string>> }) {
   const [open, setOpen] = useState(false);
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [selected, setSelected] = useState<Candidate | null>(null);
   const [date, setDate] = useState(getTodayDate());
+  const [endDate, setEndDate] = useState(getTodayDate());
   const [allDay, setAllDay] = useState(false);
-  const [from, setFrom] = useState('');
-  const [until, setUntil] = useState('');
+  // Default the window to the current whole hour (e.g. 10:32 → 10:00–11:00).
+  const [from, setFrom] = useState(() => hourFloor(getCurrentTimeHHMM()));
+  const [until, setUntil] = useState(() => nextHour(getCurrentTimeHHMM()));
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Remove-from-camp (reversible withdraw) state.
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removeBusy, setRemoveBusy] = useState(false);
+  const [removedMsg, setRemovedMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -48,8 +72,21 @@ export function MarkAbsent({ getAuthHeaders }: { getAuthHeaders: () => Promise<R
     if (open) load();
   }, [open, load]);
 
+  // Selecting a different student resets the remove-confirm + any prior notice.
+  useEffect(() => {
+    setConfirmRemove(false);
+    setRemovedMsg(null);
+  }, [selected?.id]);
+
+  // Keep the end date from drifting before the start.
+  function changeStart(v: string) {
+    setDate(v);
+    if (endDate < v) setEndDate(v);
+  }
+
   async function save() {
     if (!selected || !date) return;
+    if (endDate < date) { setError('End date must be on or after the start date.'); return; }
     if (!allDay && (!from || !until)) return;
     if (!allDay && from >= until) { setError('"Until" must be after "From".'); return; }
     setBusy(true);
@@ -61,13 +98,17 @@ export function MarkAbsent({ getAuthHeaders }: { getAuthHeaders: () => Promise<R
         headers,
         body: JSON.stringify({
           student_id: selected.id, student_name: selected.name,
-          date, all_day: allDay,
-          ...(allDay ? {} : { from, until }),
+          date, end_date: endDate, all_day: allDay,
+          // Snap to whole hours — minutes are ignored by design.
+          ...(allDay ? {} : { from: hourFloor(from), until: hourFloor(until) }),
           note: note.trim() || null,
         }),
       });
       if (!res.ok) { setError('Could not save. Please try again.'); return; }
-      setSelected(null); setFrom(''); setUntil(''); setNote(''); setAllDay(false); setDate(getTodayDate());
+      setSelected(null); setAllDay(false);
+      setDate(getTodayDate()); setEndDate(getTodayDate());
+      setFrom(hourFloor(getCurrentTimeHHMM())); setUntil(nextHour(getCurrentTimeHHMM()));
+      setNote('');
       await load();
     } catch {
       setError('Could not save. Please try again.');
@@ -83,6 +124,30 @@ export function MarkAbsent({ getAuthHeaders }: { getAuthHeaders: () => Promise<R
       await load();
     } catch {
       /* transient */
+    }
+  }
+
+  // Reversible "Remove from camp": flag the student withdrawn so they drop off
+  // every roster/picker/attendance roll. Restore them from Data ▸ Students.
+  async function removeFromCamp() {
+    if (!selected) return;
+    setRemoveBusy(true);
+    setError(null);
+    try {
+      const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' };
+      const res = await fetch(`/api/students/${selected.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ withdrawn: true }),
+      });
+      if (!res.ok) { setError('Could not remove from camp. Please try again.'); return; }
+      setRemovedMsg(`${selected.name} removed from camp. Restore them in Data ▸ Students.`);
+      setSelected(null);
+      setConfirmRemove(false);
+    } catch {
+      setError('Could not remove from camp. Please try again.');
+    } finally {
+      setRemoveBusy(false);
     }
   }
 
@@ -111,10 +176,19 @@ export function MarkAbsent({ getAuthHeaders }: { getAuthHeaders: () => Promise<R
         />
       </div>
 
-      <label className="mt-2 block text-sm">
-        Date
-        <input type="date" aria-label="Date" value={date} min={getTodayDate()} onChange={(e) => setDate(e.target.value)} className="mt-1 block rounded border p-1.5 text-sm" />
-      </label>
+      <div className="mt-2 flex flex-wrap gap-3">
+        <label className="block text-sm">
+          Start date
+          <input type="date" aria-label="Start date" value={date} min={getTodayDate()} onChange={(e) => changeStart(e.target.value)} className="mt-1 block rounded border p-1.5 text-sm" />
+        </label>
+        <label className="block text-sm">
+          End date
+          <input type="date" aria-label="End date" value={endDate} min={date} onChange={(e) => setEndDate(e.target.value)} className="mt-1 block rounded border p-1.5 text-sm" />
+        </label>
+      </div>
+      {endDate > date && (
+        <p className="mt-1 text-xs text-[var(--text-3)]">Absent each day {rangeLabel(date, endDate, getTodayDate())}.</p>
+      )}
       <label className="mt-2 flex items-center gap-2 text-sm">
         <input type="checkbox" aria-label="All day" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
         All-day
@@ -123,11 +197,11 @@ export function MarkAbsent({ getAuthHeaders }: { getAuthHeaders: () => Promise<R
         <div className="mt-2 flex gap-3">
           <label className="text-sm">
             From
-            <input type="time" aria-label="From" value={from} onChange={(e) => setFrom(e.target.value)} className="mt-1 block rounded border p-1.5 text-sm" />
+            <input type="time" step={3600} aria-label="From" value={from} onChange={(e) => setFrom(hourFloor(e.target.value))} className="mt-1 block rounded border p-1.5 text-sm" />
           </label>
           <label className="text-sm">
             Until
-            <input type="time" aria-label="Until" value={until} onChange={(e) => setUntil(e.target.value)} className="mt-1 block rounded border p-1.5 text-sm" />
+            <input type="time" step={3600} aria-label="Until" value={until} onChange={(e) => setUntil(hourFloor(e.target.value))} className="mt-1 block rounded border p-1.5 text-sm" />
           </label>
         </div>
       )}
@@ -138,13 +212,53 @@ export function MarkAbsent({ getAuthHeaders }: { getAuthHeaders: () => Promise<R
         className="mt-2 w-full rounded border p-2 text-sm"
       />
       {error && <p className="mt-1 text-sm text-red-700">{error}</p>}
+      {removedMsg && <p className="mt-1 text-sm text-green-700">{removedMsg}</p>}
       <button
         onClick={save}
-        disabled={busy || !selected || !date || (!allDay && (!from || !until))}
+        disabled={busy || !selected || !date || endDate < date || (!allDay && (!from || !until))}
         className="mt-2 rounded bg-[var(--accent)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
       >
         {busy ? 'Saving…' : 'Save absence'}
       </button>
+
+      {/* Reversible "Remove from camp" — withdraws the picked student entirely. */}
+      {selected && (
+        <div className="mt-3 border-t border-[var(--glass-border)] pt-2">
+          {!confirmRemove ? (
+            <button
+              type="button"
+              onClick={() => setConfirmRemove(true)}
+              className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+            >
+              Remove {selected.name} from camp
+            </button>
+          ) : (
+            <div className="rounded border border-red-300 bg-red-50 p-2">
+              <p className="text-sm text-red-800">
+                Remove <span className="font-semibold">{selected.name}</span> from camp? They drop off every roster,
+                picker and attendance roll. You can restore them in Data ▸ Students.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={removeFromCamp}
+                  disabled={removeBusy}
+                  className="rounded bg-red-700 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                >
+                  {removeBusy ? 'Removing…' : 'Confirm remove'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmRemove(false)}
+                  className="rounded border px-3 py-1.5 text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-3 border-t border-[var(--glass-border)] pt-2">
         <h3 className="text-sm font-semibold text-[var(--text-2)]">Marked absent</h3>
@@ -152,7 +266,7 @@ export function MarkAbsent({ getAuthHeaders }: { getAuthHeaders: () => Promise<R
         <ul className="mt-1 flex flex-col gap-1">
           {absences.map((a) => (
             <li key={a.id} className="flex items-center justify-between rounded border border-[var(--glass-border)] px-2 py-1 text-sm">
-              <span>{dayLabel(a.date, getTodayDate())} · {a.student_name} · {a.all_day ? 'All day' : `out ${a.from}–${a.until}`}{a.note ? ` · ${a.note}` : ''}</span>
+              <span>{rangeLabel(a.date, a.end_date, getTodayDate())} · {a.student_name} · {a.all_day ? 'All day' : `out ${a.from}–${a.until}`}{a.note ? ` · ${a.note}` : ''}</span>
               <button onClick={() => clear(a.id)} className="text-xs text-red-700 underline">Clear</button>
             </li>
           ))}

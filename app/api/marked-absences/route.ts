@@ -14,22 +14,27 @@ export const dynamic = 'force-dynamic';
 
 export const POST = withAuth('lookup_admin', async (request: NextRequest) => {
   const body = await request.json().catch(() => null);
-  const { student_id, student_name, from, until, note, date, all_day } = (body ?? {}) as Record<string, unknown>;
+  const { student_id, student_name, from, until, note, date, end_date, all_day } = (body ?? {}) as Record<string, unknown>;
   const theDate = typeof date === 'string' && date ? date : getTodayDate();
+  // end_date defaults to the start (single day); when given it must be a valid
+  // camp-tz date on/after the start.
+  const theEndDate = typeof end_date === 'string' && end_date ? end_date : theDate;
   const allDay = all_day === true;
   if (
     typeof student_id !== 'string' || !student_id ||
     typeof student_name !== 'string' || !student_name ||
     !validDate(theDate) ||
+    !validDate(theEndDate) || theEndDate < theDate ||
     (!allDay && (typeof from !== 'string' || typeof until !== 'string' || !validateWindow(from, until)))
   ) {
-    return NextResponse.json({ error: 'student, a valid date, and (for a timed absence) a from < until window are required' }, { status: 400 });
+    return NextResponse.json({ error: 'student, a valid date range (end on/after start), and (for a timed absence) a from < until window are required' }, { status: 400 });
   }
   const caller = await verifyAdmin(request);
   const id = await createMarkedAbsence({
     student_id,
     student_name,
     date: theDate,
+    end_date: theEndDate,
     all_day: allDay,
     from: typeof from === 'string' ? from : undefined,
     until: typeof until === 'string' ? until : undefined,

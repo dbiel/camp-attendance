@@ -68,13 +68,48 @@ describe('resolveWindow', () => {
 });
 
 describe('filterUpcoming', () => {
-  const mk = (id: string, date: string, from: string) => ({
-    id, student_id: 's', student_name: 'n', date, from, until: '23:59', all_day: false,
+  const mk = (id: string, date: string, from: string, end_date?: string) => ({
+    id, student_id: 's', student_name: 'n', date, end_date, from, until: '23:59', all_day: false,
     note: null, status: 'active', cleared_at: null, cleared_reason: null, created_by: 'd', created_at: 'iso',
   }) as any;
   it('keeps today+future, drops past, sorts by date then from', () => {
     const list = [mk('c', '2026-07-02', '09:00'), mk('a', '2026-06-29', '13:00'), mk('b', '2026-06-29', '08:00'), mk('p', '2026-06-28', '09:00')];
     const out = filterUpcoming(list, '2026-06-29');
     expect(out.map((x) => x.id)).toEqual(['b', 'a', 'c']);
+  });
+  it('keeps a multi-day range still running today even if it started in the past', () => {
+    // started 06-28 but runs through 06-30 → still covers today (06-29).
+    const list = [mk('range', '2026-06-28', '09:00', '2026-06-30'), mk('over', '2026-06-27', '09:00', '2026-06-28')];
+    const out = filterUpcoming(list, '2026-06-29');
+    expect(out.map((x) => x.id)).toEqual(['range']); // 'over' ended 06-28 → dropped
+  });
+});
+
+describe('isCovering — multi-day range', () => {
+  const a = (over: Partial<{ date: string; end_date: string; from: string; until: string; status: string }>) => ({
+    status: (over.status ?? 'active') as 'active' | 'cleared',
+    date: over.date ?? '2026-06-29', end_date: over.end_date,
+    from: over.from ?? '00:00', until: over.until ?? '23:59',
+  });
+  it('covers every day inside [date, end_date]', () => {
+    const r = a({ date: '2026-06-29', end_date: '2026-07-01' });
+    expect(isCovering(r, '10:00', '2026-06-29')).toBe(true);
+    expect(isCovering(r, '10:00', '2026-06-30')).toBe(true);
+    expect(isCovering(r, '10:00', '2026-07-01')).toBe(true);
+  });
+  it('does not cover days outside the range', () => {
+    const r = a({ date: '2026-06-29', end_date: '2026-07-01' });
+    expect(isCovering(r, '10:00', '2026-06-28')).toBe(false);
+    expect(isCovering(r, '10:00', '2026-07-02')).toBe(false);
+  });
+  it('legacy single-day (no end_date) covers only its own day', () => {
+    const r = a({ date: '2026-06-29' });
+    expect(isCovering(r, '10:00', '2026-06-29')).toBe(true);
+    expect(isCovering(r, '10:00', '2026-06-30')).toBe(false);
+  });
+  it('still respects the clock window within the range', () => {
+    const r = a({ date: '2026-06-29', end_date: '2026-06-30', from: '09:00', until: '10:00' });
+    expect(isCovering(r, '09:30', '2026-06-30')).toBe(true);
+    expect(isCovering(r, '10:00', '2026-06-30')).toBe(false); // until exclusive
   });
 });
