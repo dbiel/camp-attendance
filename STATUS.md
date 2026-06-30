@@ -6,6 +6,18 @@
 
 ---
 
+## As of 2026-06-30 (Session 10b) — Incident split view + attendance current-hour + multi-day absence + reversible "Remove from camp" — DEPLOYED
+
+**🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24, `FUNCTIONS_DISCOVERY_TIMEOUT=60`; branch `feat/incident-split-view`, **NOT merged to main** — prod is ahead of main). **616 unit tests** (+6), tsc + eslint clean. `origin/main` unchanged at `7efbd17` → clean additive deploy. Prod smoke green: `/admin/cases` 200, `/admin/data/{students,attendance}` 200, `/api/marked-absences` 401, `/e` 404. **No new index, no cron, no rules change** (`marked_absences` admin-SDK-only; `withdrawn` writes via Admin SDK bypass rules).
+
+- **Incident desktop split view** (`CaseCard` + new shared `app/admin/cases/CaseDetailView.tsx`): on `lg`+ (≥1024px) a report opens in a **right-hand panel** instead of navigating; Active Reports list stays left, divider + "→ Name" header + ✕ Close. `[id]/page.tsx` is now a thin wrapper (`<CaseDetailView variant="page">`) so mobile + deep links keep the full-page flow. Resolving in-panel clears + refreshes the board; prior-report taps stay in the panel.
+- **Attendance history shows the current hour** (`lib/attendance-history.ts` + `AttendanceHistoryView.tsx`): grid now includes the **in-progress** period (`now` badge); scheduled-but-unsubmitted live cell = **`pending`** (amber …) vs `missed` (gray —). New `isInProgress` + `AttendancePeriod.in_progress` + cell state `'pending'`.
+- **Multi-day mark-absent + hour defaults** (`lib/marked-absences.ts` + route + `MarkAbsent.tsx`): `MarkedAbsence.end_date?` (optional/legacy-tolerant); covers `[date, end_date]`. `listMarkedAbsences` now queries active-only + filters range in code (a range that started earlier still applies today; no composite index). Form has Start+End date; **From defaults to the current whole hour** (10:32→10:00–11:00) and snaps to whole hours (minutes ignored).
+- **Reversible "Remove from camp"** (`Student.withdrawn`/`withdrawn_at`/`withdrawn_by`, server-stamped in `PUT /api/students/[id]`): a control on the Mark-absent panel withdraws a student → filtered out of `getEnsembleRoster` (`/e`), `listEnsembles` counts, `getSessionStudentsFull`, `searchStudents` (pickers), and `getDailyStats` totals. Record + history kept. **Data ▸ Students** has a "Show removed (N)" toggle + per-row **Restore**.
+- **⚠️ For David to verify interactively** (login): the four flows above. **Concurrent-session note:** the split-view commit `d4f2247` (`git add -A`) absorbed the Session-10 Band-7 STATUS entry below — preserved, that session was data-only (no code).
+
+---
+
 ## As of 2026-06-30 (Session 10) — Band 7 roster data edits (3 new students + 1 ensemble move) via Admin SDK
 
 **🟢 LIVE in prod Firestore (`ttuboc-attendance`).** No code changes, **no deploy** (app reads live Firestore). On branch `feat/incident-split-view` (working tree clean — branch NOT touched; data-only session). All writes via local Admin SDK scripts (FB_* from `.env.local`), pattern: read-only inspect → dry-run → apply → read-back verify. Firestore rules `read:if false` → firebase MCP can't read; must use Admin SDK.
