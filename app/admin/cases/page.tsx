@@ -221,48 +221,69 @@ function ActiveCases() {
           header in the panel mark which child is on the right. Phones never set
           `openId` (CaseCard navigates instead) so they keep the full-page flow. */}
       <div className={`mt-4 ${openId ? 'lg:grid lg:grid-cols-2 lg:items-start lg:gap-0' : ''}`}>
-        <section className={`flex flex-col gap-2 ${openId ? 'lg:pr-5' : ''}`}>
-          {loading && <p className="text-sm text-[var(--text-3)]">Loading…</p>}
-          {!loading && thisHour.length === 0 && carriedOver.length === 0 && (
-            <p className="rounded border border-green-300 bg-green-50 p-4 text-sm text-green-800">
-              No active reports. 🎺
-            </p>
-          )}
-          {!loading && thisHour.length === 0 && carriedOver.length > 0 && (
-            <p className="rounded border border-[var(--glass-border)] bg-[var(--surface)] p-3 text-sm text-[var(--text-2)]">
-              No active reports this hour.
-            </p>
-          )}
+        {/* LEFT COLUMN: active reports + selection bar + report history. The
+            whole board (including history) stays on the left when a report is
+            open on the right, so the panel never pushes history full-width. */}
+        <div className={openId ? 'min-w-0 lg:pr-5' : ''}>
+          <section className="flex flex-col gap-2">
+            {loading && <p className="text-sm text-[var(--text-3)]">Loading…</p>}
+            {!loading && thisHour.length === 0 && carriedOver.length === 0 && (
+              <p className="rounded border border-green-300 bg-green-50 p-4 text-sm text-green-800">
+                No active reports. 🎺
+              </p>
+            )}
+            {!loading && thisHour.length === 0 && carriedOver.length > 0 && (
+              <p className="rounded border border-[var(--glass-border)] bg-[var(--surface)] p-3 text-sm text-[var(--text-2)]">
+                No active reports this hour.
+              </p>
+            )}
 
-          {thisHour.map((c) => (
-            <CaseCard
-              key={c.id}
-              c={c}
-              selected={selected.has(c.id)}
-              onToggleSelect={toggleSelect}
-              onOpen={setOpenId}
-              isOpen={openId === c.id}
-              nowOverride={nowOverride}
-              updateFlag={
-                isUnseen(c, seen, { treatUnknownAsNew: true })
-                  ? seen[c.id] !== undefined ? 'updated' : 'new'
-                  : null
-              }
-            />
-          ))}
+            {thisHour.map((c) => (
+              <CaseCard
+                key={c.id}
+                c={c}
+                selected={selected.has(c.id)}
+                onToggleSelect={toggleSelect}
+                onOpen={setOpenId}
+                isOpen={openId === c.id}
+                nowOverride={nowOverride}
+                updateFlag={
+                  isUnseen(c, seen, { treatUnknownAsNew: true })
+                    ? seen[c.id] !== undefined ? 'updated' : 'new'
+                    : null
+                }
+              />
+            ))}
 
-          {/* Hour-passed incidents leave the live board — a single pointer to the
-              history section below keeps a still-missing kid one tap away. */}
-          {carriedOver.length > 0 && (
-            <a
-              href="#report-history"
-              className="mt-1 flex items-center justify-between rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
-            >
-              <span>⏱ {carriedOver.length} still active from an earlier hour</span>
-              <span className="font-semibold">in history below ↓</span>
-            </a>
-          )}
-        </section>
+            {/* Hour-passed incidents leave the live board — a single pointer to the
+                history section below keeps a still-missing kid one tap away. */}
+            {carriedOver.length > 0 && (
+              <a
+                href="#report-history"
+                className="mt-1 flex items-center justify-between rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+              >
+                <span>⏱ {carriedOver.length} still active from an earlier hour</span>
+                <span className="font-semibold">in history below ↓</span>
+              </a>
+            )}
+          </section>
+
+          <SelectionBar
+            caseIds={selectedCaseIds}
+            getAuthHeaders={getAuthHeaders}
+            onClear={() => setSelected(new Set())}
+            onResolved={() => {
+              setSelected(new Set());
+              refresh();
+            }}
+          />
+
+          {/* Report history (day → hour). Hour-passed still-active incidents land
+              here (flagged red, "N active"). */}
+          <div id="report-history" className="mt-8 border-t pt-4">
+            <ReportHistory defaultStatus="active" />
+          </div>
+        </div>
 
         {openId && (
           <aside className="mt-4 border-t pt-4 lg:mt-0 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:self-start lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0 lg:sticky lg:top-20">
@@ -279,22 +300,6 @@ function ActiveCases() {
             />
           </aside>
         )}
-      </div>
-
-      <SelectionBar
-        caseIds={selectedCaseIds}
-        getAuthHeaders={getAuthHeaders}
-        onClear={() => setSelected(new Set())}
-        onResolved={() => {
-          setSelected(new Set());
-          refresh();
-        }}
-      />
-
-      {/* Report history (day → hour) lives at the bottom of the Incident page.
-          Hour-passed still-active incidents land here (flagged red, "N active"). */}
-      <div id="report-history" className="mt-8 border-t pt-4">
-        <ReportHistory defaultStatus="active" />
       </div>
     </main>
   );
