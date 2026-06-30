@@ -6,6 +6,19 @@
 
 ---
 
+## As of 2026-06-30 (Session 9) — Mark-absent DATE PICKER + ALL-DAY shipped; co-deployed with Attendance History (PR #2)
+
+**🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24, `FUNCTIONS_DISCOVERY_TIMEOUT=60`; branch `feat/marked-absence-date-allday`). **610 unit tests** (+12 from this feature, +12 from PR #2 vs Session 7's 598). Subagent-driven (4 tasks + opus whole-branch review → READY TO MERGE, no Critical/Important). Spec+plan in `docs/superpowers/{specs,plans}/2026-06-29-marked-absence-date-allday*`. **No new index, no cron; covering-now logic unchanged.**
+
+- **⚠️ CONCURRENT-SESSION CO-DEPLOY (important):** this session built the date-picker/all-day feature while a *parallel* session shipped **Attendance History** (PR #2) and had already **deployed it to prod from its branch** (prod was ahead of `main`). Deploying either branch alone would have **clobbered the other** out of prod. Resolved per David's protocol: FF `feat/attendance-history` into local `main` → **rebased** this branch onto it → full suite + tsc on the **combined tree** (610 green, tsc clean) → **ONE additive deploy with BOTH features** → FF `main` to the combined branch (closes PR #2). Prod smoke confirmed **both** live: `/api/admin/attendance-history`→401, `/admin/data/attendance`→200, `/api/marked-absences`→401, `/e`→200, `/admin/cases`→200.
+- **What this feature adds:** the office "Mark absent" form (`app/admin/cases/MarkAbsent.tsx`) gains a **date picker** (default today, `min`=today) and an **All-day toggle** (hides From/Until). The "Marked absent" list now shows **today + upcoming** (date-labeled "Today / Tue Jul 1", "All day" vs window, with Clear).
+- **Data:** `marked_absences` doc gains **`all_day: boolean`**; all-day stores `from='00:00'`/`until='23:59'` so **covering-now (`isCovering`) is unchanged** — `all_day` drives display only. `date` validated server-side (`validDate` = `YYYY-MM-DD` AND `>= today`; past → 400). New pure helpers `validDate`/`resolveWindow`/`filterUpcoming` + `listUpcomingMarkedAbsences` (equality-only query + in-code date filter, no composite index). `POST /api/marked-absences` accepts `date`+`all_day` (all-day skips the window requirement); `GET` returns upcoming when no `?date`.
+- **`/e` roster:** the ref-keyed `marked_absent` map gains `all_day` (no PII); the inline note + "Needs attention" pin show **"out all day"** vs "out until HH:MM".
+- **⚠️ For David to verify interactively** (login + real ensemble token): Mark a kid absent for a future date and/or all-day → shows in the date-labeled list with Clear; on that day the `/e` roster shows the kid auto-Absent with "out all day"/"out until HH:MM". Plus the Attendance History view (Data ▸ Attendance) from PR #2.
+- **Deferred minors** (in SDD ledger, none blocking): a couple of test-coverage regressions from file-replacement (DELETE-route test, save-disabled test) + an eslint import/first nit + `getTodayDate()` per-render.
+
+---
+
 ## As of 2026-06-29 (Session 8) — Attendance History admin view SHIPPED (concurrent-session safe)
 
 **🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24, `FUNCTIONS_DISCOVERY_TIMEOUT=60`; PR [#2](https://github.com/dbiel/camp-attendance/pull/2), branch `feat/attendance-history`, **NOT merged to main**). **603 unit tests** (591 from Session 7 + 12 new helper tests). Spec+plan in `docs/superpowers/{specs,plans}/2026-06-29-attendance-history*`. Prod smoke green. **No schema/index change, no cron, no change to the public `/e` flow.**
