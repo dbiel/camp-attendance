@@ -40,6 +40,10 @@ export default function StudentsDataPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  // "Remove from camp" hides students from the active roster; this toggle reveals
+  // them here so they can be restored.
+  const [showWithdrawn, setShowWithdrawn] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   // Edit/Add modal state
   const [mode, setMode] = useState<EditMode | null>(null);
@@ -125,17 +129,20 @@ export default function StudentsDataPage() {
     }
   }
 
+  const withdrawnCount = useMemo(() => students.filter((s) => s.withdrawn).length, [students]);
+
   const filtered = useMemo(() => {
+    const base = showWithdrawn ? students : students.filter((s) => !s.withdrawn);
     const q = search.toLowerCase();
-    if (!q) return students;
-    return students.filter(
+    if (!q) return base;
+    return base.filter(
       (s) =>
         s.first_name.toLowerCase().includes(q) ||
         s.last_name.toLowerCase().includes(q) ||
         s.instrument.toLowerCase().includes(q) ||
         s.ensemble.toLowerCase().includes(q)
     );
-  }, [students, search]);
+  }, [students, search, showWithdrawn]);
 
   function openEdit(student: Student) {
     setMode('edit');
@@ -198,6 +205,28 @@ export default function StudentsDataPage() {
       push({ kind: 'error', text: msg });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function restoreStudent(student: Student) {
+    setRestoringId(student.id);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`/api/students/${student.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ withdrawn: false }),
+      });
+      if (!res.ok) throw new Error(`Restore failed (${res.status})`);
+      setStudents((prev) =>
+        prev.map((s) => (s.id === student.id ? { ...s, withdrawn: false } : s))
+      );
+      push({ kind: 'success', text: `Restored ${student.first_name} ${student.last_name}` });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Restore failed';
+      push({ kind: 'error', text: msg });
+    } finally {
+      setRestoringId(null);
     }
   }
 
@@ -271,15 +300,24 @@ export default function StudentsDataPage() {
       </div>
 
       <div className="max-w-6xl mx-auto p-4">
-        <div className="mb-4">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
           <input
             type="text"
             placeholder="Search students..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="camp-input"
+            className="camp-input flex-1 min-w-[12rem]"
             aria-label="Search students"
           />
+          <label className="flex items-center gap-2 whitespace-nowrap text-sm text-[var(--text-2)]">
+            <input
+              type="checkbox"
+              checked={showWithdrawn}
+              onChange={(e) => setShowWithdrawn(e.target.checked)}
+              disabled={withdrawnCount === 0}
+            />
+            Show removed from camp{withdrawnCount > 0 ? ` (${withdrawnCount})` : ''}
+          </label>
         </div>
 
         {loading ? (
@@ -305,11 +343,16 @@ export default function StudentsDataPage() {
                   const slots = slotsByStudent[student.id];
                   return (
                     <Fragment key={student.id}>
-                      <tr className="border-b border-[var(--glass-border)] hover:bg-[var(--surface)]">
+                      <tr className={`border-b border-[var(--glass-border)] hover:bg-[var(--surface)] ${student.withdrawn ? 'opacity-60' : ''}`}>
                         <td className="px-4 py-2 font-semibold">
                           <button onClick={() => toggleExpand(student)} className="text-left hover:text-camp-green">
                             {expanded ? '▾' : '▸'} {student.first_name} {student.last_name}
                           </button>
+                          {student.withdrawn && (
+                            <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-red-700">
+                              removed
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-2">{student.instrument}</td>
                         <td className="px-4 py-2">{student.ensemble}</td>
@@ -317,18 +360,30 @@ export default function StudentsDataPage() {
                         <td className="px-4 py-2 text-[var(--text-3)]">{nn ? nn.next : '—'}</td>
                         <td className="px-4 py-2 text-[var(--text-2)]">{student.dorm_room || '-'}</td>
                         <td className="px-4 py-2 space-x-2">
-                          <button
-                            onClick={() => openEdit(student)}
-                            className="text-camp-green hover:opacity-75 font-semibold text-sm"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(student)}
-                            className="text-red-600 hover:opacity-75 font-semibold text-sm"
-                          >
-                            Delete
-                          </button>
+                          {student.withdrawn ? (
+                            <button
+                              onClick={() => restoreStudent(student)}
+                              disabled={restoringId === student.id}
+                              className="text-camp-green hover:opacity-75 font-semibold text-sm disabled:opacity-50"
+                            >
+                              {restoringId === student.id ? 'Restoring…' : 'Restore'}
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => openEdit(student)}
+                                className="text-camp-green hover:opacity-75 font-semibold text-sm"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => setDeleteTarget(student)}
+                                className="text-red-600 hover:opacity-75 font-semibold text-sm"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                       {expanded && (

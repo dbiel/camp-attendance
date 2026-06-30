@@ -823,6 +823,7 @@ export async function searchStudents(
 
   for (const doc of snap.docs) {
     const s = { id: doc.id, ...doc.data() } as Student;
+    if (s.withdrawn) continue; // removed-from-camp students never appear in pickers
     const first = (s.first_name || '').toLowerCase();
     const last = (s.last_name || '').toLowerCase();
     const preferred = (s.preferred_name || '').toLowerCase();
@@ -1017,7 +1018,7 @@ export async function getSessionStudentsFull(sessionId: string): Promise<Student
   const students: Student[] = [];
   for (const sid of studentIds) {
     const s = await getStudent(sid);
-    if (s) students.push(s);
+    if (s && !s.withdrawn) students.push(s); // hide removed-from-camp students
   }
 
   students.sort((a, b) => {
@@ -1031,9 +1032,11 @@ export async function getSessionStudentsFull(sessionId: string): Promise<Student
 // ─── Daily stats ────────────────────────────────────────────────────────
 
 export async function getDailyStats(date: string): Promise<DailyStats> {
-  // Get all students
+  // Get all students, excluding those removed from camp (withdrawn) so they
+  // neither inflate the total nor get counted as unmarked/absent.
   const studentsSnap = await studentsCol().get();
-  const totalStudents = studentsSnap.size;
+  const activeStudentDocs = studentsSnap.docs.filter((d) => !(d.data() as Student).withdrawn);
+  const totalStudents = activeStudentDocs.length;
 
   // Get all attendance for this date
   const attSnap = await attendanceCol().where('date', '==', date).get();
@@ -1048,7 +1051,7 @@ export async function getDailyStats(date: string): Promise<DailyStats> {
   }
 
   let present = 0, absent = 0, unmarked = 0;
-  for (const sDoc of studentsSnap.docs) {
+  for (const sDoc of activeStudentDocs) {
     const statuses = studentStatuses.get(sDoc.id);
     if (!statuses) {
       unmarked++;

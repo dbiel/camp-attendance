@@ -193,7 +193,9 @@ export async function validateEnsembleToken(
  * truth for who an anonymous submitter is allowed to mark). */
 export async function getEnsembleRoster(ensemble: string): Promise<Student[]> {
   const snap = await adminDb.collection(STUDENTS).where('ensemble', '==', ensemble).get();
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Student, 'id'>) }));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<Student, 'id'>) }))
+    .filter((s) => !s.withdrawn); // removed-from-camp students drop off the roster
 }
 
 /** Distinct ensembles present in the roster, with student counts — drives the
@@ -202,7 +204,9 @@ export async function listEnsembles(): Promise<{ ensemble: string; count: number
   const snap = await adminDb.collection(STUDENTS).get();
   const counts = new Map<string, number>();
   for (const d of snap.docs) {
-    const e = (d.data() as { ensemble?: string }).ensemble;
+    const data = d.data() as { ensemble?: string; withdrawn?: boolean };
+    if (data.withdrawn) continue; // removed-from-camp students don't count
+    const e = data.ensemble;
     if (e) counts.set(e, (counts.get(e) ?? 0) + 1);
   }
   return [...counts.entries()]

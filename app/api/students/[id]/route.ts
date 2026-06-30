@@ -51,11 +51,20 @@ export const PUT = withAuth<{ id: string }>(
     const body = await request.json();
     // Strip any client-supplied attribution; stamp it server-side from the
     // verified caller so edits are reliably traceable to a real admin.
-    const { updated_by: _ub, updated_at: _ua, ...data } = body ?? {};
+    const { updated_by: _ub, updated_at: _ua, withdrawn_at: _wa, withdrawn_by: _wb, ...rest } = body ?? {};
     const caller = await verifyAdmin(request);
-    data.updated_by = caller?.email || caller?.uid || 'unknown';
-    data.updated_at = new Date().toISOString();
-    await updateStudent(params.id, data);
+    const actor = caller?.email || caller?.uid || 'unknown';
+    const now = new Date().toISOString();
+    const data: Record<string, unknown> = { ...rest, updated_by: actor, updated_at: now };
+    // "Remove from camp" / "Restore" toggles `withdrawn`; server-stamp (or clear)
+    // the withdrawal attribution so it's never trusted from the client.
+    if (Object.prototype.hasOwnProperty.call(rest, 'withdrawn')) {
+      const withdrawing = !!(rest as { withdrawn?: unknown }).withdrawn;
+      data.withdrawn = withdrawing;
+      data.withdrawn_at = withdrawing ? now : null;
+      data.withdrawn_by = withdrawing ? actor : null;
+    }
+    await updateStudent(params.id, data as Parameters<typeof updateStudent>[1]);
     return NextResponse.json({ success: true });
   },
   { rateLimitKey: 'students' }

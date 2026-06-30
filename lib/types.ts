@@ -28,6 +28,13 @@ export interface Student {
   // Attribution for the last edit (set server-side; never trusted from client).
   updated_by?: string;
   updated_at?: string;
+  // Reversible "Remove from camp". When true the student is hidden from every
+  // active roster, picker, attendance roll and the daily stats, but the record
+  // (medical, contacts, history) is kept so they can be restored. Past incident
+  // reports keep working since they cache the name. Attribution is server-set.
+  withdrawn?: boolean;
+  withdrawn_at?: string;
+  withdrawn_by?: string;
 }
 
 export interface Faculty {
