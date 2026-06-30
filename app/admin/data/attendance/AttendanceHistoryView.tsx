@@ -133,7 +133,7 @@ function GridView({
     })();
 
   if (data.periods.length === 0) {
-    return <p className="text-sm text-[var(--text-3)]">No past periods yet for this day.</p>;
+    return <p className="text-sm text-[var(--text-3)]">No periods have started yet for this day.</p>;
   }
 
   return (
@@ -152,8 +152,20 @@ function GridView({
                 Ensemble
               </th>
               {data.periods.map((p) => (
-                <th key={p.number} className="border-b border-[var(--glass-border)] p-2 text-center">
-                  <div className="font-semibold whitespace-nowrap">{shortPeriod(p.name)}</div>
+                <th
+                  key={p.number}
+                  className={`border-b border-[var(--glass-border)] p-2 text-center ${
+                    p.in_progress ? 'bg-amber-50' : ''
+                  }`}
+                >
+                  <div className="font-semibold whitespace-nowrap">
+                    {shortPeriod(p.name)}
+                    {p.in_progress && (
+                      <span className="ml-1 rounded bg-amber-500 px-1 text-[10px] font-bold uppercase text-white align-middle">
+                        now
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[10px] font-normal text-[var(--text-3)]">
                     {p.start_time}–{p.end_time}
                   </div>
@@ -186,6 +198,18 @@ function GridView({
                       </td>
                     );
                   }
+                  if (cell.state === 'pending') {
+                    return (
+                      <td key={p.number} className="border-b border-[var(--glass-border)] p-1 text-center">
+                        <span
+                          title="Rehearsal in progress — attendance not taken yet"
+                          className="block w-full rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700"
+                        >
+                          …
+                        </span>
+                      </td>
+                    );
+                  }
                   if (cell.state === 'missed') {
                     return (
                       <td key={p.number} className="border-b border-[var(--glass-border)] p-1 text-center">
@@ -214,8 +238,9 @@ function GridView({
       </div>
       <p className="mt-3 text-xs text-[var(--text-3)]">
         <span className="rounded bg-green-100 px-1.5 py-0.5 text-green-800">took attendance</span>{' '}
+        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-700">… in progress, not taken yet</span>{' '}
         <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-400">— scheduled, not taken</span>{' '}
-        <span className="px-1.5">· no rehearsal</span>. Force-opened attendance appears only in the List view.
+        <span className="px-1.5">· no rehearsal</span>. The <span className="font-semibold text-amber-700">now</span> column is the current period. Force-opened attendance appears only in the List view.
       </p>
     </div>
   );

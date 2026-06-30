@@ -49,9 +49,21 @@ describe('buildAttendanceHistory', () => {
     expect(r.periods.map((p) => p.number)).toEqual([1, 2, 3]);
   });
 
-  it('hides future periods today (now=09:30 → only P1 past)', () => {
+  it('shows past + in-progress periods today, hides future (now=09:30 → P1 past, P2 in progress)', () => {
     const r = buildAttendanceHistory(base({ nowHHMM: '09:30' }));
-    expect(r.periods.map((p) => p.number)).toEqual([1]);
+    expect(r.periods.map((p) => p.number)).toEqual([1, 2]);
+    expect(r.periods.find((p) => p.number === 1)?.in_progress).toBe(false);
+    expect(r.periods.find((p) => p.number === 2)?.in_progress).toBe(true);
+  });
+
+  it('in-progress scheduled period with no submission → pending (not missed)', () => {
+    // now=09:30: P2 (09:00–09:50) is in progress; Band 2 is scheduled P2 with no
+    // submission → pending. P1 ended; Band 1 scheduled P1 unsubmitted → missed.
+    const r = buildAttendanceHistory(base({ nowHHMM: '09:30', submissions: [] }));
+    expect(r.cells['Band 2'][2]).toEqual({ state: 'pending' });
+    expect(r.cells['Band 1'][1]).toEqual({ state: 'missed' });
+    // Band 1 isn't scheduled P2 → none even though P2 is in progress.
+    expect(r.cells['Band 1'][2]).toEqual({ state: 'none' });
   });
 
   it('earlier day → all periods past regardless of now', () => {
@@ -109,9 +121,9 @@ describe('buildAttendanceHistory', () => {
   });
 
   it('numeric (not lexicographic) time compare handles unpadded now', () => {
-    // now=9:30 → P1 (ends 08:50) past; P2 (09:50) and P3 (10:50) not yet.
+    // now=9:30 → P1 (ends 08:50) past; P2 (09:00–09:50) in progress; P3 not yet.
     const r = buildAttendanceHistory(base({ nowHHMM: '9:30' }));
-    expect(r.periods.map((p) => p.number)).toEqual([1]);
+    expect(r.periods.map((p) => p.number)).toEqual([1, 2]);
   });
 
   it('forced submission does NOT occupy a real grid cell with the same period_number', () => {

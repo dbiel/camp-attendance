@@ -32,6 +32,9 @@ export interface RehearsalSlot {
 export type AttendanceCell =
   | { state: 'taken'; submitted_at: string; absent_count: number; roster_size: number }
   | { state: 'missed' }
+  // A scheduled rehearsal in the period happening RIGHT NOW that hasn't been
+  // taken yet — not (necessarily) missed, attendance can still come in.
+  | { state: 'pending' }
   | { state: 'none' };
 
 export interface AttendanceListItem {
@@ -51,6 +54,8 @@ export interface AttendancePeriod {
   name: string;
   start_time: string;
   end_time: string;
+  /** True for the period in progress right now (today, start ≤ now < end). */
+  in_progress: boolean;
 }
 
 export interface AttendanceHistory {
@@ -88,16 +93,35 @@ function isPast(p: Period, day: string, today: string, nowHHMM: string): boolean
   return now >= end;
 }
 
+/** A period is "in progress" only on today's grid when now is within [start, end). */
+function isInProgress(p: Period, day: string, today: string, nowHHMM: string): boolean {
+  if (day !== today) return false;
+  const now = toMinutes(nowHHMM);
+  const start = toMinutes(p.start_time);
+  const end = toMinutes(p.end_time);
+  if (Number.isNaN(now) || Number.isNaN(start) || Number.isNaN(end)) return false;
+  return now >= start && now < end;
+}
+
 export function buildAttendanceHistory(args: BuildArgs): AttendanceHistory {
   const { day, today, nowHHMM, periods, rehearsalSessions, submissions, allDayKeys, ensembles } = args;
 
   const daySubs = submissions.filter((s) => s.day_key === day);
 
-  const pastPeriods: AttendancePeriod[] = periods
-    .filter((p) => isPast(p, day, today, nowHHMM))
+  // Show every period that's already past PLUS the one in progress right now, so
+  // the office can see whether attendance has been taken during the current
+  // period instead of waiting for the hour to end.
+  const shownPeriods: AttendancePeriod[] = periods
+    .filter((p) => isPast(p, day, today, nowHHMM) || isInProgress(p, day, today, nowHHMM))
     .sort((a, b) => a.number - b.number)
-    .map((p) => ({ number: p.number, name: p.name, start_time: p.start_time, end_time: p.end_time }));
-  const pastNums = new Set(pastPeriods.map((p) => p.number));
+    .map((p) => ({
+      number: p.number,
+      name: p.name,
+      start_time: p.start_time,
+      end_time: p.end_time,
+      in_progress: isInProgress(p, day, today, nowHHMM),
+    }));
+  const shownNums = new Set(shownPeriods.map((p) => p.number));
 
   const scheduled = new Map<string, Set<number>>();
   for (const r of rehearsalSessions) {
@@ -114,7 +138,7 @@ export function buildAttendanceHistory(args: BuildArgs): AttendanceHistory {
   const cells: Record<string, Record<number, AttendanceCell>> = {};
   for (const ens of ensembles) {
     cells[ens] = {};
-    for (const p of pastPeriods) {
+    for (const p of shownPeriods) {
       const sub = subByKey.get(`${ens}__${p.number}`);
       if (sub) {
         cells[ens][p.number] = {
@@ -124,7 +148,9 @@ export function buildAttendanceHistory(args: BuildArgs): AttendanceHistory {
           roster_size: sub.roster_size,
         };
       } else if (scheduled.get(ens)?.has(p.number)) {
-        cells[ens][p.number] = { state: 'missed' };
+        // A scheduled rehearsal with no submission: "pending" while the period is
+        // still in progress (attendance can still arrive), "missed" once it ends.
+        cells[ens][p.number] = { state: p.in_progress ? 'pending' : 'missed' };
       } else {
         cells[ens][p.number] = { state: 'none' };
       }
@@ -143,11 +169,11 @@ export function buildAttendanceHistory(args: BuildArgs): AttendanceHistory {
       absent_count: absentCount(s.marks),
       roster_size: s.roster_size,
       scheduled: !s.forced && (scheduled.get(s.ensemble)?.has(s.period_number) ?? false),
-      in_grid: !s.forced && ensSet.has(s.ensemble) && pastNums.has(s.period_number),
+      in_grid: !s.forced && ensSet.has(s.ensemble) && shownNums.has(s.period_number),
       forced: !!s.forced,
     }));
 
   const availableDays = [...new Set([...allDayKeys, today])].sort().reverse();
 
-  return { day, periods: pastPeriods, ensembles: [...ensembles], cells, list, availableDays };
+  return { day, periods: shownPeriods, ensembles: [...ensembles], cells, list, availableDays };
 }
