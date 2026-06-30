@@ -19,19 +19,18 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('MarkAbsent date + all-day', () => {
-  it('lists upcoming absences with a date label and "All day"', async () => {
+  it('opens the form (the live list now lives on the board, not the form)', async () => {
     render(<MarkAbsent getAuthHeaders={getAuthHeaders} />);
     fireEvent.click(screen.getByRole('button', { name: /mark absent/i }));
-    await waitFor(() => expect(screen.getByText(/Jane Doe/)).toBeInTheDocument());
-    expect(screen.getByText(/All day/)).toBeInTheDocument();      // Sam Poe's row
-    expect(screen.getByText(/13:00/)).toBeInTheDocument();        // Jane's timed row
+    await waitFor(() => expect(screen.getByLabelText(/from/i)).toBeInTheDocument());
+    // The form no longer renders the absences list.
+    expect(screen.queryByText(/Jane Doe/)).toBeNull();
   });
 
   it('all-day toggle hides the From/Until inputs', async () => {
     render(<MarkAbsent getAuthHeaders={getAuthHeaders} />);
     fireEvent.click(screen.getByRole('button', { name: /mark absent/i }));
-    await waitFor(() => screen.getByText(/Jane Doe/));
-    expect(screen.getByLabelText(/from/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText(/from/i)).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText(/all day/i));
     expect(screen.queryByLabelText(/from/i)).toBeNull();
   });

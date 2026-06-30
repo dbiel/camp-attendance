@@ -13,6 +13,7 @@ import { ReportHistory } from './ReportHistory';
 import { initSeenIfEmpty, isUnseen, readSeen, type SeenMap } from '@/lib/seen';
 import { partitionActiveByHour, currentHourKey } from '@/lib/active-board';
 import { MarkAbsent } from './MarkAbsent';
+import { MarkedAbsentList } from './MarkedAbsentList';
 
 // useSearchParams() requires a Suspense boundary in Next 14 App Router so the
 // page can statically render its shell; the inner component reads ?from_text.
@@ -49,6 +50,9 @@ function ActiveCases() {
   const prevActivity = useRef<Map<string, string> | null>(null);
   const [newArrivals, setNewArrivals] = useState(0);
   const [updatedCount, setUpdatedCount] = useState(0);
+  // Bumped whenever an office-marked absence is added (form) so the always-on
+  // MarkedAbsentList on the board reloads.
+  const [absRefresh, setAbsRefresh] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/admin');
@@ -193,7 +197,7 @@ function ActiveCases() {
               + New report
             </button>
           )}
-          <MarkAbsent getAuthHeaders={getAuthHeaders} />
+          <MarkAbsent getAuthHeaders={getAuthHeaders} onChanged={() => setAbsRefresh((n) => n + 1)} />
         </div>
       </header>
 
@@ -276,6 +280,15 @@ function ActiveCases() {
               setSelected(new Set());
               refresh();
             }}
+          />
+
+          {/* Always-on list of office-marked (excused) absences — between the
+              active board and the history so the office sees them at a glance
+              without opening the Mark-absent form. */}
+          <MarkedAbsentList
+            getAuthHeaders={getAuthHeaders}
+            refreshKey={absRefresh}
+            onChanged={() => setAbsRefresh((n) => n + 1)}
           />
 
           {/* Report history (day → hour). Hour-passed still-active incidents land
