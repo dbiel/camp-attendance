@@ -281,35 +281,51 @@ describe('toEnsembleIncidentProjection', () => {
   } as any;
   const c = { summary: 'Absent from Band 5', status: 'active' } as any;
   const events = [
-    { type: 'note', body: 'internal only', actor: 'david@x', created_at: '2026-06-29T18:00:00Z' },
-    { type: 'staff_update', body: 'checking dorm', actor: 'Counselor', created_at: '2026-06-29T18:05:00Z' },
+    { type: 'report_received', body: 'Absent from Band 5', actor: 'ensemble:Band 5', created_at: '2026-06-29T18:00:00Z' },
+    { type: 'note', body: 'Arrived — tardy', actor: 'ensemble:Band 5', created_at: '2026-06-29T18:02:00Z' },
+    { type: 'parent_texted', body: 'Texted parent +18065559999', actor: 'davidbiel1919@gmail.com', created_at: '2026-06-29T18:03:00Z' },
+    { type: 'staff_update', body: 'checking dorm', actor: 'davidbiel1919@gmail.com', created_at: '2026-06-29T18:05:00Z' },
   ] as any;
 
   it('omits dorm and all PII beyond first name + last initial + instrument', () => {
     const p = toEnsembleIncidentProjection(c, student, events);
-    expect(p).toEqual({
-      first_name: 'Jane',
-      last_initial: 'D.',
-      instrument: 'Flute',
-      report_summary: 'Absent from Band 5',
-      status: 'active',
-      resolution_note: null,
-      updates: [{ body: 'checking dorm', actor: 'Camp staff', created_at: '2026-06-29T18:05:00Z' }],
-    });
+    expect(p.first_name).toBe('Jane');
+    expect(p.last_initial).toBe('D.');
+    expect(p.instrument).toBe('Flute');
+    expect(p.report_summary).toBe('Absent from Band 5');
+    expect(p.status).toBe('active');
+    expect(p.resolution_note).toBeNull();
     expect(JSON.stringify(p)).not.toMatch(/Wall|214|asthma|555|556/);
   });
 
-  it('includes only staff_update events, with a neutral author', () => {
+  it('builds a full timeline: report + note + office update, oldest-first', () => {
     const p = toEnsembleIncidentProjection(c, student, events);
-    expect(p.updates).toHaveLength(1);
-    expect(p.updates[0].actor).toBe('Camp staff');
+    expect(p.timeline.map((t) => [t.kind, t.body])).toEqual([
+      ['report', 'Absent from Band 5'],
+      ['note', 'Arrived — tardy'],
+      ['update', 'checking dorm'],
+    ]);
   });
 
-  it('carries resolution_note for a resolved report and stays PII-free', () => {
+  it('EXCLUDES parent_texted / dorm_staff_texted (contact PII) from the timeline', () => {
+    const p = toEnsembleIncidentProjection(c, student, events);
+    expect(p.timeline.some((t) => /Texted parent|18065559999/.test(t.body))).toBe(false);
+  });
+
+  it('NEVER leaks an admin email as an author — collapses to the ensemble name or "Camp office"', () => {
+    const p = toEnsembleIncidentProjection(c, student, events);
+    expect(JSON.stringify(p.timeline)).not.toContain('davidbiel1919@gmail.com');
+    expect(p.timeline.find((t) => t.kind === 'report')!.actor).toBe('Band 5');
+    expect(p.timeline.find((t) => t.kind === 'update')!.actor).toBe('Camp office');
+  });
+
+  it('carries resolution_note + a resolved timeline entry for a resolved report, PII-free', () => {
     const resolved = { summary: 'Absent from Band 5', status: 'resolved', resolution_note: 'found in dorm' } as any;
-    const p = toEnsembleIncidentProjection(resolved, student, events);
+    const withResolve = [...events, { type: 'resolved', body: 'found in dorm', actor: 'davidbiel1919@gmail.com', created_at: '2026-06-29T18:10:00Z' }] as any;
+    const p = toEnsembleIncidentProjection(resolved, student, withResolve);
     expect(p.status).toBe('resolved');
     expect(p.resolution_note).toBe('found in dorm');
+    expect(p.timeline.at(-1)).toMatchObject({ kind: 'resolved', body: 'found in dorm', actor: 'Camp office' });
     expect(JSON.stringify(p)).not.toMatch(/Wall|214|asthma|555|556/);
   });
 

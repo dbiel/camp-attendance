@@ -19,7 +19,12 @@ export function Modal({ open, title, onClose, children, size = 'lg' }: Props) {
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
-    const firstFocusable = ref.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+    // Focus the first focusable in the CONTENT — skip the header close button so
+    // opening lands on the dialog's own controls, not the ✕.
+    const nodes = ref.current
+      ? Array.from(ref.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+      : [];
+    const firstFocusable = nodes.find((n) => !n.hasAttribute('data-modal-close')) ?? nodes[0];
     firstFocusable?.focus();
 
     function onKey(e: KeyboardEvent) {
@@ -72,9 +77,20 @@ export function Modal({ open, title, onClose, children, size = 'lg' }: Props) {
         aria-labelledby={titleId}
         className={`w-full ${sizeClass} overflow-y-auto bg-white p-6 shadow-xl max-h-screen rounded-none sm:max-h-[90vh] sm:rounded-lg`}
       >
-        <h2 id={titleId} className="text-xl font-bold text-camp-green mb-4">
-          {title}
-        </h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 id={titleId} className="text-xl font-bold text-camp-green">
+            {title}
+          </h2>
+          <button
+            type="button"
+            data-modal-close
+            aria-label="Close"
+            onClick={onClose}
+            className="-mr-1 shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold text-[var(--text-2)] hover:bg-black/5 active:bg-black/10"
+          >
+            ✕ Close
+          </button>
+        </div>
         {children}
       </div>
     </div>

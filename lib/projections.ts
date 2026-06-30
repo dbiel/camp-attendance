@@ -119,8 +119,21 @@ export function toStaffLinkProjection(
  * WITHOUT dorm/room (an ensemble leader needs to know what's going on, not to
  * locate the kid). Allowlist — never the full surname, dorm, medical, parent
  * contact, cell, raw text, student_id, reporter, schedule, or other students.
- * `updates` carries ONLY staff_update events under a neutral author.
+ * `timeline` carries the report + notes + office updates + resolution so the
+ * director sees the full story; parent/dorm-contact events are excluded
+ * (contact PII) and every author is collapsed to the reporting ensemble name or
+ * a neutral "Camp office" (never an admin email).
  */
+export type EnsembleTimelineKind = 'report' | 'note' | 'update' | 'resolved' | 'reopened';
+
+export interface EnsembleTimelineEntry {
+  kind: EnsembleTimelineKind;
+  label: string;
+  body: string;
+  actor: string;
+  created_at: string;
+}
+
 export interface EnsembleIncidentProjection {
   first_name: string;
   last_initial: string;
@@ -128,7 +141,25 @@ export interface EnsembleIncidentProjection {
   report_summary: string;
   status: CaseStatus;
   resolution_note: string | null;
-  updates: StaffLinkUpdate[];
+  timeline: EnsembleTimelineEntry[];
+}
+
+/** Map a raw event type to a director-facing timeline kind+label, or null to
+ * exclude it (parent_texted / dorm_staff_texted carry contact PII). */
+const TIMELINE_KINDS: Partial<Record<CaseEvent['type'], { kind: EnsembleTimelineKind; label: string }>> = {
+  report_received: { kind: 'report', label: 'Reported' },
+  note: { kind: 'note', label: 'Note' },
+  staff_update: { kind: 'update', label: 'Update' },
+  resolved: { kind: 'resolved', label: 'Resolved' },
+  reopened: { kind: 'reopened', label: 'Reopened' },
+};
+
+/** Collapse an event author to a non-PII label: the reporting ensemble's name
+ * (from an `ensemble:<name>` actor) or a neutral "Camp office" for anything
+ * else (admin emails, contacts) — an admin email must NEVER reach this link. */
+function ensembleActor(actor: string): string {
+  if (actor && actor.startsWith('ensemble:')) return actor.slice('ensemble:'.length);
+  return 'Camp office';
 }
 
 export function toEnsembleIncidentProjection(
@@ -144,8 +175,10 @@ export function toEnsembleIncidentProjection(
     report_summary: c.summary,
     status: c.status,
     resolution_note: c.resolution_note ?? null,
-    updates: events
-      .filter((e) => e.type === 'staff_update')
-      .map((e) => ({ body: e.body, actor: 'Camp staff', created_at: e.created_at })),
+    timeline: events.flatMap((e) => {
+      const k = TIMELINE_KINDS[e.type];
+      if (!k) return [];
+      return [{ kind: k.kind, label: k.label, body: e.body, actor: ensembleActor(e.actor), created_at: e.created_at }];
+    }),
   };
 }
