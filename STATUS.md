@@ -23,6 +23,10 @@ After the modal was visible, David flagged two more gaps; both fixed, deployed, 
 - **Mobile Back left the page.** The shared `components/Modal.tsx` had **no close control**, so on the full-screen mobile sheet the phone/browser Back button navigated to the **ensemble picker** (`/e/pick`). Fix: (1) added a **"✕ Close"** button to the Modal header (`data-modal-close`, excluded from initial autofocus so the focus test/behavior is unchanged — benefits all 10 Modal call-sites); (2) `StudentIncidentLayer` **pushes a history entry on open** and closes on `popstate`, with every close path routing through `history.back()` so Back **closes the layer and returns to the roster** (verified: Back → `dialogs 1→0`, URL stays `/e/<token>`). 
 - **Tests:** **619 unit** (+3), tsc clean. Projection tests rewritten for the timeline + PII/author assertions; `student-incident-layer` test covers the new shape + the Back-button (`history.pushState`/`history.back`) path.
 
+### Follow-on 2 (same session) — always-on "Marked absent (office)" list on the incident board — DEPLOYED
+
+David could only see office-marked absences by opening the Mark-absent form. New **`MarkedAbsentList`** component renders a persistent section on `/admin/cases` **between the active reports/selection bar and the report history** (left column). The Mark-absent **form no longer renders its own list** (no duplicate) — it just files the absence and calls **`onChanged`**, which bumps a `refreshKey` so the board list reloads. Shared date labels extracted to **`absence-labels.ts`**. The list **polls 30s** (pause-on-hidden) so parallel sessions stay in sync; **Clear** is optimistic + reconciles via reload; empty state shows "No office-marked absences." **622 unit tests** (+3 net), tsc + eslint clean. **No schema/route/index change** (reuses `GET`/`DELETE /api/marked-absences`). **⚠️ For David to verify interactively (login):** the list shows on the board between active reports and history; marking a kid absent adds them to it; Clear removes them.
+
 ---
 
 ## As of 2026-06-30 (Session 10b) — Incident split view + attendance current-hour + multi-day absence + reversible "Remove from camp" — DEPLOYED
