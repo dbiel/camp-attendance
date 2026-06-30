@@ -15,6 +15,14 @@
 - **Fix (`cef824d`):** added `./components/**/*` and `./lib/**/*` to Tailwind `content`. Rebuilt → `.inset-0{inset:0}`, `.z-50{z-index:50}`, `bg-opacity-50` now compile. **This also un-breaks every other `components/Modal` use** (admin StudentDetailModal, Toast, `lib/*.tsx`) that silently lost the same utilities.
 - **Scope:** purely a CSS-build/config fix; **no app logic, schema, index, cron, or rules change**. The data layer + API were always correct (all `report_refs` returned 200).
 
+### Follow-on (same session, `eaceccf`) — full report timeline + mobile Back button — DEPLOYED & verified live
+
+After the modal was visible, David flagged two more gaps; both fixed, deployed, and browser-verified in prod (Band 3 token).
+
+- **Timeline was empty.** `toEnsembleIncidentProjection` exposed **only `staff_update` events** (4 across 40 cases) → almost every report showed "No updates yet." Now it builds a **full director-facing timeline** (`EnsembleTimelineEntry[]`, field renamed `updates`→**`timeline`**): `report_received` + `note` + `staff_update` + `resolved`/`reopened`, oldest-first, each with a kind/label + per-kind color rail. **`parent_texted`/`dorm_staff_texted` stay excluded** (contact PII). **Author sanitized** via `ensembleActor()` — `ensemble:<name>` → the ensemble name, everything else (incl. admin emails) → **"Camp office"** (an admin email must never reach the anonymous link). David chose "everything incl. staff notes" (notes ARE shown). `StudentIncidentLayer` renders the rail; `prevCount` flash now keys off `timeline.length`.
+- **Mobile Back left the page.** The shared `components/Modal.tsx` had **no close control**, so on the full-screen mobile sheet the phone/browser Back button navigated to the **ensemble picker** (`/e/pick`). Fix: (1) added a **"✕ Close"** button to the Modal header (`data-modal-close`, excluded from initial autofocus so the focus test/behavior is unchanged — benefits all 10 Modal call-sites); (2) `StudentIncidentLayer` **pushes a history entry on open** and closes on `popstate`, with every close path routing through `history.back()` so Back **closes the layer and returns to the roster** (verified: Back → `dialogs 1→0`, URL stays `/e/<token>`). 
+- **Tests:** **619 unit** (+3), tsc clean. Projection tests rewritten for the timeline + PII/author assertions; `student-incident-layer` test covers the new shape + the Back-button (`history.pushState`/`history.back`) path.
+
 ---
 
 ## As of 2026-06-30 (Session 10b) — Incident split view + attendance current-hour + multi-day absence + reversible "Remove from camp" — DEPLOYED
