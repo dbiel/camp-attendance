@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import type { Case } from '@/lib/cases';
 import type { TextDoc } from '@/lib/types';
 import { CaseCard } from './CaseCard';
+import { CaseDetailView } from './CaseDetailView';
 import { NewReport } from './NewReport';
 import { SelectionBar } from './SelectionBar';
 import { ReportHistory } from './ReportHistory';
@@ -34,6 +35,10 @@ function ActiveCases() {
   const [seedText, setSeedText] = useState<string | undefined>(undefined);
   const [seedReady, setSeedReady] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Desktop split view: the report shown in the right-hand panel (null = none,
+  // left list spans full width). Distinct from `selected` (the combined-staff-
+  // link checkboxes). Phones ignore this and navigate to the detail page.
+  const [openId, setOpenId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   // Starts {} so the first (SSR-matching) render shows no badges; an effect loads
   // the real map after mount → no hydration mismatch.
@@ -160,7 +165,7 @@ function ActiveCases() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-4">
+    <main className={`mx-auto p-4 ${openId ? 'max-w-2xl lg:max-w-6xl' : 'max-w-2xl'}`}>
       {newArrivals + updatedCount > 0 && (
         <button
           type="button"
@@ -211,46 +216,70 @@ function ActiveCases() {
         />
       )}
 
-      <section className="mt-4 flex flex-col gap-2">
-        {loading && <p className="text-sm text-[var(--text-3)]">Loading…</p>}
-        {!loading && thisHour.length === 0 && carriedOver.length === 0 && (
-          <p className="rounded border border-green-300 bg-green-50 p-4 text-sm text-green-800">
-            No active reports. 🎺
-          </p>
-        )}
-        {!loading && thisHour.length === 0 && carriedOver.length > 0 && (
-          <p className="rounded border border-[var(--glass-border)] bg-[var(--surface)] p-3 text-sm text-[var(--text-2)]">
-            No active reports this hour.
-          </p>
-        )}
+      {/* Desktop split view: when a report is open it shows in the right column;
+          the active-reports list stays on the left. A divider line + a "→ name"
+          header in the panel mark which child is on the right. Phones never set
+          `openId` (CaseCard navigates instead) so they keep the full-page flow. */}
+      <div className={`mt-4 ${openId ? 'lg:grid lg:grid-cols-2 lg:items-start lg:gap-0' : ''}`}>
+        <section className={`flex flex-col gap-2 ${openId ? 'lg:pr-5' : ''}`}>
+          {loading && <p className="text-sm text-[var(--text-3)]">Loading…</p>}
+          {!loading && thisHour.length === 0 && carriedOver.length === 0 && (
+            <p className="rounded border border-green-300 bg-green-50 p-4 text-sm text-green-800">
+              No active reports. 🎺
+            </p>
+          )}
+          {!loading && thisHour.length === 0 && carriedOver.length > 0 && (
+            <p className="rounded border border-[var(--glass-border)] bg-[var(--surface)] p-3 text-sm text-[var(--text-2)]">
+              No active reports this hour.
+            </p>
+          )}
 
-        {thisHour.map((c) => (
-          <CaseCard
-            key={c.id}
-            c={c}
-            selected={selected.has(c.id)}
-            onToggleSelect={toggleSelect}
-            nowOverride={nowOverride}
-            updateFlag={
-              isUnseen(c, seen, { treatUnknownAsNew: true })
-                ? seen[c.id] !== undefined ? 'updated' : 'new'
-                : null
-            }
-          />
-        ))}
+          {thisHour.map((c) => (
+            <CaseCard
+              key={c.id}
+              c={c}
+              selected={selected.has(c.id)}
+              onToggleSelect={toggleSelect}
+              onOpen={setOpenId}
+              isOpen={openId === c.id}
+              nowOverride={nowOverride}
+              updateFlag={
+                isUnseen(c, seen, { treatUnknownAsNew: true })
+                  ? seen[c.id] !== undefined ? 'updated' : 'new'
+                  : null
+              }
+            />
+          ))}
 
-        {/* Hour-passed incidents leave the live board — a single pointer to the
-            history section below keeps a still-missing kid one tap away. */}
-        {carriedOver.length > 0 && (
-          <a
-            href="#report-history"
-            className="mt-1 flex items-center justify-between rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
-          >
-            <span>⏱ {carriedOver.length} still active from an earlier hour</span>
-            <span className="font-semibold">in history below ↓</span>
-          </a>
+          {/* Hour-passed incidents leave the live board — a single pointer to the
+              history section below keeps a still-missing kid one tap away. */}
+          {carriedOver.length > 0 && (
+            <a
+              href="#report-history"
+              className="mt-1 flex items-center justify-between rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+            >
+              <span>⏱ {carriedOver.length} still active from an earlier hour</span>
+              <span className="font-semibold">in history below ↓</span>
+            </a>
+          )}
+        </section>
+
+        {openId && (
+          <aside className="mt-4 border-t pt-4 lg:mt-0 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:self-start lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0 lg:sticky lg:top-20">
+            <CaseDetailView
+              key={openId}
+              caseId={openId}
+              variant="panel"
+              onClose={() => setOpenId(null)}
+              onResolved={() => {
+                setOpenId(null);
+                refresh();
+              }}
+              onSelectCase={(id) => setOpenId(id)}
+            />
+          </aside>
         )}
-      </section>
+      </div>
 
       <SelectionBar
         caseIds={selectedCaseIds}

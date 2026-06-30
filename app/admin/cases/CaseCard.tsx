@@ -24,12 +24,20 @@ export function CaseCard({
   c,
   selected,
   onToggleSelect,
+  onOpen,
+  isOpen,
   nowOverride,
   updateFlag,
 }: {
   c: Case;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
+  /** Desktop split view: open this report in the right-hand panel instead of
+   * navigating to its own page. When provided, a tap on a wide screen selects
+   * the card in place; on narrow screens the card still navigates. */
+  onOpen?: (id: string) => void;
+  /** This card's report is the one currently shown in the desktop panel. */
+  isOpen?: boolean;
   /** Testing: pretend it's this camp-tz 'HH:MM' for now/next (from ?now=). */
   nowOverride?: string;
   /** Activity since David last opened this report: a brand-'new' report, or an
@@ -75,13 +83,28 @@ export function CaseCard({
 
   // E4: the checkbox is a SIBLING of the navigable Link (never inside it), so
   // selecting a report can never navigate to its detail page.
-  // An unseen UPDATE to an existing report is the strongest "look at me" signal —
-  // it may now be closeable. Highlight the whole card (blue ring) when updated.
-  const ringClass = selected
-    ? 'ring-2 ring-camp-green'
-    : updateFlag === 'updated'
-      ? 'ring-2 ring-blue-500'
-      : '';
+  // Ring priority: the card open in the desktop panel (red) wins, then a combined-
+  // link selection (green), then an unseen UPDATE (blue — "look at me, maybe
+  // closeable"). Open is the focal one so it reads as "this is on the right".
+  const ringClass = isOpen
+    ? 'ring-2 ring-red-500'
+    : selected
+      ? 'ring-2 ring-camp-green'
+      : updateFlag === 'updated'
+        ? 'ring-2 ring-blue-500'
+        : '';
+
+  // Desktop: open in the right-hand panel rather than navigating. Only intercept
+  // on wide screens (the lg breakpoint, 1024px) so phones keep the full-page
+  // flow; the href stays intact for middle-click / open-in-new-tab.
+  function handleOpen(e: React.MouseEvent) {
+    if (!onOpen) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; // let new-tab etc. work
+    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches) {
+      e.preventDefault();
+      onOpen(c.id);
+    }
+  }
   return (
     <div
       className={`flex items-stretch gap-2 rounded-lg border shadow-sm ${
@@ -99,7 +122,12 @@ export function CaseCard({
           />
         </label>
       )}
-      <Link href={`/admin/cases/${c.id}`} className="block flex-1 p-4 hover:bg-black/5">
+      <Link
+        href={`/admin/cases/${c.id}`}
+        onClick={handleOpen}
+        aria-current={isOpen ? 'true' : undefined}
+        className="block flex-1 p-4 hover:bg-black/5"
+      >
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-lg font-semibold">
             {updateFlag === 'updated' && (

@@ -6,6 +6,20 @@
 
 ---
 
+## As of 2026-06-30 (Session 10) — Band 7 roster data edits (3 new students + 1 ensemble move) via Admin SDK
+
+**🟢 LIVE in prod Firestore (`ttuboc-attendance`).** No code changes, **no deploy** (app reads live Firestore). On branch `feat/incident-split-view` (working tree clean — branch NOT touched; data-only session). All writes via local Admin SDK scripts (FB_* from `.env.local`), pattern: read-only inspect → dry-run → apply → read-back verify. Firestore rules `read:if false` → firebase MCP can't read; must use Admin SDK.
+
+- **3 new students CREATED in `Band 7 MS`** (Firestore auto-ids, avoid colliding with numeric seed ids 1–632):
+  - **Kaylee Aguilar-Lanczak** (`Hspos2c0cYuPPKgBf49o`) — Flute. 9 enrollments: B7 base + **Music Theory** (P2, sess 253) + **Flute Choir B6/B7** (P7, sess 242).
+  - **Austyn Ybarra** (`MeMP28enmCKii5jeID83`) — Alto Saxophone (David said "sax"; Alto is B7's only sax sectional + matches every existing B7 sax — flagged). 9 enrollments: B7 base + **Music in Film** (P2, sess 239) + **Sax Choir B6/B7** (P7, sess 252).
+  - **Jameson Eppler** (`uLf8Lh9YoTPpvCyzhcTc`) — Percussion. B7 base only (7 enrollments), no electives.
+- **Band 7 MS base** (per-instrument P5 sectional): P1 reh 29, P3 reh 30, P4 lunch 31, **P5 sectional** (Flute 166 / Alto Sax 87 / Perc 70), P6 reh 33, P8 assembly 34, P9 dinner 35. B7 has **no P2/P7 base** → electives fit with no collision. The "6th period" choir David named resolved to **P7** (the B6/B7 sections are P7; there is no Band-7 choir at P6).
+- **Colby Thomson (`567`, Percussion) MOVED Band 7 MS → Band 6 MS** (proper Admin-SDK ensemble move — swapped base, kept electives Beginner Piano P2/250 + Percussion Ensemble B6/B7 P7/260, both still fit; added B6 P6 Percussion sectional 143; 9 enrollments, no collision).
+- **No-blind-data honored:** the 3 new students' division/dorm/grade/contacts are **blank** (`division:''`, rest `null`) — fill in-app (Data ▸ Students), do NOT fabricate. If Austyn is Tenor/Bari, just change his `instrument` field (sectional unaffected).
+
+---
+
 ## As of 2026-06-30 (Session 9) — Mark-absent DATE PICKER + ALL-DAY shipped; co-deployed with Attendance History (PR #2)
 
 **🟢 DEPLOYED to https://ttuboc-attendance.web.app** (local `firebase deploy --only hosting`, Node 24, `FUNCTIONS_DISCOVERY_TIMEOUT=60`; branch `feat/marked-absence-date-allday`). **610 unit tests** (+12 from this feature, +12 from PR #2 vs Session 7's 598). Subagent-driven (4 tasks + opus whole-branch review → READY TO MERGE, no Critical/Important). Spec+plan in `docs/superpowers/{specs,plans}/2026-06-29-marked-absence-date-allday*`. **No new index, no cron; covering-now logic unchanged.**
