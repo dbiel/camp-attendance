@@ -4,6 +4,10 @@ import {
   updateStudent,
   deleteStudent,
   getStudentScheduleForDate,
+  getStudentScheduleSessions,
+  getSessions,
+  addStudentToSession,
+  removeStudentFromSession,
 } from '@/lib/firestore';
 import { verifyAdmin } from '@/lib/auth';
 import { withAuth } from '@/lib/with-auth';
@@ -64,8 +68,31 @@ export const PUT = withAuth<{ id: string }>(
       data.withdrawn_at = withdrawing ? now : null;
       data.withdrawn_by = withdrawing ? actor : null;
     }
+
+    // Reassigning Ensemble should carry the student's rehearsal-period
+    // enrollment along with it — read the OLD value before the write lands.
+    const newEnsemble = typeof rest.ensemble === 'string' ? rest.ensemble.trim() : undefined;
+    const priorStudent = newEnsemble ? await getStudent(params.id) : null;
+    const oldEnsemble = priorStudent?.ensemble;
+
     await updateStudent(params.id, data as Parameters<typeof updateStudent>[1]);
-    return NextResponse.json({ success: true });
+
+    let schedule_sync: { removed: number; added: number } | undefined;
+    if (newEnsemble && newEnsemble !== oldEnsemble) {
+      const [slots, sessions] = await Promise.all([
+        getStudentScheduleSessions(params.id),
+        getSessions(),
+      ]);
+      // Only rehearsal-type (ensemble-wide) sessions follow the Ensemble field —
+      // electives/sectionals/masterclasses stay whatever the picker last set.
+      const oldRehearsals = slots.filter((s) => s.type === 'rehearsal' && s.ensemble === oldEnsemble);
+      const newRehearsals = sessions.filter((s) => s.type === 'rehearsal' && s.ensemble === newEnsemble);
+      await Promise.all(oldRehearsals.map((s) => removeStudentFromSession(s.session_id, params.id)));
+      await Promise.all(newRehearsals.map((s) => addStudentToSession(s.id, params.id)));
+      schedule_sync = { removed: oldRehearsals.length, added: newRehearsals.length };
+    }
+
+    return NextResponse.json({ success: true, ...(schedule_sync ? { schedule_sync } : {}) });
   },
   { rateLimitKey: 'students' }
 );

@@ -3,6 +3,7 @@
 import { useId } from 'react';
 import { Student } from '@/lib/types';
 import { Modal } from '@/components/Modal';
+import { ScheduleSection } from './ScheduleSection';
 
 export type StudentDraft = Partial<Student>;
 
@@ -18,6 +19,7 @@ export const EMPTY_DRAFT: StudentDraft = {
   preferred_name: '',
   gender: '',
   division: 'Overnight Camper',
+  grade: '',
   instrument: '',
   ensemble: '',
   chair_number: undefined,
@@ -29,6 +31,7 @@ export const EMPTY_DRAFT: StudentDraft = {
   dorm_building: '',
   dorm_room: '',
   medical_notes: '',
+  additional_info: '',
 };
 
 export function draftFromStudent(s: Student): StudentDraft {
@@ -38,6 +41,7 @@ export function draftFromStudent(s: Student): StudentDraft {
     preferred_name: s.preferred_name ?? '',
     gender: s.gender ?? '',
     division: s.division ?? 'Overnight Camper',
+    grade: s.grade ?? '',
     instrument: s.instrument,
     ensemble: s.ensemble,
     chair_number: s.chair_number,
@@ -49,6 +53,7 @@ export function draftFromStudent(s: Student): StudentDraft {
     dorm_building: s.dorm_building ?? '',
     dorm_room: s.dorm_room ?? '',
     medical_notes: s.medical_notes ?? '',
+    additional_info: s.additional_info ?? '',
   };
 }
 
@@ -90,6 +95,7 @@ export type EditMode = 'edit' | 'add';
 interface EditStudentModalProps {
   open: boolean;
   mode: EditMode;
+  studentId: string | null;
   draft: StudentDraft;
   setDraft: (next: StudentDraft) => void;
   errors: FieldErrors;
@@ -101,6 +107,7 @@ interface EditStudentModalProps {
 export function EditStudentModal({
   open,
   mode,
+  studentId,
   draft,
   setDraft,
   errors,
@@ -122,6 +129,9 @@ export function EditStudentModal({
         onSave={onSave}
         onCancel={onClose}
       />
+      {/* Enrollment lives in a separate collection (session_students), so it's
+          only editable once the student record itself exists. */}
+      {mode === 'edit' && studentId && <ScheduleSection studentId={studentId} />}
     </Modal>
   );
 }
@@ -277,6 +287,16 @@ function EditStudentForm({
             <option value="Overnight Camper">Overnight Camper</option>
           </select>
         </Field>
+
+        <Field id={fid('grade')} label="Grade">
+          <input
+            id={fid('grade')}
+            type="text"
+            value={draft.grade ?? ''}
+            onChange={(e) => update('grade', e.target.value)}
+            className="camp-input"
+          />
+        </Field>
       </Section>
 
       {/* Ensemble */}
@@ -426,6 +446,23 @@ function EditStudentForm({
               ? 'bg-yellow-50 border-yellow-400'
               : ''
           }`}
+        />
+      </div>
+
+      {/* Notes — free-text, anything else worth keeping on file. */}
+      <div className="mb-6">
+        <h3 className="text-xs font-bold uppercase text-[var(--text-3)] tracking-wide mb-2">
+          Notes
+        </h3>
+        <label htmlFor={fid('additional_info')} className="camp-label">
+          Additional Info
+        </label>
+        <textarea
+          id={fid('additional_info')}
+          rows={3}
+          value={draft.additional_info ?? ''}
+          onChange={(e) => update('additional_info', e.target.value)}
+          className="camp-input"
         />
       </div>
 

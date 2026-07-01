@@ -15,6 +15,14 @@ const FOCUSABLE_SELECTOR =
 export function Modal({ open, title, onClose, children, size = 'lg' }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  // Consumers often pass an inline onClose that gets a new identity on every
+  // render (e.g. a parent re-rendering because a form field changed). Route
+  // through a ref so that re-render doesn't re-run the effect below and steal
+  // focus back to the first field mid-keystroke.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -30,7 +38,7 @@ export function Modal({ open, title, onClose, children, size = 'lg' }: Props) {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key === 'Tab' && ref.current) {
@@ -55,7 +63,9 @@ export function Modal({ open, title, onClose, children, size = 'lg' }: Props) {
       document.removeEventListener('keydown', onKey);
       prev?.focus?.();
     };
-  }, [open, onClose]);
+    // Intentionally excludes onClose — see onCloseRef above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   if (!open) return null;
 

@@ -48,6 +48,10 @@ function ActiveCases() {
   // (a staff-link reply, a tardy arrival → maybe closeable). Track each report's
   // last-activity stamp so we can tell "new" from "updated".
   const prevActivity = useRef<Map<string, string> | null>(null);
+  // Case ids whose activity was just bumped by David himself (tapped "Text
+  // parent"/"Text dorm staff" in the open panel) — the next poll should absorb
+  // that bump silently instead of alerting on it, since he already knows.
+  const selfBumped = useRef<Set<string>>(new Set());
   const [newArrivals, setNewArrivals] = useState(0);
   const [updatedCount, setUpdatedCount] = useState(0);
   // Bumped whenever an office-marked absence is added (form) so the always-on
@@ -73,7 +77,10 @@ function ActiveCases() {
           for (const c of list) {
             const prev = prevActivity.current.get(c.id);
             if (prev === undefined) added++;
-            else if (prev !== activityOf(c)) updated++;
+            else if (prev !== activityOf(c)) {
+              if (selfBumped.current.has(c.id)) selfBumped.current.delete(c.id);
+              else updated++;
+            }
           }
           if (added > 0) setNewArrivals((n) => n + added);
           if (updated > 0) setUpdatedCount((n) => n + updated);
@@ -310,6 +317,7 @@ function ActiveCases() {
                 refresh();
               }}
               onSelectCase={(id) => setOpenId(id)}
+              onSelfTexted={(id) => selfBumped.current.add(id)}
             />
           </aside>
         )}

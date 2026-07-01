@@ -49,12 +49,16 @@ export function CaseDetailView({
   onClose,
   onResolved,
   onSelectCase,
+  onSelfTexted,
 }: {
   caseId: string;
   variant?: 'page' | 'panel';
   onClose?: () => void;
   onResolved?: () => void;
   onSelectCase?: (id: string) => void;
+  /** Fired when David himself texts parent/dorm staff from this panel, so the
+   * hub's poll can absorb the resulting activity bump without alerting on it. */
+  onSelfTexted?: (caseId: string) => void;
 }) {
   const router = useRouter();
   const { user, loading: authLoading, getAuthHeaders } = useAuth();
@@ -153,6 +157,7 @@ export function CaseDetailView({
     try {
       const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' };
       await fetch(`/api/cases/${caseId}/events`, { method: 'POST', headers, body: JSON.stringify({ type, body }) });
+      if (type === 'parent_texted' || type === 'dorm_staff_texted') onSelfTexted?.(caseId);
       refresh();
     } catch {
       // Fire-and-forget: timeline will just miss the entry on network error.
@@ -363,7 +368,7 @@ export function CaseDetailView({
         <h2 className="font-semibold">Timeline</h2>
         <AddTimelineNote onSubmit={(body) => logEvent('note', body)} />
         <ol className="mt-2 flex flex-col gap-1 text-sm">
-          {events.map((e) => {
+          {[...events].reverse().map((e) => {
             const isStaff = e.type === 'staff_update';
             return (
               <li
@@ -413,7 +418,7 @@ export function CaseDetailView({
                 </p>
                 {p.events.length > 0 && (
                   <ol className="mt-2 flex flex-col gap-1 border-l-2 border-[var(--glass-border)] pl-3">
-                    {p.events.map((e) => (
+                    {[...p.events].reverse().map((e) => (
                       <li key={e.id} className="text-xs">
                         <span className="text-[var(--text-3)]">
                           {new Date(e.created_at).toLocaleString()} · {e.actor}

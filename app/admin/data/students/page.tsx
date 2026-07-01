@@ -183,10 +183,20 @@ export default function StudentsDataPage() {
           body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error(`Save failed (${res.status})`);
+        const result = await res.json().catch(() => ({}));
         setStudents((prev) =>
           prev.map((s) => (s.id === editingId ? ({ ...s, ...payload } as Student) : s))
         );
         push({ kind: 'success', text: 'Saved' });
+        // Ensemble changes auto-swap rehearsal-period enrollment; flag it when no
+        // rehearsal session exists for the new ensemble so nothing looks silently
+        // dropped — the office should double check that ensemble's schedule.
+        if (result?.schedule_sync?.removed > 0 && result.schedule_sync.added === 0) {
+          push({
+            kind: 'error',
+            text: 'No rehearsal session found for the new ensemble — check the schedule.',
+          });
+        }
         closeModal();
       } else if (mode === 'add') {
         const res = await fetch('/api/students', {
@@ -435,6 +445,7 @@ export default function StudentsDataPage() {
       <EditStudentModal
         open={mode !== null}
         mode={mode ?? 'edit'}
+        studentId={editingId}
         draft={draft}
         setDraft={setDraft}
         errors={errors}
