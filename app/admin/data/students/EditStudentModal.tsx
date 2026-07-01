@@ -57,15 +57,30 @@ export function draftFromStudent(s: Student): StudentDraft {
   };
 }
 
-// Normalize a draft into a PUT/POST payload. Empty strings are omitted so optional
-// fields stay unset server-side; chair_number is parsed into a number.
-export function serializeDraft(draft: StudentDraft): Partial<Student> {
+// Normalize a draft into a PUT/POST payload.
+//
+// `updateStudent` writes via Firestore `.update()`, which only touches keys
+// present in the payload — a key we drop here is left at whatever it was
+// server-side, not cleared. In 'add' mode there's nothing to clear yet, so
+// blank optional fields are simply omitted. In 'edit' mode a field the user
+// blanked out (e.g. clearing a Dorm Room that had a value) must still be
+// SENT — as an explicit '' (or null for chair_number) — or Save silently
+// does nothing for that field.
+export function serializeDraft(draft: StudentDraft, mode: EditMode = 'add'): Partial<Student> {
   const out: Partial<Student> = {};
   for (const [k, v] of Object.entries(draft)) {
-    if (v === '' || v === undefined || v === null) continue;
     if (k === 'chair_number') {
+      if (v === undefined || v === '') {
+        if (mode === 'edit') (out as Record<string, unknown>)[k] = null;
+        continue;
+      }
       const n = typeof v === 'number' ? v : Number(v);
       if (!Number.isNaN(n)) (out as Record<string, unknown>)[k] = n;
+      continue;
+    }
+    if (v === undefined || v === null) continue;
+    if (v === '') {
+      if (mode === 'edit') (out as Record<string, unknown>)[k] = '';
       continue;
     }
     (out as Record<string, unknown>)[k] = v;

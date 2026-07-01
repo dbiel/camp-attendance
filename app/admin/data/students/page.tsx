@@ -174,7 +174,7 @@ export default function StudentsDataPage() {
     setSaving(true);
     try {
       const headers = await getAuthHeaders();
-      const payload = serializeDraft(draft);
+      const payload = serializeDraft(draft, mode === 'add' ? 'add' : 'edit');
 
       if (mode === 'edit' && editingId) {
         const res = await fetch(`/api/students/${editingId}`, {
